@@ -1,0 +1,35 @@
+{
+  "name": "كشف المسابقة الرمضانية",
+  "short_name": "المسابقة الرمضانية",
+  "description": "نظام إدارة المسابقة الرمضانية لحفظ القرآن الكريم",
+  "theme_color": "#047857",
+  "background_color": "#ffffff",
+  "display": "standalone",
+  "orientation": "portrait",
+  "scope": "/",
+  "start_url": "/",
+  "dir": "rtl",
+  "lang": "ar",
+  "categories": ["education", "productivity"],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "عرض الطالبات",
+      "url": "/",
+      "description": "عرض قائمة الطالبات"
+    }
+  ]
+}

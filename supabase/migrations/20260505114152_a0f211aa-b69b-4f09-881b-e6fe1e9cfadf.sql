@@ -1,0 +1,1 @@
+ALTER TABLE public.user_settings ADD COLUMN IF NOT EXISTS table_filters jsonb NOT NULL DEFAULT '{}'::jsonb;

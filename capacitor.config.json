@@ -1,0 +1,9 @@
+{
+  "appId": "org.inmaa.msabkarmdan",
+  "appName": "mosabkamarkz",
+  "webDir": "dist",
+  "server": {
+    "url": "https://markzinmamsabka.vercel.app",
+    "cleartext": false
+  }
+}
