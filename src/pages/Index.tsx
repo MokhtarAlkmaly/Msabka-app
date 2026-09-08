@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback, useRef } from "react";
+﻿import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/lib/router-compat";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -7,25 +7,35 @@ import { ImportExport } from "@/components/ImportExport";
 import { NotificationSystem } from "@/components/notifications/NotificationSystem";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { RecallStudents } from "@/components/RecallStudents";
-import { Plus, Printer, Trash2, Calendar, Save, Camera, Users, Award, HeartHandshake, Receipt, ScrollText, Sparkles, Trophy, BookOpenCheck, WalletCards, Search, Upload } from "lucide-react";
+import { Plus, Printer, Trash2, Calendar, LogOut, Save, Camera, Wifi, WifiOff, RefreshCw, Users, Award, HeartHandshake, Receipt, ScrollText, Sparkles, Trophy, BookOpenCheck, WalletCards, Search, CalendarDays } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { Student, HifzHistory, YearData, START_YEAR, END_YEAR } from "@/types/student";
 import {
   loadAllStudentsWithData,
   loadGlobalStudents,
   saveStudent,
-  deleteAllStudents,
   getActiveYear,
   setActiveYear,
   saveHifzHistory,
   saveYearData,
   migrateYearData,
+  syncToCloud,
+  syncFromCloud,
   mergeDuplicateStudents,
   loadTeachers as loadCachedTeachers,
   registerStudentInYear,
-  importFullBackupFromFile,
 } from "@/utils/storage";
+import { getPendingChanges } from "@/utils/localDB";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogAction,
+} from "@/components/ui/alert-dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface DirtyData {
   name: string;
@@ -42,11 +52,13 @@ const Index = () => {
   );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [restoringBackup, setRestoringBackup] = useState(false);
-  const backupFileInputRef = useRef<HTMLInputElement>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState<{ current: number; total: number; label?: string } | null>(null);
+  const [online, setOnline] = useState(navigator.onLine);
   const [dirtyMap, setDirtyMap] = useState<Record<number, DirtyData>>({});
   const [teacherNames, setTeacherNames] = useState<string[]>([]);
   const { toast } = useToast();
+  const { user, signOut } = useAuth();
 
   const isDirty = Object.keys(dirtyMap).length > 0;
 
@@ -63,11 +75,11 @@ const Index = () => {
     setLoading(false);
   }, [dataYearKey]);
 
-
   const loadTeachers = useCallback(async () => {
+    if (!user) { setTeacherNames([]); return; }
     const data = await loadCachedTeachers(currentYear);
     setTeacherNames(data.map((r) => r.name));
-  }, [currentYear]);
+  }, [user, currentYear]);
 
   useEffect(() => { void loadTeachers(); }, [loadTeachers]);
 
@@ -90,13 +102,57 @@ const Index = () => {
     };
   }, [loadTeachers]);
 
+  // Auto-sync queued offline changes
+  const autoSyncPending = useCallback(async () => {
+    if (!navigator.onLine || !user) return;
+    try {
+      const pending = await getPendingChanges();
+      if (pending.length === 0) return;
+      setSyncProgress({ current: 0, total: pending.length + 1, label: 'مزامنة العمليات المعلقة' });
+      const ok = await syncToCloud((current, total, label) =>
+        setSyncProgress({ current, total, label })
+      );
+      setSyncProgress(null);
+      if (ok) {
+        toast({
+          title: 'تمت المزامنة',
+          description: `تم رفع ${pending.length} عملية معلقة إلى السحابة`,
+        });
+        await loadData();
+      }
+    } catch (e) {
+      setSyncProgress(null);
+      console.error('Auto-sync error:', e);
+    }
+  }, [user, loadData, toast]);
+
+  // Track online/offline + auto-sync triggers
+  // (خفّفنا هنا: كانت المزامنة تحصل عند كل عودة للتطبيق وكل 60 ثانية،
+  // وهذا كان يُثقل التصفح خصوصاً بشبكة ضعيفة. الآن: فقط عند فتح التطبيق
+  // أول مرة، وعند عودة الاتصال بعد انقطاعه — وباقي الوقت المزامنة تصير
+  // يدوياً (زر مزامنة) أو تلقائياً عند محاولة الخروج من التطبيق.)
+  useEffect(() => {
+    const goOnline = () => { setOnline(true); void autoSyncPending(); };
+    const goOffline = () => setOnline(false);
+    window.addEventListener('online', goOnline);
+    window.addEventListener('offline', goOffline);
+    void autoSyncPending();
+    return () => {
+      window.removeEventListener('online', goOnline);
+      window.removeEventListener('offline', goOffline);
+    };
+  }, [autoSyncPending]);
+
   useEffect(() => {
     const init = async () => {
       const year = await getActiveYear();
       setCurrentYear(year);
       // Auto-remove duplicate students silently on startup
       try {
-        await mergeDuplicateStudents();
+        const merged = await mergeDuplicateStudents();
+        if (merged > 0 && navigator.onLine) {
+          await syncToCloud();
+        }
       } catch (e) {
         console.error('Auto-merge failed:', e);
       }
@@ -107,6 +163,22 @@ const Index = () => {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // حماية الخروج (بالمتصفح فقط حالياً): تحذير عند إغلاق التبويب إذا فيه
+  // بيانات لم تُزامَن مع السحابة بعد. (ميزة زر الرجوع بأندرويد أُزيلت مؤقتاً
+  // لأنها سببت تعطل التطبيق عند الفتح — سنعيدها لاحقاً بطريقة أضمن)
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [isDirty]);
 
   const handleDirtyChange = useCallback((studentId: number, data: DirtyData) => {
     setDirtyMap(prev => ({ ...prev, [studentId]: data }));
@@ -138,6 +210,20 @@ const Index = () => {
       return;
     }
 
+    // فحص إضافي: هل أي اسم بالتغييرات الجديدة موجود مسبقاً بعام سابق
+    // (طالبة أخرى بنفس الاسم بالنظام)؟ يمنع إنشاء طالبة مكررة بالغلط
+    // بدل استخدام "استدعاء طالبة من الأعوام السابقة"
+    const { checkGlobalDuplicateName } = await import("@/utils/storage");
+    for (const [idStr, data] of Object.entries(dirtyMap)) {
+      const trimmedName = norm(data.name);
+      if (!trimmedName) continue;
+      const dup = await checkGlobalDuplicateName(trimmedName, parseInt(idStr));
+      if (dup && dup.years.length > 0) {
+        setDuplicateWarning({ name: trimmedName, years: dup.years });
+        return;
+      }
+    }
+
     setSaving(true);
 
     try {
@@ -150,11 +236,21 @@ const Index = () => {
       }));
 
       setDirtyMap({});
+
+      // Sync to cloud with progress
+      setSyncProgress({ current: 0, total: 1, label: 'بدء الرفع' });
+      const synced = await syncToCloud((current, total, label) =>
+        setSyncProgress({ current, total, label })
+      );
+      setSyncProgress(null);
+
       await loadData();
 
       toast({
         title: "تم الحفظ",
-        description: `تم حفظ بيانات ${entries.length} طالبة محلياً على هذا الجهاز`,
+        description: synced
+          ? `تم حفظ ومزامنة بيانات ${entries.length} طالبة بنجاح`
+          : `تم الحفظ محلياً (${entries.length} طالبة) - سيتم المزامنة عند الاتصال بالإنترنت`,
       });
     } catch (error) {
       console.error('Save error:', error);
@@ -168,63 +264,13 @@ const Index = () => {
     }
   };
 
-  // حماية الخروج: تحذير عند محاولة إغلاق التطبيق (زر الرجوع بأندرويد)
-  // أو إغلاق التبويب بالمتصفح إذا فيه تعديلات محلية لم تُحفظ بعد
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (isDirty) {
-        e.preventDefault();
-        e.returnValue = "";
-      }
-    };
-    window.addEventListener("beforeunload", handleBeforeUnload);
-
-    let removeBackListener: (() => void) | undefined;
-    (async () => {
-      try {
-        const { Capacitor } = await import("@capacitor/core");
-        if (!Capacitor.isNativePlatform()) return;
-        const { App } = await import("@capacitor/app");
-        const listener = await App.addListener("backButton", async (event) => {
-          if (event.canGoBack) return; // تنقّل عادي داخل التطبيق، اتركه كما هو
-
-          if (!isDirty) {
-            App.exitApp();
-            return;
-          }
-
-          const wantsSave = window.confirm(
-            "عندك تعديلات لم تُحفظ بعد. هل تريد حفظها الآن قبل الخروج؟\n\nموافق = حفظ ثم خروج\nإلغاء = خروج بدون حفظ"
-          );
-          if (wantsSave) {
-            try {
-              await handleSaveAll();
-            } catch (e) {
-              console.error("Save before exit failed:", e);
-            }
-          }
-          App.exitApp();
-        });
-        removeBackListener = () => listener.remove();
-      } catch (e) {
-        console.error("Back button guard setup failed:", e);
-      }
-    })();
-
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-      removeBackListener?.();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isDirty]);
-
   const handleYearChange = async (year: string) => {
     if (isDirty && !confirm('هناك تغييرات غير محفوظة، هل تريد المتابعة بدون حفظ؟')) return;
 
     // ترحيل بيانات المسابقة الرمضانية فقط (أساس الحفظ التراكمي يُبنى عليها)
     const globalStudents = await loadGlobalStudents();
     await migrateYearData(year, globalStudents);
-
+    
     setCurrentYear(year);
     await setActiveYear(year);
     toast({
@@ -279,48 +325,72 @@ const Index = () => {
     });
   };
 
-  const handleReset = async () => {
-    if (!confirm('هل أنت متأكد من حذف جميع البيانات؟ هذا الإجراء لا يمكن التراجع عنه!')) return;
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [duplicateWarning, setDuplicateWarning] = useState<{ name: string; years: string[] } | null>(null);
+  const [deleteMode, setDeleteMode] = useState<'all' | 'year' | 'selected'>('year');
+  const [selectedToDelete, setSelectedToDelete] = useState<Set<number>>(new Set());
+  const [deleting, setDeleting] = useState(false);
 
-    await deleteAllStudents();
-    setStudents([]);
-    setDirtyMap({});
-    
-    toast({
-      title: "تم الحذف",
-      description: "تم حذف جميع البيانات",
-      variant: "destructive",
+  const toggleSelectedToDelete = (id: number) => {
+    setSelectedToDelete((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
     });
   };
 
-  const handleRestoreBackup = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-
-    setRestoringBackup(true);
+  const handleConfirmDelete = async () => {
+    setDeleting(true);
     try {
-      const result = await importFullBackupFromFile(file);
-      await loadData();
-      toast({
-        title: "تم الاستيراد بنجاح",
-        description: `طالبات: ${result.students} · معلمات: ${result.teachers} · جوائز: ${result.awards} · وسائط: ${result.media}`,
-      });
-    } catch (err) {
-      console.error("Restore backup failed:", err);
-      toast({
-        title: "فشل الاستيراد",
-        description: "تأكدي أن الملف نسخة احتياطية صحيحة (JSON) وحاولي مرة أخرى",
-        variant: "destructive",
-      });
+      if (deleteMode === 'all') {
+        const { deleteAllStudents } = await import("@/utils/storage");
+        await deleteAllStudents();
+        setStudents([]);
+        setDirtyMap({});
+        toast({ title: "تم الحذف", description: "تم حذف جميع البيانات (كل الأعوام والطالبات)", variant: "destructive" });
+      } else if (deleteMode === 'year') {
+        const { deleteYearData } = await import("@/utils/storage");
+        await deleteYearData(dataYearKey);
+        setDirtyMap({});
+        toast({ title: "تم الحذف", description: `تم حذف بيانات ${competitionLabel} لعام ${currentYear}هـ فقط (الطالبات نفسهن باقيات)`, variant: "destructive" });
+        await loadData();
+      } else {
+        if (selectedToDelete.size === 0) { setDeleting(false); return; }
+        const { deleteStudents } = await import("@/utils/storage");
+        await deleteStudents(Array.from(selectedToDelete));
+        setSelectedToDelete(new Set());
+        toast({ title: "تم الحذف", description: `تم حذف ${selectedToDelete.size} طالبة بكل بياناتهن`, variant: "destructive" });
+        await loadData();
+      }
     } finally {
-      setRestoringBackup(false);
+      setDeleting(false);
+      setDeleteDialogOpen(false);
     }
   };
 
   const handlePrint = async () => {
     const { printCurrentPage } = await import("@/utils/nativePrint");
     printCurrentPage(`كشف_${competitionLabel}_${currentYear}`);
+  };
+
+  const handleSyncFromCloud = async () => {
+    if (!online) {
+      toast({ title: "لا يوجد اتصال", description: "يرجى الاتصال بالإنترنت أولاً", variant: "destructive" });
+      return;
+    }
+    setSyncing(true);
+    setSyncProgress({ current: 0, total: 4, label: 'بدء التنزيل' });
+    const success = await syncFromCloud((current, total, label) =>
+      setSyncProgress({ current, total, label })
+    );
+    setSyncProgress(null);
+    if (success) {
+      await loadData();
+      toast({ title: "تمت المزامنة", description: "تم تحديث البيانات من السحابة" });
+    } else {
+      toast({ title: "خطأ", description: "فشل في المزامنة", variant: "destructive" });
+    }
+    setSyncing(false);
   };
 
   // حساب الترتيب - محلياً فقط بدون حفظ تلقائي
@@ -396,12 +466,22 @@ const Index = () => {
             <div className="flex flex-col gap-2 rounded-3xl bg-white/10 p-3 text-sm text-white/85 ring-1 ring-white/15 backdrop-blur sm:min-w-52">
               <div className="flex items-center justify-between gap-4">
                 <span className="font-semibold">{dayName}</span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-300/20 px-2 py-1 text-xs text-emerald-50">
-                  محفوظ محلياً على هذا الجهاز
+                <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs ${online ? 'bg-emerald-300/20 text-emerald-50' : 'bg-red-300/20 text-red-50'}`}>
+                  {online ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
+                  {online ? 'متصل' : 'غير متصل'}
                 </span>
               </div>
               <div>{hijriDate}</div>
               <div>{currentDate}</div>
+              <Button
+                onClick={signOut}
+                variant="ghost"
+                size="sm"
+                className="mt-1 justify-center gap-1 rounded-full text-white/80 hover:bg-white/10 hover:text-white print:hidden"
+              >
+                <LogOut className="h-3 w-3" />
+                خروج
+              </Button>
             </div>
           </div>
 
@@ -479,129 +559,116 @@ const Index = () => {
             </div>
           </div>
 
-          <div className="space-y-4">
-            {/* مجموعة: إدارة الطالبات */}
-            <div className="rounded-2xl border border-violet-200 bg-violet-50/60 p-3">
-              <p className="mb-2 px-1 text-[11px] font-bold text-violet-700">إدارة الطالبات</p>
-              <div className="flex flex-wrap items-center gap-2">
-                <Link to="/search">
-                  <Button size="sm" variant="outline" className="gap-1.5 rounded-xl border-violet-300 bg-white text-violet-700 hover:bg-violet-100">
-                    <Search className="h-3.5 w-3.5" /> بحث طالبة
-                  </Button>
-                </Link>
-                <Button onClick={addNewStudent} size="sm" className="gap-1.5 rounded-xl bg-violet-600 hover:bg-violet-700">
-                  <Plus className="h-3.5 w-3.5" /> إضافة طالبة
-                </Button>
-                <RecallStudents currentYear={currentYear} onRecalled={loadData} />
-              </div>
-            </div>
-
-            {/* مجموعة: المتابعة والتقارير */}
-            <div className="rounded-2xl border border-teal-200 bg-teal-50/60 p-3">
-              <p className="mb-2 px-1 text-[11px] font-bold text-teal-700">المتابعة والتقارير</p>
-              <div className="flex flex-wrap items-center gap-2">
-                <Link to="/monthly">
-                  <Button size="sm" className="relative gap-1.5 overflow-hidden rounded-xl border border-amber-400 bg-gradient-to-l from-amber-400 via-amber-500 to-primary font-bold text-white shadow-sm shadow-amber-400/30">
-                    <Sparkles className="h-3 w-3" /> المتابعة الشهرية
-                  </Button>
-                </Link>
-                <Link to="/certificates">
-                  <Button size="sm" variant="outline" className="gap-1.5 rounded-xl border-teal-300 bg-white text-teal-700 hover:bg-teal-100">
-                    <ScrollText className="h-3.5 w-3.5" /> الشهادات
-                  </Button>
-                </Link>
-                <Link to="/media">
-                  <Button size="sm" variant="outline" className="gap-1.5 rounded-xl border-teal-300 bg-white text-teal-700 hover:bg-teal-100">
-                    <Camera className="h-3.5 w-3.5" /> الوسائط
-                  </Button>
-                </Link>
-                <Button onClick={handlePrint} size="sm" variant="outline" className="gap-1.5 rounded-xl border-teal-300 bg-white text-teal-700 hover:bg-teal-100">
-                  <Printer className="h-3.5 w-3.5" /> طباعة
-                </Button>
-              </div>
-            </div>
-
-            {/* مجموعة: الإدارة المالية والفريق */}
-            <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-3">
-              <p className="mb-2 px-1 text-[11px] font-bold text-amber-700">الإدارة المالية والفريق</p>
-              <div className="flex flex-wrap items-center gap-2">
-                <Link to="/teachers">
-                  <Button size="sm" variant="outline" className="gap-1.5 rounded-xl border-primary/30 bg-white text-primary hover:bg-primary/10">
-                    <Users className="h-3.5 w-3.5" /> المعلمات
-                  </Button>
-                </Link>
-                <Link to="/awards">
-                  <Button size="sm" variant="outline" className="gap-1.5 rounded-xl border-amber-300 bg-white text-amber-700 hover:bg-amber-100">
-                    <Award className="h-3.5 w-3.5" /> الجوائز
-                  </Button>
-                </Link>
-                <Link to="/donors">
-                  <Button size="sm" variant="outline" className="gap-1.5 rounded-xl border-rose-300 bg-white text-rose-700 hover:bg-rose-100">
-                    <HeartHandshake className="h-3.5 w-3.5" /> الداعمون
-                  </Button>
-                </Link>
-                <Link to="/expenses">
-                  <Button size="sm" variant="outline" className="gap-1.5 rounded-xl border-sky-300 bg-white text-sky-700 hover:bg-sky-100">
-                    <Receipt className="h-3.5 w-3.5" /> المصروفات
-                  </Button>
-                </Link>
-              </div>
-            </div>
-
-            {/* مجموعة: حفظ + خطر */}
-            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-3">
-              <p className="mb-2 px-1 text-[11px] font-bold text-emerald-700">حفظ الجدول الحالي محلياً</p>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  onClick={handleSaveAll}
-                  disabled={!isDirty || saving}
-                  size="sm"
-                  className={`gap-1.5 rounded-xl ${isDirty ? "bg-emerald-600 shadow-md shadow-emerald-600/25 hover:bg-emerald-700" : "bg-emerald-600/60"}`}
-                >
-                  <Save className="h-3.5 w-3.5" />
-                  {saving ? "جارٍ الحفظ..." : "حفظ التغييرات"}
-                  {isDirty && <span className="rounded-full bg-white/20 px-1.5 text-[10px]">{dirtyCount}</span>}
-                </Button>
-
-                <Button
-                  onClick={handleReset}
-                  size="sm"
-                  variant="destructive"
-                  className="mr-auto gap-1.5 rounded-xl opacity-80 hover:opacity-100"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  حذف جميع البيانات
-                </Button>
-              </div>
-            </div>
-
-            {/* مجموعة: استعادة نسخة احتياطية من النسخة القديمة (IndexedDB) */}
-            <div className="rounded-2xl border border-sky-200 bg-sky-50/60 p-3">
-              <p className="mb-2 px-1 text-[11px] font-bold text-sky-700">
-                استيراد بياناتك من النسخة القديمة
-              </p>
-              <div className="flex flex-wrap items-center gap-2">
-                <input
-                  ref={backupFileInputRef}
-                  type="file"
-                  accept="application/json,.json"
-                  onChange={handleRestoreBackup}
-                  className="hidden"
-                />
-                <Button
-                  onClick={() => backupFileInputRef.current?.click()}
-                  disabled={restoringBackup}
-                  size="sm"
-                  className="gap-1.5 rounded-xl bg-sky-600 hover:bg-sky-700"
-                >
-                  <Upload className="h-3.5 w-3.5" />
-                  {restoringBackup ? "جارٍ الاستيراد..." : "استيراد نسخة احتياطية (JSON)"}
-                </Button>
-              </div>
-            </div>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-6">
+            <Link to="/teachers" className="w-full sm:w-auto">
+              <Button className="h-20 w-full flex-col gap-2 rounded-2xl bg-primary/95 shadow-lg shadow-primary/20 hover:-translate-y-0.5 hover:bg-primary">
+                <Users className="h-5 w-5" />
+                <span>المعلمات</span>
+              </Button>
+            </Link>
+            <Link to="/awards" className="w-full sm:w-auto">
+              <Button className="h-20 w-full flex-col gap-2 rounded-2xl bg-amber-500 text-white shadow-lg shadow-amber-500/20 hover:-translate-y-0.5 hover:bg-amber-600">
+                <Award className="h-5 w-5" />
+                <span>الجوائز</span>
+              </Button>
+            </Link>
+            <Link to="/donors" className="w-full sm:w-auto">
+              <Button className="h-20 w-full flex-col gap-2 rounded-2xl border border-primary/10 bg-background text-foreground shadow-sm hover:-translate-y-0.5 hover:bg-secondary" variant="secondary">
+                <HeartHandshake className="h-5 w-5 text-primary" />
+                <span>الداعمون</span>
+              </Button>
+            </Link>
+            <Link to="/expenses" className="w-full sm:w-auto">
+              <Button className="h-20 w-full flex-col gap-2 rounded-2xl border border-primary/10 bg-background text-foreground shadow-sm hover:-translate-y-0.5 hover:bg-secondary" variant="secondary">
+                <Receipt className="h-5 w-5 text-primary" />
+                <span>المصروفات</span>
+              </Button>
+            </Link>
+            <Link to="/search" className="col-span-2 w-full md:col-span-1 sm:w-auto">
+              <Button className="h-20 w-full flex-col gap-2 rounded-2xl border border-primary/10 bg-background text-foreground shadow-sm hover:-translate-y-0.5 hover:bg-secondary" variant="secondary">
+                <Search className="h-5 w-5 text-primary" />
+                <span>بحث طالبة</span>
+              </Button>
+            </Link>
+            <Link to="/certificates" className="col-span-2 w-full md:col-span-1 sm:w-auto">
+              <Button className="h-20 w-full flex-col gap-2 rounded-2xl border border-primary/10 bg-background text-foreground shadow-sm hover:-translate-y-0.5 hover:bg-secondary" variant="secondary">
+                <ScrollText className="h-5 w-5 text-primary" />
+                <span>الشهادات</span>
+              </Button>
+            </Link>
+            <Link to="/monthly" className="w-full sm:w-auto">
+              <Button className="h-20 w-full flex-col gap-2 rounded-2xl bg-gradient-to-l from-amber-400 via-amber-500 to-primary text-white shadow-lg shadow-amber-400/25 hover:-translate-y-0.5">
+                <Sparkles className="h-5 w-5" />
+                <span>المتابعة الشهرية</span>
+              </Button>
+            </Link>
+            <Link to="/khatimat" className="w-full sm:w-auto">
+              <Button className="h-20 w-full flex-col gap-2 rounded-2xl border border-primary/10 bg-background text-foreground shadow-sm hover:-translate-y-0.5 hover:bg-secondary" variant="secondary">
+                <Sparkles className="h-5 w-5 text-amber-500" />
+                <span>كشف الخاتمات</span>
+              </Button>
+            </Link>
           </div>
-        </div>
 
+          <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
+            <Button onClick={addNewStudent} className="h-12 gap-2 rounded-2xl lg:col-span-2">
+              <Plus className="h-4 w-4" />
+              إضافة طالبة جديدة
+            </Button>
+
+            <Button
+              onClick={handleSaveAll}
+              disabled={!isDirty || saving}
+              className={`h-12 gap-2 rounded-2xl lg:col-span-2 ${isDirty ? 'bg-emerald-600 shadow-lg shadow-emerald-600/25 hover:bg-emerald-700' : ''}`}
+            >
+              <Save className="h-4 w-4" />
+              {saving ? 'جارٍ الحفظ...' : 'حفظ التغييرات'}
+              {isDirty && <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs">{dirtyCount}</span>}
+            </Button>
+
+            <RecallStudents currentYear={currentYear} onRecalled={loadData} />
+
+            <Button onClick={handlePrint} variant="secondary" className="h-12 gap-2 rounded-2xl">
+              <Printer className="h-4 w-4" />
+              طباعة
+            </Button>
+
+            <Link to="/media">
+              <Button variant="outline" className="h-12 w-full gap-2 rounded-2xl">
+                <Camera className="h-4 w-4" />
+                الوسائط
+              </Button>
+            </Link>
+
+            <Button
+              onClick={handleSyncFromCloud}
+              disabled={syncing || !online}
+              variant="outline"
+              className="h-12 gap-2 rounded-2xl lg:col-span-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
+              {syncProgress ? `${syncProgress.current}/${syncProgress.total}` : 'مزامنة'}
+            </Button>
+
+            <Button
+              onClick={() => { setDeleteMode('year'); setSelectedToDelete(new Set()); setDeleteDialogOpen(true); }}
+              variant="destructive"
+              className="h-12 gap-2 rounded-2xl lg:col-span-2"
+            >
+              <Trash2 className="h-4 w-4" />
+              حذف بيانات
+            </Button>
+          </div>
+
+          {syncProgress && (
+            <div className="mt-2 space-y-1">
+              <Progress value={(syncProgress.current / Math.max(syncProgress.total, 1)) * 100} className="h-2" />
+              <p className="text-xs text-center text-muted-foreground">
+                {syncProgress.label || 'جارٍ المزامنة'}: {syncProgress.current} / {syncProgress.total}
+              </p>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="pt-4 pb-8">
@@ -635,6 +702,87 @@ const Index = () => {
           @page { size: landscape; margin: 10mm; }
         }
       `}</style>
+
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent dir="rtl" className="max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-destructive">حذف بيانات</DialogTitle>
+          </DialogHeader>
+
+          <RadioGroup value={deleteMode} onValueChange={(v) => setDeleteMode(v as typeof deleteMode)} className="space-y-3">
+            <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-border p-3 hover:bg-secondary/50">
+              <RadioGroupItem value="year" id="mode-year" className="mt-1" />
+              <div>
+                <div className="font-bold">حذف بيانات {competitionLabel} لعام {currentYear}هـ فقط</div>
+                <div className="text-xs text-muted-foreground">تُحذف الدرجات والحفظ لهذا العام فقط، وتبقى الطالبات وباقي الأعوام كما هي</div>
+              </div>
+            </label>
+
+            <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-border p-3 hover:bg-secondary/50">
+              <RadioGroupItem value="selected" id="mode-selected" className="mt-1" />
+              <div className="w-full">
+                <div className="font-bold">حذف طالبات محددات</div>
+                <div className="text-xs text-muted-foreground">تُحذف الطالبات المختارات بكل بياناتهن من كل الأعوام</div>
+                {deleteMode === 'selected' && (
+                  <div className="mt-2 max-h-48 space-y-1 overflow-y-auto rounded-lg bg-secondary/40 p-2">
+                    {students.length === 0 ? (
+                      <p className="p-2 text-xs text-muted-foreground">لا توجد طالبات بهذا العام</p>
+                    ) : students.map((s) => (
+                      <label key={s.id} className="flex cursor-pointer items-center gap-2 rounded-lg p-1.5 hover:bg-background">
+                        <Checkbox
+                          checked={selectedToDelete.has(s.id)}
+                          onCheckedChange={() => toggleSelectedToDelete(s.id)}
+                        />
+                        <span className="text-sm">{s.name || "بدون اسم"} <span className="text-xs text-muted-foreground">— {s.teacher}</span></span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </label>
+
+            <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/5 p-3 hover:bg-destructive/10">
+              <RadioGroupItem value="all" id="mode-all" className="mt-1" />
+              <div>
+                <div className="font-bold text-destructive">حذف كل البيانات نهائياً</div>
+                <div className="text-xs text-muted-foreground">تُحذف كل الطالبات وكل الأعوام والمتابعات — إجراء لا يمكن التراجع عنه</div>
+              </div>
+            </label>
+          </RadioGroup>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>إلغاء</Button>
+            <Button
+              variant="destructive"
+              disabled={deleting || (deleteMode === 'selected' && selectedToDelete.size === 0)}
+              onClick={handleConfirmDelete}
+              className="gap-1.5"
+            >
+              <Trash2 className="h-4 w-4" />
+              {deleting ? "جارٍ الحذف..." : "تأكيد الحذف"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!duplicateWarning} onOpenChange={(open) => !open && setDuplicateWarning(null)}>
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-destructive">⚠️ هذه الطالبة مسجّلة مسبقاً</AlertDialogTitle>
+            <AlertDialogDescription>
+              الاسم <strong>"{duplicateWarning?.name}"</strong> موجود بالفعل بالنظام بـ
+              {duplicateWarning?.years.length === 1 ? " عام " : " أعوام "}
+              <strong>{duplicateWarning?.years.map((y) => `${y}هـ`).join('، ')}</strong>.
+              <br /><br />
+              لتفادي إنشاء سجل مكرر، استخدم زر <strong>"استدعاء طالبة من الأعوام السابقة"</strong> بدل إضافتها
+              كطالبة جديدة، أو صحّح الاسم لو كانت طالبة مختلفة فعلاً.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setDuplicateWarning(null)}>حسناً، فهمت</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

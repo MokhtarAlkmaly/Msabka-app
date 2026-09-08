@@ -1,9 +1,12 @@
 {
   "appId": "org.inmaa.msabkarmdan",
   "appName": "mosabkamarkz",
-  "webDir": "dist",
-  "server": {
-    "url": "https://markzinmamsabka.vercel.app",
-    "cleartext": false
+  "webDir": ".output/public",
+  "plugins": {
+    "CapacitorSQLite": {
+      "androidIsEncryption": false,
+      "iosIsEncryption": false,
+      "iosDatabaseLocation": "Library/CapacitorDatabase"
+    }
   }
 }

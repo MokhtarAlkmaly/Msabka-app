@@ -1,13 +1,14 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+﻿import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { ArrowRight, Upload, Trash2, Image, Video, X } from "lucide-react";
 import { Link } from "@/lib/router-compat";
 import { START_YEAR, END_YEAR } from "@/types/student";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { loadMediaMetadata, saveMediaMetadata, deleteMediaMetadataLocal } from "@/utils/storage";
-import { putMediaFile, getMediaFile, deleteMediaFile } from "@/utils/localDB";
 
 const HIJRI_MONTHS = [
   "محرم", "صفر", "ربيع الأول", "ربيع الآخر",
@@ -32,49 +33,44 @@ const Media = () => {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [previewItem, setPreviewItem] = useState<MediaItem | null>(null);
-  const [fileUrls, setFileUrls] = useState<Record<string, string>>({});
+  const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
   const { toast } = useToast();
-  // Object URLs created for local blobs must be revoked when replaced/unmounted.
-  const urlsRef = useRef<Record<string, string>>({});
-
-  const revokeAllUrls = () => {
-    Object.values(urlsRef.current).forEach((url) => URL.revokeObjectURL(url));
-    urlsRef.current = {};
-  };
+  const { user } = useAuth();
 
   const loadMedia = useCallback(async () => {
+    if (!user) return;
     setLoading(true);
     const items = (await loadMediaMetadata(selectedYear)) as MediaItem[];
     setMediaItems(items);
-
-    // Build local object URLs from the on-device blobs for each item.
-    revokeAllUrls();
-    const map: Record<string, string> = {};
-    for (const item of items) {
-      const blob = await getMediaFile(item.id);
-      if (blob) {
-        const url = URL.createObjectURL(blob);
-        map[item.id] = url;
-      }
+    // Generate signed URLs for all cached metadata items.
+    if (items.length > 0 && navigator.onLine) {
+      const paths = items.map((i) => i.file_path);
+      const { data: signed } = await supabase.storage
+        .from("media")
+        .createSignedUrls(paths, 3600);
+      const map: Record<string, string> = {};
+      signed?.forEach((s, idx) => {
+        if (s.signedUrl) map[paths[idx]] = s.signedUrl;
+      });
+      setSignedUrls(map);
+    } else {
+      setSignedUrls({});
     }
-    urlsRef.current = map;
-    setFileUrls(map);
     setLoading(false);
-  }, [selectedYear]);
+  }, [user, selectedYear]);
 
   useEffect(() => {
     loadMedia();
-    return () => revokeAllUrls();
   }, [loadMedia]);
 
-  const getUrl = (id: string) => fileUrls[id] || "";
+  const getUrl = (filePath: string) => signedUrls[filePath] || "";
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files) return;
+    if (!e.target.files || !user) return;
     setUploading(true);
 
     const files = Array.from(e.target.files);
-
+    
     for (const file of files) {
       const isImage = file.type.startsWith("image/");
       const isVideo = file.type.startsWith("video/");
@@ -88,9 +84,16 @@ const Media = () => {
       const currentMonth = parseInt(hijriDate) || 1;
 
       const ext = file.name.split(".").pop();
-      const filePath = `${selectedYear}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+      const filePath = `${user.id}/${selectedYear}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
 
-      const saved = await saveMediaMetadata({
+      const { error: uploadError } = await supabase.storage.from("media").upload(filePath, file);
+      if (uploadError) {
+        console.error(uploadError);
+        toast({ title: "خطأ في الرفع", description: uploadError.message, variant: "destructive" });
+        continue;
+      }
+
+      await saveMediaMetadata({
         year: selectedYear,
         month: currentMonth,
         title: file.name,
@@ -98,26 +101,20 @@ const Media = () => {
         file_type: isImage ? "image" : "video",
         file_size: file.size,
       });
-
-      if (!saved) {
-        toast({ title: "خطأ في الحفظ", description: file.name, variant: "destructive" });
-        continue;
-      }
-
-      // Store the actual file bytes locally on this device.
-      await putMediaFile(saved.id, file);
     }
 
     setUploading(false);
     await loadMedia();
-    toast({ title: "تم الحفظ", description: `تم حفظ ${files.length} ملف محلياً على هذا الجهاز` });
+    toast({ title: "تم الرفع", description: `تم رفع ${files.length} ملف بنجاح` });
     e.target.value = "";
   };
 
   const handleDelete = async (item: MediaItem) => {
     if (!confirm("هل أنت متأكد من حذف هذا الملف؟")) return;
 
-    await deleteMediaFile(item.id);
+    if (navigator.onLine && user) {
+      await supabase.storage.from("media").remove([item.file_path]);
+    }
     await deleteMediaMetadataLocal(item.id);
     await loadMedia();
     toast({ title: "تم الحذف", variant: "destructive" });
@@ -173,7 +170,7 @@ const Media = () => {
             <Button asChild disabled={uploading} className="gap-2">
               <span>
                 <Upload className="h-4 w-4" />
-                {uploading ? "جارٍ الحفظ..." : "رفع صور / فيديوهات"}
+                {uploading ? "جارٍ الرفع..." : "رفع صور / فيديوهات"}
               </span>
             </Button>
             <input
@@ -220,7 +217,7 @@ const Media = () => {
                         >
                           {item.file_type === "image" ? (
                             <img
-                              src={getUrl(item.id)}
+                              src={getUrl(item.file_path)}
                               alt={item.title}
                               className="w-full h-full object-cover"
                               loading="lazy"
@@ -262,13 +259,13 @@ const Media = () => {
           {previewItem && (
             previewItem.file_type === "image" ? (
               <img
-                src={getUrl(previewItem.id)}
+                src={getUrl(previewItem.file_path)}
                 alt={previewItem.title}
                 className="w-full h-auto max-h-[85vh] object-contain"
               />
             ) : (
               <video
-                src={getUrl(previewItem.id)}
+                src={getUrl(previewItem.file_path)}
                 controls
                 className="w-full max-h-[85vh]"
               />
@@ -281,3 +278,4 @@ const Media = () => {
 };
 
 export default Media;
+

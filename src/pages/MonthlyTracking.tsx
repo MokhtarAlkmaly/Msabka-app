@@ -8,14 +8,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import { Home, Save, Loader2, CalendarDays, ChevronDown, ChevronUp, Trophy, Send } from "lucide-react";
+import { Home, Save, Loader2, CalendarDays, ChevronDown, ChevronUp, Trophy, Send, Search as SearchIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import logo from "@/assets/logo.png";
 import {
   Student, MonthlyRecord, QuranPoint, START_YEAR, END_YEAR, TRACKING_MONTHS,
 } from "@/types/student";
 import {
-  loadGlobalStudents,
+  loadAllStudentsWithData,
   loadMonthlyTrackingForMonth,
   saveMonthlyRecord,
   getPreviousMonthEndPoints,
@@ -90,17 +90,17 @@ const MonthlyTracking = () => {
 
   const loadData = useCallback(async () => {
     setLoading(true);
-    const [globalStudents, monthData, ranks] = await Promise.all([
-      loadGlobalStudents(),
+    const [yearStudents, monthData, ranks] = await Promise.all([
+      loadAllStudentsWithData(year),
       loadMonthlyTrackingForMonth(year, month),
       getMonthlyRankings(year, month),
     ]);
-    setStudents(globalStudents);
+    setStudents(yearStudents);
     setRecords(monthData);
     setDirty({});
 
     if (ranks.length > 0) {
-      const byId = new Map(globalStudents.map((s) => [s.id, s.name]));
+      const byId = new Map(yearStudents.map((s) => [s.id, s.name]));
       const bestMemo = [...ranks].sort((a, b) => b.memoScore - a.memoScore)[0];
       const bestReview = [...ranks].sort((a, b) => b.reviewScore - a.reviewScore)[0];
       setRankings({
@@ -164,9 +164,11 @@ const MonthlyTracking = () => {
     next.add(studentId);
     setExpanded(next);
 
-    // تعبئة تلقائية لنقطة البداية من نهاية الشهر السابق (لو ما فيه بيانات لهذا الشهر بعد)
+    // تعبئة تلقائية لنقطة البداية من نهاية الشهر السابق: تحصل كل ما كانت
+    // خانتا "من" (حفظ ومراجعة) فارغتين لهذا الشهر بعد — بغض النظر عن وجود
+    // بيانات أخرى محفوظة له (مثل مواظبة/سلوك أُدخلت قبل قسم الحفظ)
     const current = getRecord(studentId);
-    if (!current.memoFrom.surah && !current.reviewFrom.surah && !records[studentId]) {
+    if (!current.memoFrom.surah && !current.reviewFrom.surah) {
       const prev = await getPreviousMonthEndPoints(year, studentId, month);
       if (prev.memoFrom.surah || prev.reviewFrom.surah) {
         setDirty((d) => ({
@@ -326,11 +328,18 @@ const MonthlyTracking = () => {
               </p>
             </div>
           </div>
-          <Link to="/">
-            <Button variant="outline" size="sm" className="gap-1">
-              <Home className="h-4 w-4" /> الرئيسية
-            </Button>
-          </Link>
+          <div className="flex gap-2">
+            <Link to="/monthly-search">
+              <Button variant="outline" size="sm" className="gap-1">
+                <SearchIcon className="h-4 w-4" /> بحث المتابعة
+              </Button>
+            </Link>
+            <Link to="/">
+              <Button variant="outline" size="sm" className="gap-1">
+                <Home className="h-4 w-4" /> الرئيسية
+              </Button>
+            </Link>
+          </div>
         </Card>
 
         <Card className="flex flex-wrap items-center gap-3 border-primary/20 p-4">
@@ -413,7 +422,7 @@ const MonthlyTracking = () => {
             </Card>
           ) : visibleStudents.length === 0 ? (
             <Card className="border-primary/20 p-10 text-center text-muted-foreground">
-              {selectedTeacher === "الكل" ? "لا توجد طالبات مسجّلات بعد" : `لا توجد طالبات لدى المعلمة ${selectedTeacher}`}
+              {selectedTeacher === "الكل" ? `لا توجد طالبات مسجّلات بعام ${year}هـ (سجّلهن أولاً بالجدول الرئيسي)` : `لا توجد طالبات لدى المعلمة ${selectedTeacher} بعام ${year}هـ`}
             </Card>
           ) : (
             visibleStudents.map((student) => {

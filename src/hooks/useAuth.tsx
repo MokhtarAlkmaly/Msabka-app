@@ -1,44 +1,55 @@
-import { createContext, useContext } from "react";
-
-// Local-only mode: the app no longer talks to a cloud auth service.
-// There is always exactly one local user whose data lives entirely in
-// this device's local database (IndexedDB). No login/sign-up is needed.
-
-interface LocalUser {
-  id: string;
-}
+﻿import { useState, useEffect, createContext, useContext } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Session, User } from "@supabase/supabase-js";
 
 interface AuthContextType {
-  session: null;
-  user: LocalUser;
+  session: Session | null;
+  user: User | null;
   loading: boolean;
   signOut: () => Promise<void>;
 }
 
-export const LOCAL_USER_ID = "local-user";
-
-const localUser: LocalUser = { id: LOCAL_USER_ID };
-
 const AuthContext = createContext<AuthContextType>({
   session: null,
-  user: localUser,
-  loading: false,
+  user: null,
+  loading: true,
   signOut: async () => {},
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  // No async initialization needed: the local user always exists.
-  const value: AuthContextType = {
-    session: null,
-    user: localUser,
-    loading: false,
-    signOut: async () => {
-      // Nothing to sign out of locally. Kept as a no-op so existing UI
-      // that calls signOut() keeps working without special-casing it.
-    },
+  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const applySession = (nextSession: Session | null) => {
+      setSession(nextSession);
+      setUser(nextSession?.user ?? null);
+      setLoading(false);
+    };
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      applySession(session);
+    });
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      applySession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    setSession(null);
+    setUser(null);
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{ session, user, loading, signOut }}>
+      {children}
+    </AuthContext.Provider>
+  );
 };
 
 export const useAuth = () => useContext(AuthContext);

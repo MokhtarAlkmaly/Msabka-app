@@ -104,6 +104,9 @@ function RootShell({ children }: { children: ReactNode }) {
       </head>
       <body>
         {children}
+        {/* عنصر ويب مطلوب فقط عند التشغيل داخل متصفح عادي (وليس تطبيق أندرويد الأصلي)؛
+            يوفّر محرك SQLite (sql.js) للمتصفح عبر @capacitor-community/sqlite. */}
+        <jeep-sqlite />
         <Scripts />
       </body>
     </html>
@@ -112,6 +115,24 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { getDB } = await import("@/utils/sqliteClient");
+        await getDB();
+        if (cancelled) return;
+        const { migrateLegacyIndexedDbCache } = await import("@/utils/migrateLegacyCache");
+        await migrateLegacyIndexedDbCache();
+      } catch (err) {
+        console.error("تعذّرت تهيئة قاعدة البيانات المحلية (SQLite)", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>

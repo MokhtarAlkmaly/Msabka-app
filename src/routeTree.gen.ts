@@ -12,12 +12,15 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as InstallRouteImport } from './routes/install'
+import { Route as MonthlySearchRouteImport } from './routes/monthly-search'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedAwardsRouteImport } from './routes/_authenticated/awards'
 import { Route as AuthenticatedCertificatesRouteImport } from './routes/_authenticated/certificates'
 import { Route as AuthenticatedDonorsRouteImport } from './routes/_authenticated/donors'
 import { Route as AuthenticatedExpensesRouteImport } from './routes/_authenticated/expenses'
+import { Route as AuthenticatedKhatimatRouteImport } from './routes/_authenticated/khatimat'
 import { Route as AuthenticatedMediaRouteImport } from './routes/_authenticated/media'
+import { Route as AuthenticatedMonthlyRouteImport } from './routes/_authenticated/monthly'
 import { Route as AuthenticatedSearchRouteImport } from './routes/_authenticated/search'
 import { Route as AuthenticatedTeachersRouteImport } from './routes/_authenticated/teachers'
 
@@ -33,6 +36,11 @@ const AuthRoute = AuthRouteImport.update({
 const InstallRoute = InstallRouteImport.update({
   id: '/install',
   path: '/install',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MonthlySearchRoute = MonthlySearchRouteImport.update({
+  id: '/monthly-search',
+  path: '/monthly-search',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
@@ -61,9 +69,19 @@ const AuthenticatedExpensesRoute = AuthenticatedExpensesRouteImport.update({
   path: '/expenses',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedKhatimatRoute = AuthenticatedKhatimatRouteImport.update({
+  id: '/khatimat',
+  path: '/khatimat',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedMediaRoute = AuthenticatedMediaRouteImport.update({
   id: '/media',
   path: '/media',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedMonthlyRoute = AuthenticatedMonthlyRouteImport.update({
+  id: '/monthly',
+  path: '/monthly',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedSearchRoute = AuthenticatedSearchRouteImport.update({
@@ -81,22 +99,28 @@ export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/auth': typeof AuthRoute
   '/install': typeof InstallRoute
+  '/monthly-search': typeof MonthlySearchRoute
   '/awards': typeof AuthenticatedAwardsRoute
   '/certificates': typeof AuthenticatedCertificatesRoute
   '/donors': typeof AuthenticatedDonorsRoute
   '/expenses': typeof AuthenticatedExpensesRoute
+  '/khatimat': typeof AuthenticatedKhatimatRoute
   '/media': typeof AuthenticatedMediaRoute
+  '/monthly': typeof AuthenticatedMonthlyRoute
   '/search': typeof AuthenticatedSearchRoute
   '/teachers': typeof AuthenticatedTeachersRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/install': typeof InstallRoute
+  '/monthly-search': typeof MonthlySearchRoute
   '/awards': typeof AuthenticatedAwardsRoute
   '/certificates': typeof AuthenticatedCertificatesRoute
   '/donors': typeof AuthenticatedDonorsRoute
   '/expenses': typeof AuthenticatedExpensesRoute
+  '/khatimat': typeof AuthenticatedKhatimatRoute
   '/media': typeof AuthenticatedMediaRoute
+  '/monthly': typeof AuthenticatedMonthlyRoute
   '/search': typeof AuthenticatedSearchRoute
   '/teachers': typeof AuthenticatedTeachersRoute
   '/': typeof AuthenticatedIndexRoute
@@ -106,11 +130,14 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/install': typeof InstallRoute
+  '/monthly-search': typeof MonthlySearchRoute
   '/_authenticated/awards': typeof AuthenticatedAwardsRoute
   '/_authenticated/certificates': typeof AuthenticatedCertificatesRoute
   '/_authenticated/donors': typeof AuthenticatedDonorsRoute
   '/_authenticated/expenses': typeof AuthenticatedExpensesRoute
+  '/_authenticated/khatimat': typeof AuthenticatedKhatimatRoute
   '/_authenticated/media': typeof AuthenticatedMediaRoute
+  '/_authenticated/monthly': typeof AuthenticatedMonthlyRoute
   '/_authenticated/search': typeof AuthenticatedSearchRoute
   '/_authenticated/teachers': typeof AuthenticatedTeachersRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
@@ -121,22 +148,28 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/install'
+    | '/monthly-search'
     | '/awards'
     | '/certificates'
     | '/donors'
     | '/expenses'
+    | '/khatimat'
     | '/media'
+    | '/monthly'
     | '/search'
     | '/teachers'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
     | '/install'
+    | '/monthly-search'
     | '/awards'
     | '/certificates'
     | '/donors'
     | '/expenses'
+    | '/khatimat'
     | '/media'
+    | '/monthly'
     | '/search'
     | '/teachers'
     | '/'
@@ -145,11 +178,14 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/install'
+    | '/monthly-search'
     | '/_authenticated/awards'
     | '/_authenticated/certificates'
     | '/_authenticated/donors'
     | '/_authenticated/expenses'
+    | '/_authenticated/khatimat'
     | '/_authenticated/media'
+    | '/_authenticated/monthly'
     | '/_authenticated/search'
     | '/_authenticated/teachers'
     | '/_authenticated/'
@@ -159,6 +195,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   InstallRoute: typeof InstallRoute
+  MonthlySearchRoute: typeof MonthlySearchRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -182,6 +219,13 @@ declare module '@tanstack/react-router' {
       path: '/install'
       fullPath: '/install'
       preLoaderRoute: typeof InstallRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/monthly-search': {
+      id: '/monthly-search'
+      path: '/monthly-search'
+      fullPath: '/monthly-search'
+      preLoaderRoute: typeof MonthlySearchRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/': {
@@ -219,11 +263,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedExpensesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/khatimat': {
+      id: '/_authenticated/khatimat'
+      path: '/khatimat'
+      fullPath: '/khatimat'
+      preLoaderRoute: typeof AuthenticatedKhatimatRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/media': {
       id: '/_authenticated/media'
       path: '/media'
       fullPath: '/media'
       preLoaderRoute: typeof AuthenticatedMediaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/monthly': {
+      id: '/_authenticated/monthly'
+      path: '/monthly'
+      fullPath: '/monthly'
+      preLoaderRoute: typeof AuthenticatedMonthlyRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/search': {
@@ -248,7 +306,9 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCertificatesRoute: typeof AuthenticatedCertificatesRoute
   AuthenticatedDonorsRoute: typeof AuthenticatedDonorsRoute
   AuthenticatedExpensesRoute: typeof AuthenticatedExpensesRoute
+  AuthenticatedKhatimatRoute: typeof AuthenticatedKhatimatRoute
   AuthenticatedMediaRoute: typeof AuthenticatedMediaRoute
+  AuthenticatedMonthlyRoute: typeof AuthenticatedMonthlyRoute
   AuthenticatedSearchRoute: typeof AuthenticatedSearchRoute
   AuthenticatedTeachersRoute: typeof AuthenticatedTeachersRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
@@ -259,7 +319,9 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCertificatesRoute: AuthenticatedCertificatesRoute,
   AuthenticatedDonorsRoute: AuthenticatedDonorsRoute,
   AuthenticatedExpensesRoute: AuthenticatedExpensesRoute,
+  AuthenticatedKhatimatRoute: AuthenticatedKhatimatRoute,
   AuthenticatedMediaRoute: AuthenticatedMediaRoute,
+  AuthenticatedMonthlyRoute: AuthenticatedMonthlyRoute,
   AuthenticatedSearchRoute: AuthenticatedSearchRoute,
   AuthenticatedTeachersRoute: AuthenticatedTeachersRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
@@ -272,6 +334,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   InstallRoute: InstallRoute,
+  MonthlySearchRoute: MonthlySearchRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

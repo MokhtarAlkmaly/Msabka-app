@@ -78,6 +78,7 @@ export const CompetitionTable = ({ students, currentYear, competitionLabel = "ا
     };
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch { /* ignore */ }
     if (!cloudLoaded) return;
+    if (!navigator.onLine) return;
     const pushToCloud = async () => {
       try {
         await setTableFilters(data as any);
@@ -209,6 +210,7 @@ export const CompetitionTable = ({ students, currentYear, competitionLabel = "ا
 
   const handlePrintFiltered = async () => {
     const { printHtmlDocument } = await import("@/utils/nativePrint");
+
     const rows = filteredStudents.map((s, i) => {
       const parts = parseFloat(s.yearData?.parts || '0');
       const totalScore = parseFloat(s.yearData?.total || '0');

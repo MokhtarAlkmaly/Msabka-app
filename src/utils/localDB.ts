@@ -1,275 +1,197 @@
 /**
- * قاعدة بيانات محلية حقيقية (SQLite) على الجهاز.
- * لا يوجد أي اتصال بالإنترنت أو سحابة — كل شيء يُقرأ ويُكتب مباشرة
- * إلى ملف قاعدة بيانات SQLite داخل التطبيق نفسه، عبر @capacitor-community/sqlite.
+ * طبقة التخزين المحلي — تعمل الآن فوق قاعدة بيانات SQLite حقيقية بدل IndexedDB
+ * (عبر @capacitor-community/sqlite: محرك SQLite أصلي على أندرويد/iOS، ومحرك
+ * sql.js/WASM على المتصفح). البيانات تُخزَّن محليًا وتتزامن مع السحابة فقط
+ * عند الضغط على "حفظ" (كما كان الحال سابقًا).
  *
- * ملاحظة: يعمل فقط داخل تطبيق أندرويد/iOS المُثبَّت فعليًا على الجهاز
- * (Capacitor.isNativePlatform() === true). لا يعمل داخل معاينة المتصفح.
- *
- * ملفات الوسائط (صور/فيديوهات) لا تُخزَّن داخل قاعدة البيانات نفسها (غير مناسب
- * لملفات SQL)، بل تُخزَّن كملفات حقيقية على تخزين الجهاز عبر @capacitor/filesystem،
- * وتبقى بياناتها الوصفية (العنوان، السنة، الشهر...) داخل SQLite كالمعتاد.
+ * ملاحظة مهمة: كل الدوال المُصدَّرة من هذا الملف تحمل نفس الأسماء والتوقيعات
+ * التي كانت موجودة في نسخة IndexedDB السابقة، حتى لا يحتاج أي ملف آخر في
+ * المشروع (storage.ts والصفحات) إلى أي تعديل.
  */
 
-import { Capacitor } from "@capacitor/core";
-import {
-  CapacitorSQLite,
-  SQLiteConnection,
-  SQLiteDBConnection,
-} from "@capacitor-community/sqlite";
-import { Filesystem, Directory } from "@capacitor/filesystem";
+import type { capSQLiteSet } from "@capacitor-community/sqlite";
+import { getDB, persist } from "./sqliteClient";
 
-const DB_NAME = "inmaa_db";
+const STORES = {
+  students: "students",
+  hifzHistory: "hifz_history",
+  yearData: "year_data",
+  settings: "settings",
+  meta: "meta",
+  pending: "pending_changes",
+  teachers: "teachers",
+  teacherBonuses: "teacher_bonuses",
+  donors: "donors",
+  awards: "awards",
+  ceremonyExpenses: "ceremony_expenses",
+  certificates: "certificates",
+  media: "media",
+} as const;
 
-const SCHEMA_SQL = `
-CREATE TABLE IF NOT EXISTS students (
-  id INTEGER PRIMARY KEY,
-  name TEXT,
-  teacher TEXT,
-  user_id TEXT
-);
+// ========== سجلّ الجداول: يصف كل جدول (أعمدته ومفتاحه الأساسي) لتبقى دوال
+// CRUD العامة أدناه صالحة لأي جدول دون تكرار كود SQL يدويًا ==========
 
-CREATE TABLE IF NOT EXISTS hifz_history (
-  student_id INTEGER NOT NULL,
-  year_key TEXT NOT NULL,
-  value TEXT,
-  PRIMARY KEY (student_id, year_key)
-);
+interface TableConfig {
+  columns: string[];
+  pk: string[];
+  /** تحويل الكائن القادم من الاستدعاء إلى صف أعمدة مسطّح (افتراضيًا: أخذ نفس الحقول) */
+  toRow?: (item: any) => Record<string, any>;
+  /** تحويل الصف القادم من SQLite إلى الشكل الذي يتوقعه بقية الكود */
+  fromRow?: (row: any) => any;
+}
 
-CREATE TABLE IF NOT EXISTS year_data (
-  student_id INTEGER NOT NULL,
-  year TEXT NOT NULL,
-  base_hifz TEXT,
-  total_hifz TEXT,
-  parts TEXT,
-  annual TEXT,
-  recitation TEXT,
-  memorization TEXT,
-  total TEXT,
-  grade TEXT,
-  prize TEXT,
-  status_prize TEXT,
-  rank TEXT,
-  teacher TEXT,
-  PRIMARY KEY (student_id, year)
-);
-
-CREATE TABLE IF NOT EXISTS settings (
-  key TEXT PRIMARY KEY,
-  value TEXT
-);
-
-CREATE TABLE IF NOT EXISTS meta (
-  key TEXT PRIMARY KEY,
-  time INTEGER
-);
-
-CREATE TABLE IF NOT EXISTS pending_changes (
-  key TEXT PRIMARY KEY,
-  entity TEXT,
-  op TEXT,
-  ref TEXT,
-  ts INTEGER
-);
-
-CREATE TABLE IF NOT EXISTS teachers (
-  id TEXT PRIMARY KEY,
-  user_id TEXT,
-  year TEXT,
-  name TEXT,
-  created_at TEXT,
-  updated_at TEXT
-);
-
-CREATE TABLE IF NOT EXISTS teacher_bonuses (
-  id TEXT PRIMARY KEY,
-  user_id TEXT,
-  teacher_name TEXT,
-  year TEXT,
-  month INTEGER,
-  amount REAL,
-  created_at TEXT,
-  updated_at TEXT
-);
-
-CREATE TABLE IF NOT EXISTS donors (
-  id TEXT PRIMARY KEY,
-  user_id TEXT,
-  year TEXT,
-  name TEXT,
-  donor_type TEXT,
-  phone TEXT,
-  pledged_amount REAL,
-  paid_amount REAL,
-  in_kind TEXT,
-  notes TEXT,
-  created_at TEXT,
-  updated_at TEXT
-);
-
-CREATE TABLE IF NOT EXISTS awards (
-  id TEXT PRIMARY KEY,
-  user_id TEXT,
-  year TEXT,
-  recipient_type TEXT,
-  recipient_name TEXT,
-  award_type TEXT,
-  award_kind TEXT,
-  amount REAL,
-  item TEXT,
-  student_name TEXT,
-  notes TEXT,
-  awarded_at TEXT,
-  funded_by TEXT,
-  created_at TEXT,
-  updated_at TEXT
-);
-
-CREATE TABLE IF NOT EXISTS ceremony_expenses (
-  id TEXT PRIMARY KEY,
-  user_id TEXT,
-  year TEXT,
-  category TEXT,
-  description TEXT,
-  amount REAL,
-  spent_at TEXT,
-  funded_by TEXT,
-  notes TEXT,
-  created_at TEXT,
-  updated_at TEXT
-);
-
-CREATE TABLE IF NOT EXISTS certificates (
-  id TEXT PRIMARY KEY,
-  user_id TEXT,
-  year TEXT,
-  recipient_type TEXT,
-  recipient_name TEXT,
-  cert_type TEXT,
-  title TEXT,
-  notes TEXT,
-  issued_at TEXT,
-  created_at TEXT,
-  updated_at TEXT
-);
-
-CREATE TABLE IF NOT EXISTS media (
-  id TEXT PRIMARY KEY,
-  user_id TEXT,
-  year TEXT,
-  month INTEGER,
-  title TEXT,
-  file_path TEXT,
-  file_type TEXT,
-  file_size INTEGER,
-  created_at TEXT
-);
-
-CREATE TABLE IF NOT EXISTS monthly_tracking (
-  user_id TEXT,
-  student_id INTEGER NOT NULL,
-  year TEXT NOT NULL,
-  month INTEGER NOT NULL,
-  memorization_from_surah INTEGER,
-  memorization_from_ayah INTEGER,
-  memorization_to_surah INTEGER,
-  memorization_to_ayah INTEGER,
-  memorization_hifz_score REAL,
-  memorization_recitation_score REAL,
-  review_from_surah INTEGER,
-  review_from_ayah INTEGER,
-  review_to_surah INTEGER,
-  review_to_ayah INTEGER,
-  review_hifz_score REAL,
-  review_recitation_score REAL,
-  attendance_score REAL,
-  behavior_score REAL,
-  PRIMARY KEY (student_id, year, month)
-);
-`;
-
-// ========== الاتصال بقاعدة البيانات ==========
-
-let sqliteConn: SQLiteConnection | null = null;
-let dbConn: SQLiteDBConnection | null = null;
-let initPromise: Promise<SQLiteDBConnection> | null = null;
-
-const getDB = (): Promise<SQLiteDBConnection> => {
-  if (dbConn) return Promise.resolve(dbConn);
-  if (initPromise) return initPromise;
-
-  initPromise = (async () => {
-    if (!Capacitor.isNativePlatform()) {
-      throw new Error(
-        "قاعدة البيانات المحلية (SQLite) تعمل فقط داخل تطبيق أندرويد/iOS المثبَّت على الجهاز، وليست متاحة داخل معاينة المتصفح."
-      );
-    }
-
-    sqliteConn = new SQLiteConnection(CapacitorSQLite);
-
-    const consistency = await sqliteConn.checkConnectionsConsistency();
-    const existing = await sqliteConn.isConnection(DB_NAME, false);
-
-    const conn: SQLiteDBConnection =
-      consistency.result && existing.result
-        ? await sqliteConn.retrieveConnection(DB_NAME, false)
-        : await sqliteConn.createConnection(DB_NAME, false, "no-encryption", 1, false);
-
-    await conn.open();
-    await conn.execute(SCHEMA_SQL);
-
-    dbConn = conn;
-    return conn;
-  })();
-
-  return initPromise;
+const TABLES: Record<string, TableConfig> = {
+  [STORES.students]: {
+    columns: ["id", "name", "teacher", "user_id"],
+    pk: ["id"],
+  },
+  [STORES.hifzHistory]: {
+    columns: ["student_id", "year_key", "value"],
+    pk: ["student_id", "year_key"],
+  },
+  [STORES.yearData]: {
+    columns: [
+      "student_id", "year", "base_hifz", "total_hifz", "parts", "annual",
+      "recitation", "memorization", "total", "grade", "prize", "status_prize",
+      "rank", "teacher",
+    ],
+    pk: ["student_id", "year"],
+  },
+  [STORES.settings]: {
+    columns: ["key", "value"],
+    pk: ["key"],
+    toRow: (item) => ({ key: item.key, value: JSON.stringify(item.value ?? null) }),
+    fromRow: (row) => ({ key: row.key, value: row.value != null ? JSON.parse(row.value) : undefined }),
+  },
+  [STORES.meta]: {
+    columns: ["key", "time"],
+    pk: ["key"],
+  },
+  [STORES.pending]: {
+    columns: ["key", "entity", "op", "ref", "ts"],
+    pk: ["key"],
+    toRow: (item) => ({ ...item, ref: JSON.stringify(item.ref ?? null) }),
+    fromRow: (row) => ({ ...row, ref: row.ref != null ? JSON.parse(row.ref) : null }),
+  },
+  [STORES.teachers]: {
+    columns: ["id", "user_id", "year", "name", "created_at", "updated_at"],
+    pk: ["id"],
+  },
+  [STORES.teacherBonuses]: {
+    columns: ["id", "user_id", "teacher_name", "year", "month", "amount", "created_at", "updated_at"],
+    pk: ["id"],
+  },
+  [STORES.donors]: {
+    columns: [
+      "id", "user_id", "year", "name", "donor_type", "phone", "pledged_amount",
+      "paid_amount", "in_kind", "notes", "created_at", "updated_at",
+    ],
+    pk: ["id"],
+  },
+  [STORES.awards]: {
+    columns: [
+      "id", "user_id", "year", "recipient_type", "recipient_name", "award_type",
+      "award_kind", "amount", "item", "student_name", "notes", "awarded_at",
+      "funded_by", "created_at", "updated_at",
+    ],
+    pk: ["id"],
+  },
+  [STORES.ceremonyExpenses]: {
+    columns: [
+      "id", "user_id", "year", "category", "description", "amount", "spent_at",
+      "funded_by", "notes", "created_at", "updated_at",
+    ],
+    pk: ["id"],
+  },
+  [STORES.certificates]: {
+    columns: [
+      "id", "user_id", "year", "recipient_type", "recipient_name", "cert_type",
+      "title", "notes", "issued_at", "created_at", "updated_at",
+    ],
+    pk: ["id"],
+  },
+  [STORES.media]: {
+    columns: ["id", "user_id", "year", "month", "title", "file_path", "file_type", "file_size", "created_at"],
+    pk: ["id"],
+  },
 };
 
-// ========== أدوات عامة داخلية ==========
+const getTable = (storeName: string): TableConfig => {
+  const cfg = TABLES[storeName];
+  if (!cfg) throw new Error(`localDB: جدول غير معروف "${storeName}"`);
+  return cfg;
+};
 
-const toParams = (row: Record<string, any>, cols: string[]) =>
-  cols.map((c) => (row[c] === undefined ? null : row[c]));
+const toRow = (cfg: TableConfig, item: any): Record<string, any> => {
+  const raw = cfg.toRow ? cfg.toRow(item) : item;
+  const row: Record<string, any> = {};
+  for (const col of cfg.columns) row[col] = raw[col] ?? null;
+  return row;
+};
 
-const upsert = async (table: string, pk: string[], row: Record<string, any>) => {
+const fromRow = (cfg: TableConfig, row: any): any => (cfg.fromRow ? cfg.fromRow(row) : row);
+
+const keyValues = (key: any): any[] => (Array.isArray(key) ? key : [key]);
+
+// ========== دوال CRUD العامة (نفس توقيعات IndexedDB السابقة تمامًا) ==========
+
+export const putItem = async (storeName: string, item: any) => {
+  const cfg = getTable(storeName);
+  const row = toRow(cfg, item);
   const db = await getDB();
-  const cols = Object.keys(row);
-  const placeholders = cols.map(() => "?").join(", ");
-  const nonPk = cols.filter((c) => !pk.includes(c));
-  const updateClause = nonPk.length
-    ? nonPk.map((c) => `${c} = excluded.${c}`).join(", ")
-    : `${pk[0]} = excluded.${pk[0]}`;
-  const sql = `INSERT INTO ${table} (${cols.join(", ")}) VALUES (${placeholders})
-    ON CONFLICT(${pk.join(", ")}) DO UPDATE SET ${updateClause}`;
-  await db.run(sql, toParams(row, cols));
+  const placeholders = cfg.columns.map(() => "?").join(", ");
+  const sql = `INSERT OR REPLACE INTO ${storeName} (${cfg.columns.join(", ")}) VALUES (${placeholders})`;
+  await db.run(sql, cfg.columns.map((c) => row[c]), true);
+  await persist();
 };
 
-const selectAll = async <T = any>(table: string): Promise<T[]> => {
+export const getItem = async <T>(storeName: string, key: any): Promise<T | undefined> => {
+  const cfg = getTable(storeName);
   const db = await getDB();
-  const res = await db.query(`SELECT * FROM ${table}`);
-  return (res.values || []) as T[];
+  const where = cfg.pk.map((c) => `${c} = ?`).join(" AND ");
+  const res = await db.query(`SELECT * FROM ${storeName} WHERE ${where} LIMIT 1`, keyValues(key));
+  const row = res.values?.[0];
+  return row ? (fromRow(cfg, row) as T) : undefined;
 };
 
-const deleteByPk = async (table: string, pk: string[], vals: any[]) => {
+export const getAllItems = async <T>(storeName: string): Promise<T[]> => {
+  const cfg = getTable(storeName);
   const db = await getDB();
-  const where = pk.map((c) => `${c} = ?`).join(" AND ");
-  await db.run(`DELETE FROM ${table} WHERE ${where}`, vals);
+  const res = await db.query(`SELECT * FROM ${storeName}`);
+  return (res.values ?? []).map((row) => fromRow(cfg, row) as T);
 };
-
-// ========== دوال عامة يستخدمها storage.ts مباشرة ==========
 
 export const deleteItem = async (storeName: string, key: any) => {
-  if (storeName === "hifz_history") return deleteByPk("hifz_history", ["student_id", "year_key"], key);
-  if (storeName === "year_data") return deleteByPk("year_data", ["student_id", "year"], key);
-  if (storeName === "students") return deleteByPk("students", ["id"], [key]);
-  throw new Error(`deleteItem: جدول غير مدعوم "${storeName}"`);
+  const cfg = getTable(storeName);
+  const db = await getDB();
+  const where = cfg.pk.map((c) => `${c} = ?`).join(" AND ");
+  await db.run(`DELETE FROM ${storeName} WHERE ${where}`, keyValues(key), true);
+  await persist();
 };
 
 export const clearStore = async (storeName: string) => {
+  getTable(storeName); // يتحقق أن الاسم معروف
   const db = await getDB();
-  await db.run(`DELETE FROM ${storeName}`);
+  await db.run(`DELETE FROM ${storeName}`, [], true);
+  await persist();
 };
 
-// ========== الطالبات ==========
+/** استبدال كامل محتوى جدول دفعة واحدة (حذف ثم إدراج) ضمن معاملة واحدة ذرّية */
+const cacheRecords = async <T>(storeName: string, rows: T[]) => {
+  const cfg = getTable(storeName);
+  const db = await getDB();
+  const set: capSQLiteSet[] = [{ statement: `DELETE FROM ${storeName}`, values: [] }];
+  const placeholders = cfg.columns.map(() => "?").join(", ");
+  const insertSql = `INSERT OR REPLACE INTO ${storeName} (${cfg.columns.join(", ")}) VALUES (${placeholders})`;
+  for (const item of rows) {
+    const row = toRow(cfg, item);
+    set.push({ statement: insertSql, values: cfg.columns.map((c) => row[c]) });
+  }
+  await db.executeSet(set, true);
+  await persist();
+};
+
+// ========== Students ==========
 
 export interface CachedStudent {
   id: number;
@@ -278,11 +200,12 @@ export interface CachedStudent {
   user_id: string;
 }
 
-export const getCachedStudents = () => selectAll<CachedStudent>("students");
-export const putCachedStudent = (student: CachedStudent) => upsert("students", ["id"], student);
-export const deleteCachedStudent = (id: number) => deleteByPk("students", ["id"], [id]);
+export const cacheStudents = async (students: CachedStudent[]) => cacheRecords(STORES.students, students);
+export const getCachedStudents = () => getAllItems<CachedStudent>(STORES.students);
+export const deleteCachedStudent = (id: number) => deleteItem(STORES.students, id);
+export const putCachedStudent = (student: CachedStudent) => putItem(STORES.students, student);
 
-// ========== سجل الحفظ ==========
+// ========== Hifz History ==========
 
 export interface CachedHifzRow {
   student_id: number;
@@ -290,11 +213,11 @@ export interface CachedHifzRow {
   value: string;
 }
 
-export const getCachedHifzHistory = () => selectAll<CachedHifzRow>("hifz_history");
-export const putCachedHifzRow = (row: CachedHifzRow) =>
-  upsert("hifz_history", ["student_id", "year_key"], row);
+export const cacheHifzHistory = async (rows: CachedHifzRow[]) => cacheRecords(STORES.hifzHistory, rows);
+export const getCachedHifzHistory = () => getAllItems<CachedHifzRow>(STORES.hifzHistory);
+export const putCachedHifzRow = (row: CachedHifzRow) => putItem(STORES.hifzHistory, row);
 
-// ========== بيانات السنة ==========
+// ========== Year Data ==========
 
 export interface CachedYearData {
   student_id: number;
@@ -313,11 +236,11 @@ export interface CachedYearData {
   teacher: string;
 }
 
-export const getCachedYearData = () => selectAll<CachedYearData>("year_data");
-export const putCachedYearData = (row: CachedYearData) =>
-  upsert("year_data", ["student_id", "year"], row);
+export const cacheYearData = async (rows: CachedYearData[]) => cacheRecords(STORES.yearData, rows);
+export const getCachedYearData = () => getAllItems<CachedYearData>(STORES.yearData);
+export const putCachedYearData = (row: CachedYearData) => putItem(STORES.yearData, row);
 
-// ========== المعلمات ==========
+// ========== Teachers ==========
 
 export interface CachedTeacher {
   id: string;
@@ -328,11 +251,13 @@ export interface CachedTeacher {
   updated_at?: string;
 }
 
-export const getCachedTeachers = () => selectAll<CachedTeacher>("teachers");
-export const putCachedTeacher = (row: CachedTeacher) => upsert("teachers", ["id"], row);
-export const deleteCachedTeacher = (id: string) => deleteByPk("teachers", ["id"], [id]);
+export const cacheTeachers = (rows: CachedTeacher[]) => cacheRecords(STORES.teachers, rows);
+export const getCachedTeachers = () => getAllItems<CachedTeacher>(STORES.teachers);
+export const getCachedTeacher = (id: string) => getItem<CachedTeacher>(STORES.teachers, id);
+export const putCachedTeacher = (row: CachedTeacher) => putItem(STORES.teachers, row);
+export const deleteCachedTeacher = (id: string) => deleteItem(STORES.teachers, id);
 
-// ========== مكافآت المعلمات ==========
+// ========== Teacher Bonuses ==========
 
 export interface CachedTeacherBonus {
   id: string;
@@ -345,13 +270,13 @@ export interface CachedTeacherBonus {
   updated_at?: string;
 }
 
-export const getCachedTeacherBonuses = () => selectAll<CachedTeacherBonus>("teacher_bonuses");
-export const putCachedTeacherBonus = (row: CachedTeacherBonus) =>
-  upsert("teacher_bonuses", ["id"], row);
-export const deleteCachedTeacherBonus = (id: string) =>
-  deleteByPk("teacher_bonuses", ["id"], [id]);
+export const cacheTeacherBonuses = (rows: CachedTeacherBonus[]) => cacheRecords(STORES.teacherBonuses, rows);
+export const getCachedTeacherBonuses = () => getAllItems<CachedTeacherBonus>(STORES.teacherBonuses);
+export const getCachedTeacherBonus = (id: string) => getItem<CachedTeacherBonus>(STORES.teacherBonuses, id);
+export const putCachedTeacherBonus = (row: CachedTeacherBonus) => putItem(STORES.teacherBonuses, row);
+export const deleteCachedTeacherBonus = (id: string) => deleteItem(STORES.teacherBonuses, id);
 
-// ========== الداعمون ==========
+// ========== Donors ==========
 
 export interface CachedDonor {
   id: string;
@@ -368,11 +293,13 @@ export interface CachedDonor {
   updated_at?: string;
 }
 
-export const getCachedDonors = () => selectAll<CachedDonor>("donors");
-export const putCachedDonor = (row: CachedDonor) => upsert("donors", ["id"], row);
-export const deleteCachedDonor = (id: string) => deleteByPk("donors", ["id"], [id]);
+export const cacheDonors = (rows: CachedDonor[]) => cacheRecords(STORES.donors, rows);
+export const getCachedDonors = () => getAllItems<CachedDonor>(STORES.donors);
+export const getCachedDonor = (id: string) => getItem<CachedDonor>(STORES.donors, id);
+export const putCachedDonor = (row: CachedDonor) => putItem(STORES.donors, row);
+export const deleteCachedDonor = (id: string) => deleteItem(STORES.donors, id);
 
-// ========== الجوائز ==========
+// ========== Awards ==========
 
 export interface CachedAward {
   id: string;
@@ -392,11 +319,13 @@ export interface CachedAward {
   updated_at?: string;
 }
 
-export const getCachedAwards = () => selectAll<CachedAward>("awards");
-export const putCachedAward = (row: CachedAward) => upsert("awards", ["id"], row);
-export const deleteCachedAward = (id: string) => deleteByPk("awards", ["id"], [id]);
+export const cacheAwards = (rows: CachedAward[]) => cacheRecords(STORES.awards, rows);
+export const getCachedAwards = () => getAllItems<CachedAward>(STORES.awards);
+export const getCachedAward = (id: string) => getItem<CachedAward>(STORES.awards, id);
+export const putCachedAward = (row: CachedAward) => putItem(STORES.awards, row);
+export const deleteCachedAward = (id: string) => deleteItem(STORES.awards, id);
 
-// ========== مصروفات الحفلة ==========
+// ========== Ceremony Expenses ==========
 
 export interface CachedCeremonyExpense {
   id: string;
@@ -412,13 +341,13 @@ export interface CachedCeremonyExpense {
   updated_at?: string;
 }
 
-export const getCachedCeremonyExpenses = () => selectAll<CachedCeremonyExpense>("ceremony_expenses");
-export const putCachedCeremonyExpense = (row: CachedCeremonyExpense) =>
-  upsert("ceremony_expenses", ["id"], row);
-export const deleteCachedCeremonyExpense = (id: string) =>
-  deleteByPk("ceremony_expenses", ["id"], [id]);
+export const cacheCeremonyExpenses = (rows: CachedCeremonyExpense[]) => cacheRecords(STORES.ceremonyExpenses, rows);
+export const getCachedCeremonyExpenses = () => getAllItems<CachedCeremonyExpense>(STORES.ceremonyExpenses);
+export const getCachedCeremonyExpense = (id: string) => getItem<CachedCeremonyExpense>(STORES.ceremonyExpenses, id);
+export const putCachedCeremonyExpense = (row: CachedCeremonyExpense) => putItem(STORES.ceremonyExpenses, row);
+export const deleteCachedCeremonyExpense = (id: string) => deleteItem(STORES.ceremonyExpenses, id);
 
-// ========== الشهادات ==========
+// ========== Certificates ==========
 
 export interface CachedCertificate {
   id: string;
@@ -434,11 +363,13 @@ export interface CachedCertificate {
   updated_at?: string;
 }
 
-export const getCachedCertificates = () => selectAll<CachedCertificate>("certificates");
-export const putCachedCertificate = (row: CachedCertificate) => upsert("certificates", ["id"], row);
-export const deleteCachedCertificate = (id: string) => deleteByPk("certificates", ["id"], [id]);
+export const cacheCertificates = (rows: CachedCertificate[]) => cacheRecords(STORES.certificates, rows);
+export const getCachedCertificates = () => getAllItems<CachedCertificate>(STORES.certificates);
+export const getCachedCertificate = (id: string) => getItem<CachedCertificate>(STORES.certificates, id);
+export const putCachedCertificate = (row: CachedCertificate) => putItem(STORES.certificates, row);
+export const deleteCachedCertificate = (id: string) => deleteItem(STORES.certificates, id);
 
-// ========== بيانات الوسائط الوصفية ==========
+// ========== Media Metadata ==========
 
 export interface CachedMedia {
   id: string;
@@ -452,66 +383,72 @@ export interface CachedMedia {
   created_at?: string;
 }
 
-export const getCachedMedia = () => selectAll<CachedMedia>("media");
-export const putCachedMedia = (row: CachedMedia) => upsert("media", ["id"], row);
-export const deleteCachedMedia = (id: string) => deleteByPk("media", ["id"], [id]);
+export const cacheMedia = (rows: CachedMedia[]) => cacheRecords(STORES.media, rows);
+export const getCachedMedia = () => getAllItems<CachedMedia>(STORES.media);
+export const getCachedMediaItem = (id: string) => getItem<CachedMedia>(STORES.media, id);
+export const putCachedMedia = (row: CachedMedia) => putItem(STORES.media, row);
+export const deleteCachedMedia = (id: string) => deleteItem(STORES.media, id);
 
-// ========== الإعدادات (قيمة عامة أي شكل JSON) ==========
+// ========== Settings ==========
 
 export const setCachedSetting = async (key: string, value: any) => {
-  const db = await getDB();
-  await db.run(
-    `INSERT INTO settings (key, value) VALUES (?, ?)
-     ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-    [key, JSON.stringify(value)]
-  );
+  await putItem(STORES.settings, { key, value });
 };
 
 export const getCachedSetting = async <T>(key: string): Promise<T | undefined> => {
-  const db = await getDB();
-  const res = await db.query(`SELECT value FROM settings WHERE key = ?`, [key]);
-  const row = (res.values || [])[0];
-  if (!row) return undefined;
-  try {
-    return JSON.parse(row.value) as T;
-  } catch {
-    return row.value as T;
-  }
+  const item = await getItem<{ key: string; value: T }>(STORES.settings, key);
+  return item?.value;
 };
 
-// ========== وقت آخر "حفظ" محلي ==========
+// ========== Meta (last sync time etc) ==========
 
 export const setLastSyncTime = async () => {
-  const db = await getDB();
-  await db.run(
-    `INSERT INTO meta (key, time) VALUES ('lastSync', ?)
-     ON CONFLICT(key) DO UPDATE SET time = excluded.time`,
-    [Date.now()]
-  );
+  await putItem(STORES.meta, { key: "lastSync", time: Date.now() });
+};
+
+export const getLastSyncTime = async (): Promise<number | null> => {
+  const item = await getItem<{ key: string; time: number }>(STORES.meta, "lastSync");
+  return item?.time || null;
 };
 
 export const isCachePopulated = async (): Promise<boolean> => {
-  const db = await getDB();
-  const res = await db.query(`SELECT time FROM meta WHERE key = 'lastSync'`);
-  return (res.values || []).length > 0;
+  const lastSync = await getLastSyncTime();
+  return lastSync !== null;
 };
 
-// ========== التغييرات المعلَّقة (بقايا نظام قديم، غير فعّالة الآن) ==========
+// ========== Clear all ==========
+
+export const clearAllCache = async () => {
+  const db = await getDB();
+  const set: capSQLiteSet[] = Object.values(STORES).map((name) => ({ statement: `DELETE FROM ${name}`, values: [] }));
+  await db.executeSet(set, true);
+  await persist();
+};
+
+// ========== Pending Changes (incremental sync) ==========
 
 export type PendingOp = "upsert" | "delete";
 export type PendingEntity =
-  | "student" | "hifz" | "year" | "teacher" | "teacher_bonus"
-  | "donor" | "award" | "expense" | "certificate" | "media";
+  | "student"
+  | "hifz"
+  | "year"
+  | "teacher"
+  | "teacher_bonus"
+  | "donor"
+  | "award"
+  | "expense"
+  | "certificate"
+  | "media";
 
 export interface PendingChange {
-  key: string;
+  key: string; // e.g. "student:5", "hifz:5|h1441", "year:5|1447"
   entity: PendingEntity;
   op: PendingOp;
-  ref: any;
+  ref: any; // identifier(s) needed to resolve the record
   ts: number;
 }
 
-export const markDirty = async (entity: PendingEntity, op: PendingOp, ref: any) => {
+export const markDirty = (entity: PendingEntity, op: PendingOp, ref: any) => {
   let key = "";
   if (entity === "student") key = `student:${ref.id}`;
   else if (entity === "hifz") key = `hifz:${ref.student_id}|${ref.year_key}`;
@@ -523,144 +460,46 @@ export const markDirty = async (entity: PendingEntity, op: PendingOp, ref: any) 
   else if (entity === "expense") key = `expense:${ref.id}`;
   else if (entity === "certificate") key = `certificate:${ref.id}`;
   else if (entity === "media") key = `media:${ref.id}`;
-
-  const db = await getDB();
-  await db.run(
-    `INSERT INTO pending_changes (key, entity, op, ref, ts) VALUES (?, ?, ?, ?, ?)
-     ON CONFLICT(key) DO UPDATE SET entity = excluded.entity, op = excluded.op, ref = excluded.ref, ts = excluded.ts`,
-    [key, entity, op, JSON.stringify(ref), Date.now()]
-  );
+  return putItem(STORES.pending, { key, entity, op, ref, ts: Date.now() } as PendingChange);
 };
 
-export const getPendingChanges = async (): Promise<PendingChange[]> => {
-  const db = await getDB();
-  const res = await db.query(`SELECT * FROM pending_changes`);
-  return (res.values || []).map((r: any) => ({ ...r, ref: JSON.parse(r.ref) }));
-};
+export const getPendingChanges = () => getAllItems<PendingChange>(STORES.pending);
 
-export const clearPending = (key: string) => deleteByPk("pending_changes", ["key"], [key]);
+export const clearPending = (key: string) => deleteItem(STORES.pending, key);
 
-// ========== ملفات الوسائط (صور/فيديوهات) — تخزين حقيقي على الجهاز ==========
-// تُحفظ كملفات فعلية عبر Filesystem (وليس داخل SQLite) — أنسب وأسرع للملفات
-// الكبيرة، وتبقى بياناتها الوصفية (media table) داخل SQLite.
+export const clearAllPending = () => clearStore(STORES.pending);
 
-const mediaFilePath = (id: string) => `media/${id}.bin`;
-
-const blobToBase64 = (blob: Blob): Promise<string> =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const result = reader.result as string;
-      resolve(result.split(",")[1] || result);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-
-const base64ToBlob = (base64: string): Blob => {
-  const byteChars = atob(base64);
-  const byteNumbers = new Array(byteChars.length);
-  for (let i = 0; i < byteChars.length; i++) byteNumbers[i] = byteChars.charCodeAt(i);
-  return new Blob([new Uint8Array(byteNumbers)]);
-};
-
-export const putMediaFile = async (id: string, blob: Blob) => {
-  const base64 = await blobToBase64(blob);
-  await Filesystem.writeFile({
-    path: mediaFilePath(id),
-    data: base64,
-    directory: Directory.Data,
-    recursive: true,
-  });
-};
-
-export const getMediaFile = async (id: string): Promise<Blob | undefined> => {
-  try {
-    const res = await Filesystem.readFile({ path: mediaFilePath(id), directory: Directory.Data });
-    return base64ToBlob(res.data as string);
-  } catch {
-    return undefined;
-  }
-};
-
-export const deleteMediaFile = async (id: string) => {
-  try {
-    await Filesystem.deleteFile({ path: mediaFilePath(id), directory: Directory.Data });
-  } catch {
-    // الملف غير موجود أصلاً — تجاهلي
-  }
-};
-
-// ========== المتابعة الشهرية ==========
-
-export interface CachedMonthlyTracking {
-  user_id: string;
-  student_id: number;
-  year: string;
-  month: number;
-  memorization_from_surah: number | null;
-  memorization_from_ayah: number | null;
-  memorization_to_surah: number | null;
-  memorization_to_ayah: number | null;
-  memorization_hifz_score: number;
-  memorization_recitation_score: number;
-  review_from_surah: number | null;
-  review_from_ayah: number | null;
-  review_to_surah: number | null;
-  review_to_ayah: number | null;
-  review_hifz_score: number;
-  review_recitation_score: number;
-  attendance_score: number;
-  behavior_score: number;
-}
-
-export const getAllCachedMonthlyTracking = () =>
-  selectAll<CachedMonthlyTracking>("monthly_tracking");
-
-export const putCachedMonthlyTracking = (row: CachedMonthlyTracking) =>
-  upsert("monthly_tracking", ["student_id", "year", "month"], row);
-
-// ========== استيراد نسخة احتياطية كاملة (من نسخة IndexedDB القديمة) ==========
-
-export const importFullBackup = async (backup: any) => {
-  for (const s of backup.students || []) await putCachedStudent(s);
-  for (const h of backup.hifz || []) await putCachedHifzRow(h);
-  for (const y of backup.yearData || []) await putCachedYearData(y);
-  for (const t of backup.teachers || []) await putCachedTeacher(t);
-  for (const b of backup.bonuses || []) await putCachedTeacherBonus(b);
-  for (const d of backup.donors || []) await putCachedDonor(d);
-  for (const a of backup.awards || []) await putCachedAward(a);
-  for (const e of backup.expenses || []) await putCachedCeremonyExpense(e);
-  for (const c of backup.certs || []) await putCachedCertificate(c);
-  for (const m of backup.monthly || []) await putCachedMonthlyTracking(m);
-
-  for (const m of backup.media || []) {
-    const { base64, ...meta } = m;
-    await putCachedMedia(meta);
-    if (base64) {
-      try {
-        await putMediaFile(m.id, base64ToBlob(base64));
-      } catch (e) {
-        console.error(`فشل استيراد ملف الوسائط ${m.id}:`, e);
-      }
+// Re-key pending entries when a temp student id is replaced by the real cloud id
+export const remapPendingStudentId = async (oldId: number, newId: number) => {
+  const all = await getPendingChanges();
+  for (const p of all) {
+    let touched = false;
+    if (p.entity === "student" && p.ref?.id === oldId) {
+      p.ref.id = newId;
+      touched = true;
+    } else if ((p.entity === "hifz" || p.entity === "year") && p.ref?.student_id === oldId) {
+      p.ref.student_id = newId;
+      touched = true;
+    }
+    if (touched) {
+      await deleteItem(STORES.pending, p.key);
+      await markDirty(p.entity, p.op, p.ref);
     }
   }
+};
 
-  if (backup.activeYear) await setCachedSetting("active_year", backup.activeYear);
-  if (backup.tableFilters) await setCachedSetting("table_filters", backup.tableFilters);
+// ========== استعلامات إضافية مستفيدة من SQL حقيقي (إضافات "متقدمة" فوق نفس الواجهة) ==========
 
-  await setLastSyncTime();
+/** بحث بالاسم مباشرة داخل SQLite (بدل تحميل كل الطلاب وفلترتهم في الجافاسكربت) */
+export const searchCachedStudentsByName = async (query: string): Promise<CachedStudent[]> => {
+  const db = await getDB();
+  const res = await db.query(`SELECT * FROM ${STORES.students} WHERE name LIKE ? ORDER BY name`, [`%${query}%`]);
+  return (res.values ?? []) as CachedStudent[];
+};
 
-  return {
-    students: (backup.students || []).length,
-    hifz: (backup.hifz || []).length,
-    yearData: (backup.yearData || []).length,
-    teachers: (backup.teachers || []).length,
-    donors: (backup.donors || []).length,
-    awards: (backup.awards || []).length,
-    expenses: (backup.expenses || []).length,
-    certs: (backup.certs || []).length,
-    media: (backup.media || []).length,
-    monthly: (backup.monthly || []).length,
-  };
+/** بيانات سنة معيّنة لطالب واحد فقط، عبر فهرس student_id بدل مسح الجدول كاملاً */
+export const getCachedYearDataForStudent = async (studentId: number): Promise<CachedYearData[]> => {
+  const db = await getDB();
+  const res = await db.query(`SELECT * FROM ${STORES.yearData} WHERE student_id = ? ORDER BY year`, [studentId]);
+  return (res.values ?? []) as CachedYearData[];
 };

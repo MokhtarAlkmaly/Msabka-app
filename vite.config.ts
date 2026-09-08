@@ -9,11 +9,12 @@ import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 // On Vercel (env var VERCEL=1) build with Nitro's vercel preset -> .vercel/output
 // Locally / on Lovable the default target is kept.
 const isVercel = !!process.env["VERCEL"];
-// أثناء بناء تطبيق الجوال (APK) عبر GitHub Actions، لا نحتاج بيئة السيرفر
-// الفعلية إطلاقاً (التطبيق يفتح الموقع المنشور على Vercel مباشرة)، لكن
-// عملية البناء يجب أن تكتمل بدون خطأ. الهدف الافتراضي (Cloudflare Workers)
-// يرفض مكتبات خاصة بالمتصفح مثل jspdf/html2canvas، لذلك نستخدم هدف Node
-// العادي المتوافق مع كل المكتبات فقط بهذا السياق.
+
+// عند بناء تطبيق Capacitor (أندرويد) نحتاج خادم Node.js عادي وبسيط (بدل هدف
+// Cloudflare الافتراضي) حتى نقدر نشغّله مؤقتًا ونسحب منه صفحة HTML جاهزة لملء
+// index.html الثابت الذي يحتاجه Capacitor. نفعّل هذا فقط عبر متغير بيئة
+// CAPACITOR_BUILD=1 (مضبوط محليًا أو في GitHub Actions)، دون أي تأثير على بناء
+// الويب العادي (Vercel أو الافتراضي).
 const isCapacitorBuild = !!process.env["CAPACITOR_BUILD"];
 
 export default defineConfig({
@@ -25,6 +26,6 @@ export default defineConfig({
   ...(isVercel
     ? { nitro: { preset: "vercel" } }
     : isCapacitorBuild
-    ? { nitro: { preset: "node-server" } }
-    : {}),
+      ? { nitro: { preset: "node-server" } }
+      : {}),
 });

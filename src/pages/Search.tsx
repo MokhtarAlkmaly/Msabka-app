@@ -7,6 +7,9 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Search as SearchIcon, Printer, FileSpreadsheet, Share2, Save, Home, Loader2, TrendingUp, TrendingDown, Trophy, Gift, Award as AwardIcon } from "lucide-react";
 import * as XLSX from "xlsx";
+import { Capacitor } from "@capacitor/core";
+import { Filesystem, Directory } from "@capacitor/filesystem";
+import { Share as NativeShare } from "@capacitor/share";
 import { useToast } from "@/hooks/use-toast";
 import logo from "@/assets/logo.png";
 import { Student, HifzHistory, YearData, START_YEAR, END_YEAR } from "@/types/student";
@@ -311,7 +314,7 @@ const Search = () => {
     `);
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (!selected) return;
     const data = activeRows().map((r) => {
       const c = computed(r);
@@ -368,7 +371,14 @@ const Search = () => {
     wsExtras["!cols"] = Array(4).fill({ wch: 20 });
     XLSX.utils.book_append_sheet(wb, wsExtras, "الجوائز والشهادات");
 
-    XLSX.writeFile(wb, `سجل_${selected.name}.xlsx`);
+    const fileName = `سجل_${selected.name}.xlsx`;
+    if (Capacitor.isNativePlatform()) {
+      const base64 = XLSX.write(wb, { type: "base64", bookType: "xlsx" });
+      const result = await Filesystem.writeFile({ path: fileName, data: base64, directory: Directory.Cache });
+      await NativeShare.share({ title: fileName, url: result.uri });
+    } else {
+      XLSX.writeFile(wb, fileName);
+    }
     toast({ title: "تم التصدير", description: "تم تصدير سجل الطالبة والإحصائيات إلى Excel" });
   };
 
@@ -520,6 +530,7 @@ const Search = () => {
                         <td className="border border-border p-1">
                           <Input value={row.data.recitation} onChange={(e) => updateRow(row.year, "recitation", e.target.value)} type="number" min="0" max="20" className="h-9 w-16 rounded-lg border-0 bg-background/70 text-center" />
                         </td>
+
                         <td className="border border-border p-1">
                           <Input value={row.data.memorization} onChange={(e) => updateRow(row.year, "memorization", e.target.value)} type="number" min="0" max="60" className="h-9 w-16 rounded-lg border-0 bg-background/70 text-center" />
                         </td>

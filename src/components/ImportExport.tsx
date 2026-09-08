@@ -62,16 +62,17 @@ export const ImportExport = ({ onDataImported, currentYear, displayYear }: Props
   };
 
   const handleExport = async () => {
-    const students = await loadGlobalStudents();
+    const { loadAllStudentsWithData } = await import("@/utils/storage");
+    const students = await loadAllStudentsWithData(currentYear);
 
     if (students.length === 0) {
-      toast({ title: "لا توجد بيانات", description: "لا توجد بيانات لتصديرها", variant: "destructive" });
+      toast({ title: "لا توجد بيانات", description: `لا توجد طالبات مسجّلات بعام ${labelYear}هـ لتصديرها`, variant: "destructive" });
       return;
     }
 
     const exportData: Record<string, any>[] = [];
     for (const student of students) {
-      const yearData = await loadYearData(currentYear, student.id);
+      const yearData = student.yearData || await loadYearData(currentYear, student.id);
       exportData.push({
         'الاسم': student.name,
         'المعلمة': yearData.teacher || '',
@@ -173,9 +174,12 @@ export const ImportExport = ({ onDataImported, currentYear, displayYear }: Props
 
         onDataImported();
         try {
-          await syncToCloud();
+          if (navigator.onLine) {
+            setImportProgress({ current: jsonData.length, total: jsonData.length });
+            await syncToCloud();
+          }
         } catch (e) {
-          console.error('Post-import cleanup failed:', e);
+          console.error('Cloud sync after import failed:', e);
         }
         toast({
           title: `تم الاستيراد لعام ${labelYear}هـ`,

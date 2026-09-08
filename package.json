@@ -10,15 +10,19 @@
     "check-env": "node scripts/check-env.mjs",
     "preview": "vite preview",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "postinstall": "node scripts/copy-sqlite-wasm.mjs",
+    "cap:sync": "cap sync android",
+    "cap:android": "cap open android"
   },
   "dependencies": {
-    "@capacitor/android": "^7.4.4",
-    "@capacitor/app": "^7.1.0",
-    "@capacitor/core": "^7.4.4",
-    "@capacitor-community/sqlite": "latest",
-    "@capacitor/filesystem": "^7.1.4",
-    "@capacitor/share": "^7.0.2",
+    "@capacitor-community/sqlite": "^8.1.0",
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/core": "^8.0.0",
+    "@capacitor/filesystem": "^8.0.0",
+    "@capacitor/share": "^8.0.0",
+    "jeep-sqlite": "^2.8.0",
+    "sql.js": "1.11.0",
     "html2canvas": "^1.4.1",
     "jspdf": "^3.0.1",
     "quran-meta": "^6.0.17",
@@ -79,7 +83,7 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
-    "@capacitor/cli": "^7.4.4",
+    "@capacitor/cli": "^8.0.0",
     "@eslint/js": "^9.32.0",
     "@lovable.dev/vite-tanstack-config": "^2.15.0",
     "@types/node": "^22.16.5",

@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "@/lib/router-compat";
-import { ArrowRight, Award, Plus, Pencil, Trash2, Save, Printer, Gift, Sparkles, Calendar } from "lucide-react";
+import { ArrowRight, Award, Plus, Pencil, Trash2, Save, Printer, Gift, Sparkles, Calendar, HeartHandshake, Search as SearchIcon } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { Student, START_YEAR, END_YEAR } from "@/types/student";
 import {
@@ -22,7 +22,7 @@ import {
   loadTeacherBonuses,
 } from "@/utils/storage";
 
-type AwardType = "khatm_bonus" | "ceremony" | "annual" | "certificate";
+type AwardType = "khatm_bonus" | "ceremony" | "annual" | "certificate" | "guardian_contribution";
 type AwardKind = "cash" | "in_kind";
 type RecipientType =
   | "teacher"
@@ -63,12 +63,14 @@ const TYPE_LABEL: Record<AwardType, string> = {
   ceremony: "حفل التكريم",
   annual: "إكرامية سنوية",
   certificate: "شهادة/جائزة",
+  guardian_contribution: "مساهمة ولي أمر",
 };
 const TYPE_ICON: Record<AwardType, ReactElement> = {
   khatm_bonus: <Sparkles className="h-4 w-4 text-amber-600" />,
   ceremony: <Award className="h-4 w-4 text-purple-600" />,
   annual: <Gift className="h-4 w-4 text-emerald-600" />,
   certificate: <Award className="h-4 w-4 text-sky-600" />,
+  guardian_contribution: <HeartHandshake className="h-4 w-4 text-rose-600" />,
 };
 
 const esc = (s: string) =>
@@ -88,6 +90,7 @@ const Awards = () => {
 
   // dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [studentQuery, setStudentQuery] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({
     year: "1447",
@@ -148,6 +151,17 @@ const Awards = () => {
     [students]
   );
 
+  // كل طالبات العام المسجّلات (مو الخاتمات فقط) — لاختيار المستفيدة بالبحث/القائمة
+  const allStudentNames = useMemo(
+    () => students.map((s) => s.name).filter(Boolean).sort((a, b) => a.localeCompare(b, "ar")),
+    [students]
+  );
+  const filteredStudentNames = useMemo(() => {
+    const q = studentQuery.trim();
+    if (!q) return allStudentNames.slice(0, 30);
+    return allStudentNames.filter((n) => n.includes(q)).slice(0, 30);
+  }, [allStudentNames, studentQuery]);
+
   const yearAwards = useMemo(
     () => awards.filter((a) => a.year === currentYear),
     [awards, currentYear]
@@ -160,7 +174,7 @@ const Awards = () => {
     setForm({
       year: currentYear,
       award_type: type,
-      recipient_type: type === "certificate" ? "student" : "teacher",
+      recipient_type: (type === "certificate" || type === "guardian_contribution") ? "student" : "teacher",
       recipient_name: "",
       student_name: "",
       award_kind: type === "certificate" ? "in_kind" : "cash",
@@ -449,7 +463,7 @@ const Awards = () => {
           <div className="text-center py-12 text-muted-foreground">جارٍ التحميل...</div>
         ) : (
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as AwardType)}>
-            <TabsList className="grid grid-cols-2 md:grid-cols-4 w-full">
+            <TabsList className="grid grid-cols-2 md:grid-cols-5 w-full">
               <TabsTrigger value="khatm_bonus" className="gap-1">
                 <Sparkles className="h-4 w-4" /> الخاتمات
               </TabsTrigger>
@@ -461,6 +475,9 @@ const Awards = () => {
               </TabsTrigger>
               <TabsTrigger value="certificate" className="gap-1">
                 <Award className="h-4 w-4" /> الشهادات والجوائز
+              </TabsTrigger>
+              <TabsTrigger value="guardian_contribution" className="gap-1">
+                <HeartHandshake className="h-4 w-4" /> مساهمات أولياء الأمور
               </TabsTrigger>
             </TabsList>
             <TabsContent value="khatm_bonus" className="mt-4">
@@ -474,6 +491,9 @@ const Awards = () => {
             </TabsContent>
             <TabsContent value="certificate" className="mt-4">
               {renderTable(byType("certificate"), "certificate")}
+            </TabsContent>
+            <TabsContent value="guardian_contribution" className="mt-4">
+              {renderTable(byType("guardian_contribution"), "guardian_contribution")}
             </TabsContent>
           </Tabs>
         )}
@@ -565,20 +585,42 @@ const Awards = () => {
                     ))}
                   </SelectContent>
                 </Select>
-              ) : form.recipient_type === "student" && khatimat.length > 0 ? (
-                <Select
-                  value={form.recipient_name}
-                  onValueChange={(v) => setForm({ ...form, recipient_name: v })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={khatimat.length ? "اختر الطالبة الخاتمة" : "لا توجد خاتمات"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {khatimat.map((n) => (
-                      <SelectItem key={n} value={n}>{n}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              ) : form.recipient_type === "student" ? (
+                <div className="relative">
+                  <div className="relative">
+                    <SearchIcon className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      value={form.recipient_name || studentQuery}
+                      onChange={(e) => {
+                        setStudentQuery(e.target.value);
+                        setForm({ ...form, recipient_name: e.target.value });
+                      }}
+                      onFocus={() => setStudentQuery(form.recipient_name || "")}
+                      placeholder="ابحث عن الطالبة أو اختر من القائمة..."
+                      className="pr-9"
+                    />
+                  </div>
+                  {studentQuery && filteredStudentNames.length > 0 && (
+                    <div className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-border bg-background shadow-lg">
+                      {filteredStudentNames.map((n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          onClick={() => {
+                            setForm({ ...form, recipient_name: n });
+                            setStudentQuery("");
+                          }}
+                          className="block w-full px-3 py-2 text-right text-sm hover:bg-secondary"
+                        >
+                          {n}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {allStudentNames.length === 0 && (
+                    <p className="mt-1 text-xs text-muted-foreground">لا توجد طالبات مسجّلات بهذا العام</p>
+                  )}
+                </div>
               ) : (
                 <Input
                   value={form.recipient_name}

@@ -33,3 +33,6 @@ dist-ssr
 
 # Vercel
 .vercel
+
+# ملف SQLite/WASM يُنسخ تلقائيًا عبر postinstall (scripts/copy-sqlite-wasm.mjs)
+public/assets/sql-wasm.wasm
