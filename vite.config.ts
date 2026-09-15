@@ -23,6 +23,9 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  ssr: {
+    external: ["jspdf", "html2canvas"],
+  },
   ...(isVercel
     ? { nitro: { preset: "vercel" } }
     : isCapacitorBuild

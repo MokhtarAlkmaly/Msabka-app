@@ -16,8 +16,11 @@ import { Route as MonthlySearchRouteImport } from './routes/monthly-search'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedAwardsRouteImport } from './routes/_authenticated/awards'
 import { Route as AuthenticatedCertificatesRouteImport } from './routes/_authenticated/certificates'
+import { Route as AuthenticatedCompetitionRouteImport } from './routes/_authenticated/competition'
 import { Route as AuthenticatedDonorsRouteImport } from './routes/_authenticated/donors'
 import { Route as AuthenticatedExpensesRouteImport } from './routes/_authenticated/expenses'
+import { Route as AuthenticatedExternalCompetitionsRouteImport } from './routes/_authenticated/external-competitions'
+import { Route as AuthenticatedInternalCompetitionsRouteImport } from './routes/_authenticated/internal-competitions'
 import { Route as AuthenticatedKhatimatRouteImport } from './routes/_authenticated/khatimat'
 import { Route as AuthenticatedMediaRouteImport } from './routes/_authenticated/media'
 import { Route as AuthenticatedMonthlyRouteImport } from './routes/_authenticated/monthly'
@@ -59,6 +62,12 @@ const AuthenticatedCertificatesRoute =
     path: '/certificates',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedCompetitionRoute =
+  AuthenticatedCompetitionRouteImport.update({
+    id: '/competition',
+    path: '/competition',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedDonorsRoute = AuthenticatedDonorsRouteImport.update({
   id: '/donors',
   path: '/donors',
@@ -69,6 +78,18 @@ const AuthenticatedExpensesRoute = AuthenticatedExpensesRouteImport.update({
   path: '/expenses',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedExternalCompetitionsRoute =
+  AuthenticatedExternalCompetitionsRouteImport.update({
+    id: '/external-competitions',
+    path: '/external-competitions',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedInternalCompetitionsRoute =
+  AuthenticatedInternalCompetitionsRouteImport.update({
+    id: '/internal-competitions',
+    path: '/internal-competitions',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedKhatimatRoute = AuthenticatedKhatimatRouteImport.update({
   id: '/khatimat',
   path: '/khatimat',
@@ -102,8 +123,11 @@ export interface FileRoutesByFullPath {
   '/monthly-search': typeof MonthlySearchRoute
   '/awards': typeof AuthenticatedAwardsRoute
   '/certificates': typeof AuthenticatedCertificatesRoute
+  '/competition': typeof AuthenticatedCompetitionRoute
   '/donors': typeof AuthenticatedDonorsRoute
   '/expenses': typeof AuthenticatedExpensesRoute
+  '/external-competitions': typeof AuthenticatedExternalCompetitionsRoute
+  '/internal-competitions': typeof AuthenticatedInternalCompetitionsRoute
   '/khatimat': typeof AuthenticatedKhatimatRoute
   '/media': typeof AuthenticatedMediaRoute
   '/monthly': typeof AuthenticatedMonthlyRoute
@@ -116,8 +140,11 @@ export interface FileRoutesByTo {
   '/monthly-search': typeof MonthlySearchRoute
   '/awards': typeof AuthenticatedAwardsRoute
   '/certificates': typeof AuthenticatedCertificatesRoute
+  '/competition': typeof AuthenticatedCompetitionRoute
   '/donors': typeof AuthenticatedDonorsRoute
   '/expenses': typeof AuthenticatedExpensesRoute
+  '/external-competitions': typeof AuthenticatedExternalCompetitionsRoute
+  '/internal-competitions': typeof AuthenticatedInternalCompetitionsRoute
   '/khatimat': typeof AuthenticatedKhatimatRoute
   '/media': typeof AuthenticatedMediaRoute
   '/monthly': typeof AuthenticatedMonthlyRoute
@@ -133,8 +160,11 @@ export interface FileRoutesById {
   '/monthly-search': typeof MonthlySearchRoute
   '/_authenticated/awards': typeof AuthenticatedAwardsRoute
   '/_authenticated/certificates': typeof AuthenticatedCertificatesRoute
+  '/_authenticated/competition': typeof AuthenticatedCompetitionRoute
   '/_authenticated/donors': typeof AuthenticatedDonorsRoute
   '/_authenticated/expenses': typeof AuthenticatedExpensesRoute
+  '/_authenticated/external-competitions': typeof AuthenticatedExternalCompetitionsRoute
+  '/_authenticated/internal-competitions': typeof AuthenticatedInternalCompetitionsRoute
   '/_authenticated/khatimat': typeof AuthenticatedKhatimatRoute
   '/_authenticated/media': typeof AuthenticatedMediaRoute
   '/_authenticated/monthly': typeof AuthenticatedMonthlyRoute
@@ -151,8 +181,11 @@ export interface FileRouteTypes {
     | '/monthly-search'
     | '/awards'
     | '/certificates'
+    | '/competition'
     | '/donors'
     | '/expenses'
+    | '/external-competitions'
+    | '/internal-competitions'
     | '/khatimat'
     | '/media'
     | '/monthly'
@@ -165,8 +198,11 @@ export interface FileRouteTypes {
     | '/monthly-search'
     | '/awards'
     | '/certificates'
+    | '/competition'
     | '/donors'
     | '/expenses'
+    | '/external-competitions'
+    | '/internal-competitions'
     | '/khatimat'
     | '/media'
     | '/monthly'
@@ -181,8 +217,11 @@ export interface FileRouteTypes {
     | '/monthly-search'
     | '/_authenticated/awards'
     | '/_authenticated/certificates'
+    | '/_authenticated/competition'
     | '/_authenticated/donors'
     | '/_authenticated/expenses'
+    | '/_authenticated/external-competitions'
+    | '/_authenticated/internal-competitions'
     | '/_authenticated/khatimat'
     | '/_authenticated/media'
     | '/_authenticated/monthly'
@@ -249,6 +288,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCertificatesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/competition': {
+      id: '/_authenticated/competition'
+      path: '/competition'
+      fullPath: '/competition'
+      preLoaderRoute: typeof AuthenticatedCompetitionRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/donors': {
       id: '/_authenticated/donors'
       path: '/donors'
@@ -261,6 +307,20 @@ declare module '@tanstack/react-router' {
       path: '/expenses'
       fullPath: '/expenses'
       preLoaderRoute: typeof AuthenticatedExpensesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/external-competitions': {
+      id: '/_authenticated/external-competitions'
+      path: '/external-competitions'
+      fullPath: '/external-competitions'
+      preLoaderRoute: typeof AuthenticatedExternalCompetitionsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/internal-competitions': {
+      id: '/_authenticated/internal-competitions'
+      path: '/internal-competitions'
+      fullPath: '/internal-competitions'
+      preLoaderRoute: typeof AuthenticatedInternalCompetitionsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/khatimat': {
@@ -304,8 +364,11 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAwardsRoute: typeof AuthenticatedAwardsRoute
   AuthenticatedCertificatesRoute: typeof AuthenticatedCertificatesRoute
+  AuthenticatedCompetitionRoute: typeof AuthenticatedCompetitionRoute
   AuthenticatedDonorsRoute: typeof AuthenticatedDonorsRoute
   AuthenticatedExpensesRoute: typeof AuthenticatedExpensesRoute
+  AuthenticatedExternalCompetitionsRoute: typeof AuthenticatedExternalCompetitionsRoute
+  AuthenticatedInternalCompetitionsRoute: typeof AuthenticatedInternalCompetitionsRoute
   AuthenticatedKhatimatRoute: typeof AuthenticatedKhatimatRoute
   AuthenticatedMediaRoute: typeof AuthenticatedMediaRoute
   AuthenticatedMonthlyRoute: typeof AuthenticatedMonthlyRoute
@@ -317,8 +380,13 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAwardsRoute: AuthenticatedAwardsRoute,
   AuthenticatedCertificatesRoute: AuthenticatedCertificatesRoute,
+  AuthenticatedCompetitionRoute: AuthenticatedCompetitionRoute,
   AuthenticatedDonorsRoute: AuthenticatedDonorsRoute,
   AuthenticatedExpensesRoute: AuthenticatedExpensesRoute,
+  AuthenticatedExternalCompetitionsRoute:
+    AuthenticatedExternalCompetitionsRoute,
+  AuthenticatedInternalCompetitionsRoute:
+    AuthenticatedInternalCompetitionsRoute,
   AuthenticatedKhatimatRoute: AuthenticatedKhatimatRoute,
   AuthenticatedMediaRoute: AuthenticatedMediaRoute,
   AuthenticatedMonthlyRoute: AuthenticatedMonthlyRoute,

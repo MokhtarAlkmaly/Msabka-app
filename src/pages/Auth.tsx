@@ -64,9 +64,11 @@ const Auth = () => {
           <div className="rounded-3xl bg-primary/5 p-3 ring-1 ring-primary/10">
             <img src={logo} alt="الشعار" className="h-20 w-auto" />
           </div>
-          <h1 className="text-2xl font-black text-primary">كشف المسابقة الرمضانية</h1>
-          <p className="text-muted-foreground text-sm">
-            {isLogin ? "سجّل دخولك للوصول إلى البيانات" : "أنشئ حساباً جديداً"}
+          <h1 className="text-xl font-black text-primary text-center">
+            مركز إنماء الأهلي الخيري - قسم القرآن الكريم
+          </h1>
+          <p className="text-muted-foreground text-xs text-center">
+            {isLogin ? "سجّل دخولك للوصول إلى السجل الرسمي والمسابقات" : "أنشئ حساباً جديداً في النظام"}
           </p>
         </div>
 

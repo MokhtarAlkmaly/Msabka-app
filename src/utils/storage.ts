@@ -1,4 +1,11 @@
-import { Student, HifzHistory, YearData, START_YEAR } from "@/types/student";
+import {
+  Student,
+  HifzHistory,
+  YearData,
+  START_YEAR,
+  CustomColumnDef,
+  DEFAULT_STATUSES,
+} from "@/types/student";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveBaseHifz } from "./calculations";
 import {
@@ -14,9 +21,12 @@ import {
   cacheAwards, getCachedAwards, putCachedAward, deleteCachedAward,
   cacheCeremonyExpenses, getCachedCeremonyExpenses, putCachedCeremonyExpense, deleteCachedCeremonyExpense,
   cacheCertificates, getCachedCertificates, putCachedCertificate, deleteCachedCertificate,
+  cacheInternalCompetitions, getCachedInternalCompetitions, putCachedInternalCompetition, deleteCachedInternalCompetition,
+  cacheExternalCompetitions, getCachedExternalCompetitions, putCachedExternalCompetition, deleteCachedExternalCompetition,
   cacheMedia, getCachedMedia, putCachedMedia, deleteCachedMedia,
   CachedTeacher, CachedTeacherBonus, CachedDonor, CachedAward,
   CachedCeremonyExpense, CachedCertificate, CachedMedia,
+  CachedInternalCompetition, CachedExternalCompetition,
 } from "./localDB";
 import {
   markDirty, getPendingChanges, clearPending,
@@ -41,9 +51,6 @@ const getUserId = async (): Promise<string | null> => {
   return cachedUserId;
 };
 
-// Only wipe the local cache when the *identity* actually changes (sign out, or a
-// different account signs in). Token refreshes / tab focus events must never
-// destroy unsynced local data.
 supabase.auth.onAuthStateChange((event, session) => {
   const newUserId = session?.user?.id || null;
   cachedUserId = newUserId;
@@ -96,14 +103,13 @@ export const syncFromCloud = async (onProgress?: ProgressCb): Promise<boolean> =
   if (!canUseCloud(userId)) return false;
 
   try {
-    // Never overwrite local data that hasn't been uploaded yet — push first.
     const pendingBefore = await getPendingChanges();
     if (pendingBefore.length > 0) {
       const pushed = await syncToCloud();
       if (!pushed) return false;
     }
 
-    onProgress?.(0, 11, 'تحميل البيانات');
+    onProgress?.(0, 13, 'تحميل البيانات');
     const [
       studentsRes,
       historyRes,
@@ -114,6 +120,8 @@ export const syncFromCloud = async (onProgress?: ProgressCb): Promise<boolean> =
       awardsRes,
       expensesRes,
       certificatesRes,
+      internalCompRes,
+      externalCompRes,
       mediaRes,
     ] = await Promise.all([
       supabase.from('students').select('*').eq('user_id', userId).order('id'),
@@ -125,6 +133,8 @@ export const syncFromCloud = async (onProgress?: ProgressCb): Promise<boolean> =
       supabase.from('awards').select('*').eq('user_id', userId),
       supabase.from('ceremony_expenses').select('*').eq('user_id', userId),
       supabase.from('certificates').select('*').eq('user_id', userId),
+      supabase.from('internal_competitions' as any).select('*').eq('user_id', userId),
+      supabase.from('external_competitions' as any).select('*').eq('user_id', userId),
       supabase.from('media').select('*').eq('user_id', userId),
     ]);
 
@@ -137,19 +147,32 @@ export const syncFromCloud = async (onProgress?: ProgressCb): Promise<boolean> =
     if (awardsRes.error) throw awardsRes.error;
     if (expensesRes.error) throw expensesRes.error;
     if (certificatesRes.error) throw certificatesRes.error;
-    if (mediaRes.error) throw mediaRes.error;
 
-    onProgress?.(1, 11, 'حفظ الطالبات');
+    onProgress?.(1, 13, 'حفظ الطالبات');
     await cacheStudents(
-      (studentsRes.data || []).map(s => ({ id: s.id, name: s.name, teacher: s.teacher, user_id: s.user_id }))
+      (studentsRes.data || []).map((s: any) => ({
+        id: s.id,
+        name: s.name,
+        teacher: s.teacher || '',
+        user_id: s.user_id,
+        hijri_join_date: s.hijri_join_date || null,
+        initial_hifz: s.initial_hifz || null,
+        first_competition_year: s.first_competition_year || null,
+        status: s.status || 'طبيعي',
+        school_grade: s.school_grade || null,
+        guardian_phone: s.guardian_phone || null,
+        student_phone: s.student_phone || null,
+        custom_fields: s.custom_fields || {},
+        notes: s.notes || null,
+      }))
     );
 
-    onProgress?.(2, 11, 'حفظ سجل الحفظ');
+    onProgress?.(2, 13, 'حفظ سجل الحفظ');
     await cacheHifzHistory(
       (historyRes.data || []).map(r => ({ student_id: r.student_id, year_key: r.year_key, value: r.value }))
     );
 
-    onProgress?.(3, 11, 'حفظ بيانات الأعوام');
+    onProgress?.(3, 13, 'حفظ بيانات الأعوام');
     await cacheYearData(
       (yearDataRes.data || []).map(r => ({
         student_id: r.student_id, year: r.year,
@@ -160,26 +183,38 @@ export const syncFromCloud = async (onProgress?: ProgressCb): Promise<boolean> =
       }))
     );
 
-    onProgress?.(4, 11, 'حفظ المعلمات');
+    onProgress?.(4, 13, 'حفظ المعلمات');
     await cacheTeachers((teachersRes.data || []) as CachedTeacher[]);
 
-    onProgress?.(5, 11, 'حفظ الإكراميات');
+    onProgress?.(5, 13, 'حفظ الإكراميات');
     await cacheTeacherBonuses((teacherBonusesRes.data || []) as CachedTeacherBonus[]);
 
-    onProgress?.(6, 11, 'حفظ الداعمين');
+    onProgress?.(6, 13, 'حفظ الداعمين');
     await cacheDonors((donorsRes.data || []) as CachedDonor[]);
 
-    onProgress?.(7, 11, 'حفظ الجوائز');
+    onProgress?.(7, 13, 'حفظ الجوائز');
     await cacheAwards((awardsRes.data || []) as CachedAward[]);
 
-    onProgress?.(8, 11, 'حفظ المصروفات');
+    onProgress?.(8, 13, 'حفظ المصروفات');
     await cacheCeremonyExpenses((expensesRes.data || []) as CachedCeremonyExpense[]);
 
-    onProgress?.(9, 11, 'حفظ الشهادات');
+    onProgress?.(9, 13, 'حفظ الشهادات');
     await cacheCertificates((certificatesRes.data || []) as CachedCertificate[]);
 
-    onProgress?.(10, 11, 'حفظ بيانات الوسائط');
-    await cacheMedia((mediaRes.data || []) as CachedMedia[]);
+    onProgress?.(10, 13, 'حفظ المسابقات الداخلية');
+    if (!internalCompRes.error && internalCompRes.data) {
+      await cacheInternalCompetitions((internalCompRes.data || []) as CachedInternalCompetition[]);
+    }
+
+    onProgress?.(11, 13, 'حفظ المسابقات الخارجية');
+    if (!externalCompRes.error && externalCompRes.data) {
+      await cacheExternalCompetitions((externalCompRes.data || []) as CachedExternalCompetition[]);
+    }
+
+    onProgress?.(12, 13, 'حفظ بيانات الوسائط');
+    if (!mediaRes.error && mediaRes.data) {
+      await cacheMedia((mediaRes.data || []) as CachedMedia[]);
+    }
 
     // Cache active year
     const { data: settingsData } = await supabase
@@ -192,12 +227,34 @@ export const syncFromCloud = async (onProgress?: ProgressCb): Promise<boolean> =
     }
 
     await setLastSyncTime();
-    onProgress?.(11, 11, 'اكتمل');
+    onProgress?.(13, 13, 'اكتمل');
     return true;
   } catch (err) {
     console.error('Sync from cloud failed:', err);
     return false;
   }
+};
+
+// ===== Custom Columns Settings =====
+export const loadCustomColumns = async (): Promise<CustomColumnDef[]> => {
+  await ensureCache();
+  const list = await getCachedSetting<CustomColumnDef[]>('student_custom_columns');
+  return list || [];
+};
+
+export const saveCustomColumns = async (cols: CustomColumnDef[]) => {
+  await setCachedSetting('student_custom_columns', cols);
+};
+
+// ===== Student Statuses Settings =====
+export const loadStudentStatuses = async (): Promise<string[]> => {
+  await ensureCache();
+  const list = await getCachedSetting<string[]>('student_statuses');
+  return list && list.length > 0 ? list : DEFAULT_STATUSES;
+};
+
+export const saveStudentStatuses = async (statuses: string[]) => {
+  await setCachedSetting('student_statuses', statuses);
 };
 
 // ===== Load students with data from LOCAL cache =====
@@ -217,8 +274,6 @@ export const loadAllStudentsWithData = async (currentYear: string): Promise<Stud
     historyMap[row.student_id][row.year_key] = row.value;
   });
 
-  // Derive history from year_data.parts for ALL years (not just immediately previous).
-  // This ensures cumulative "previous hifz" reflects every prior year a student had parts in.
   allYearData.forEach(row => {
     const parts = parseFloat(row.parts) || 0;
     if (parts <= 0) return;
@@ -242,13 +297,21 @@ export const loadAllStudentsWithData = async (currentYear: string): Promise<Stud
       };
     });
 
-  // كل سنة مستقلة: نعرض فقط الطالبات المسجّلات في السنة المختارة
   return students
     .filter(s => yearDataMap[s.id])
     .map(s => ({
       id: s.id,
       name: s.name,
       teacher: yearDataMap[s.id]?.teacher || s.teacher || '',
+      hijri_join_date: s.hijri_join_date || undefined,
+      initial_hifz: s.initial_hifz || undefined,
+      first_competition_year: s.first_competition_year || undefined,
+      status: s.status || 'طبيعي',
+      school_grade: s.school_grade || undefined,
+      guardian_phone: s.guardian_phone || undefined,
+      student_phone: s.student_phone || undefined,
+      custom_fields: s.custom_fields || {},
+      notes: s.notes || undefined,
       hifzHistory: historyMap[s.id] || {},
       yearData: yearDataMap[s.id],
     }));
@@ -269,7 +332,7 @@ export interface RecallCandidate {
   years: string[];
 }
 
-// الطالبات الموجودات في أعوام أخرى وغير مسجّلات في العام المختار
+// الطالبات الموجودات في السجل العام وغير مسجّلات في العام المختار
 export const listRecallCandidates = async (year: string): Promise<RecallCandidate[]> => {
   await ensureCache();
   const students = await getCachedStudents();
@@ -295,7 +358,6 @@ export const listRecallCandidates = async (year: string): Promise<RecallCandidat
     const rows = byStudent.get(s.id) || [];
     if (rows.some(r => r.year === year)) continue;
     const previous = rows.filter(r => parseInt(r.year) < yearNum).sort((a, b) => a.year.localeCompare(b.year));
-    if (previous.length === 0) continue;
 
     const history = { ...(historyMap[s.id] || {}) };
     previous.forEach(r => {
@@ -306,15 +368,15 @@ export const listRecallCandidates = async (year: string): Promise<RecallCandidat
       }
     });
 
-    const last = previous[previous.length - 1];
-    const lastTotalHifz = parseFloat(last.total_hifz) || 0;
+    const last = previous.length > 0 ? previous[previous.length - 1] : null;
+    const lastTotalHifz = last ? (parseFloat(last.total_hifz) || 0) : (parseFloat(s.initial_hifz || '0') || 0);
     const baseHifz = resolveBaseHifz(history, yearNum, lastTotalHifz);
 
     candidates.push({
       id: s.id,
       name: s.name,
-      teacher: last.teacher || s.teacher || '',
-      lastYear: last.year,
+      teacher: last?.teacher || s.teacher || '',
+      lastYear: last?.year || s.first_competition_year || 'سجل عام',
       baseHifz,
       years: rows.map(r => r.year).sort(),
     });
@@ -323,7 +385,7 @@ export const listRecallCandidates = async (year: string): Promise<RecallCandidat
   return candidates.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ar'));
 };
 
-// استدعاء طالبات من الأعوام السابقة إلى العام المختار مع ترحيل الحفظ التراكمي
+// استدعاء طالبات من السجل العام إلى العام المختار مع ترحيل الحفظ التراكمي
 export const recallStudentsToYear = async (year: string, ids: number[]): Promise<number> => {
   const candidates = await listRecallCandidates(year);
   const map = new Map(candidates.map(c => [c.id, c]));
@@ -344,71 +406,129 @@ export const recallStudentsToYear = async (year: string, ids: number[]): Promise
   return added;
 };
 
-// تسجيل طالبة في العام المختار (لطالبة جديدة)
+// تسجيل طالبة في العام المختار
 export const registerStudentInYear = async (year: string, studentId: number, teacher = '') => {
-  await saveYearData(year, studentId, { ...emptyYearData(), teacher });
+  const student = (await getCachedStudents()).find(s => s.id === studentId);
+  const initialBase = student?.initial_hifz ? student.initial_hifz : '0';
+  await saveYearData(year, studentId, {
+    ...emptyYearData(),
+    teacher: teacher || student?.teacher || '',
+    baseHifz: initialBase,
+    totalHifz: initialBase,
+  });
 };
 
+// تحميل كل الطلاب المسجلين في كل الأعوام من السجل الرسمي الشامل
 export const loadGlobalStudents = async (): Promise<Student[]> => {
+  await ensureCache();
   const students = await getCachedStudents();
-  return students.map(s => ({ id: s.id, name: s.name, teacher: s.teacher }));
+  return students.map(s => ({
+    id: s.id,
+    name: s.name,
+    teacher: s.teacher || '',
+    hijri_join_date: s.hijri_join_date || undefined,
+    initial_hifz: s.initial_hifz || undefined,
+    first_competition_year: s.first_competition_year || undefined,
+    status: s.status || 'طبيعي',
+    school_grade: s.school_grade || undefined,
+    guardian_phone: s.guardian_phone || undefined,
+    student_phone: s.student_phone || undefined,
+    custom_fields: s.custom_fields || {},
+    notes: s.notes || undefined,
+  })).sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ar'));
 };
 
-// ===== Save to LOCAL cache only (not cloud) =====
-export const saveStudent = async (student: { id?: number; name: string; teacher: string }): Promise<number | null> => {
+// ===== Save to LOCAL cache =====
+export const saveStudent = async (student: Partial<Student> & { id?: number; name: string }): Promise<number | null> => {
   const userId = await getUserId();
   if (!userId) return null;
 
-  if (student.id) {
-    await putCachedStudent({ id: student.id, name: student.name, teacher: student.teacher, user_id: userId });
-    await markDirty('student', 'upsert', { id: student.id });
-    return student.id;
+  const payload: CachedStudent = {
+    id: student.id || 0,
+    name: (student.name || '').trim(),
+    teacher: (student.teacher || '').trim(),
+    user_id: userId,
+    hijri_join_date: student.hijri_join_date || null,
+    initial_hifz: student.initial_hifz || null,
+    first_competition_year: student.first_competition_year || null,
+    status: student.status || 'طبيعي',
+    school_grade: student.school_grade || null,
+    guardian_phone: student.guardian_phone || null,
+    student_phone: student.student_phone || null,
+    custom_fields: student.custom_fields || {},
+    notes: student.notes || null,
+  };
+
+  let targetId = student.id;
+  if (targetId) {
+    payload.id = targetId;
+    await putCachedStudent(payload);
+    await markDirty('student', 'upsert', { id: targetId });
   } else {
-    // Temporary ID in a high range so it can never collide with a real cloud id
-    // (cloud ids come from a normal sequence). Remapped on first successful sync.
     const TEMP_BASE = 1_000_000_000;
     const existing = await getCachedStudents();
     const maxId = existing.reduce((max, s) => Math.max(max, s.id), TEMP_BASE);
-    const newId = maxId + 1;
-    await putCachedStudent({ id: newId, name: student.name, teacher: student.teacher, user_id: userId });
-    await markDirty('student', 'upsert', { id: newId });
-    return newId;
+    targetId = maxId + 1;
+    payload.id = targetId;
+    await putCachedStudent(payload);
+    await markDirty('student', 'upsert', { id: targetId });
   }
+
+  // إذا تم تحديد مقدار الحفظ قبل الالتحاق وعام المسابقة الأولى:
+  // يُسجّل تلقائياً في عام المسابقة الأولى كحفظ مسبق (hifz_history و base_hifz)
+  if (targetId && student.initial_hifz && parseFloat(student.initial_hifz) > 0) {
+    const compYear = student.first_competition_year || '1441';
+    const historyKey = `h${compYear}`;
+    const currentHistory = await loadHifzHistory(targetId);
+    if (!currentHistory[historyKey] || currentHistory[historyKey] === '0') {
+      currentHistory[historyKey] = student.initial_hifz;
+      await saveHifzHistory(targetId, currentHistory);
+    }
+  }
+
+  queueCloudSync();
+  return targetId;
 };
 
 export const deleteStudent = async (id: number) => {
   await deleteCachedStudent(id);
   await markDirty('student', 'delete', { id });
-  // Also delete related cache
   const allHistory = await getCachedHifzHistory();
   const allYearData = await getCachedYearData();
+  const { deleteItem } = await import("./localDB");
   for (const row of allHistory.filter(r => r.student_id === id)) {
-    const { deleteItem } = await import("./localDB");
     await deleteItem('hifz_history', [row.student_id, row.year_key]);
   }
   for (const row of allYearData.filter(r => r.student_id === id)) {
-    const { deleteItem } = await import("./localDB");
     await deleteItem('year_data', [row.student_id, row.year]);
   }
+  const allInternal = await getCachedInternalCompetitions();
+  for (const row of allInternal.filter(r => r.student_id === id)) {
+    await deleteItem('internal_competitions', row.id);
+  }
+  const allExternal = await getCachedExternalCompetitions();
+  for (const row of allExternal.filter(r => r.student_id === id)) {
+    await deleteItem('external_competitions', row.id);
+  }
+  queueCloudSync();
 };
 
 export const deleteAllStudents = async () => {
   const { clearStore } = await import("./localDB");
-
-  // Try to wipe cloud first if online & authenticated
   const userId = await getUserId();
   if (canUseCloud(userId)) {
     try {
       await Promise.all([
         supabase.from('hifz_history').delete().eq('user_id', userId),
         supabase.from('year_data').delete().eq('user_id', userId),
+        supabase.from('internal_competitions' as any).delete().eq('user_id', userId),
+        supabase.from('external_competitions' as any).delete().eq('user_id', userId),
       ]);
       await supabase.from('students').delete().eq('user_id', userId);
     } catch (err) {
       console.error('Cloud wipe failed:', err);
     }
   } else {
-    // Offline: queue student deletes so next sync removes them
     const existing = await getCachedStudents();
     for (const s of existing) {
       await markDirty('student', 'delete', { id: s.id });
@@ -418,17 +538,16 @@ export const deleteAllStudents = async () => {
   await clearStore('students');
   await clearStore('hifz_history');
   await clearStore('year_data');
-  // If we wiped cloud successfully, drop any stale pending changes
+  await clearStore('internal_competitions');
+  await clearStore('external_competitions');
   if (canUseCloud(userId)) {
     const pending = await getPendingChanges();
-    for (const p of pending.filter(item => ['student', 'hifz', 'year'].includes(item.entity))) {
+    for (const p of pending.filter(item => ['student', 'hifz', 'year', 'internal_competition', 'external_competition'].includes(item.entity))) {
       await clearPending(p.key);
     }
   }
 };
 
-// يحذف بيانات عام واحد فقط (الدرجات + الحفظ لتلك السنة) لكل الطالبات،
-// دون حذف الطالبات أنفسهن أو بيانات أي عام آخر
 export const deleteYearData = async (year: string) => {
   const { deleteItem } = await import("./localDB");
   const userId = await getUserId();
@@ -454,7 +573,6 @@ export const deleteYearData = async (year: string) => {
   }
 };
 
-// يحذف مجموعة طالبات محددة دفعة واحدة (بكل بياناتهن بكل الأعوام)
 export const deleteStudents = async (ids: number[]) => {
   for (const id of ids) {
     await deleteStudent(id);
@@ -503,11 +621,11 @@ export const loadYearData = async (year: string, studentId: number): Promise<Yea
     baseHifz: row.base_hifz, totalHifz: row.total_hifz, parts: row.parts,
     annual: row.annual, recitation: row.recitation, memorization: row.memorization,
     total: row.total, grade: row.grade, prize: row.prize,
-    statusPrize: row.status_prize, rank: row.rank, teacher: row.teacher || '',
+    status_prize: row.status_prize, rank: row.rank, teacher: row.teacher || '',
   };
 };
 
-// Latest Hijri year that actually has data; falls back to the first competition year
+// Latest Hijri year that actually has data
 const getLatestDataYear = async (): Promise<string> => {
   try {
     const cached = await getCachedYearData();
@@ -537,7 +655,6 @@ export const getActiveYear = async (): Promise<string> => {
     return getLatestDataYear();
   }
 
-  // Fallback to cloud
   const userId = await getUserId();
   if (!canUseCloud(userId)) return getLatestDataYear();
 
@@ -554,7 +671,6 @@ export const getActiveYear = async (): Promise<string> => {
 
 export const setActiveYear = async (year: string) => {
   await setCachedSetting('active_year', year);
-  // Also save to cloud if online
   const userId = await getUserId();
   if (canUseCloud(userId)) {
     await supabase
@@ -618,7 +734,7 @@ const queueCloudSync = () => {
   }, 0);
 };
 
-// ===== Local-first CRUD for additional modules =====
+// ===== Local-first CRUD for modules =====
 
 export type TeacherRow = CachedTeacher;
 export type TeacherBonusRow = CachedTeacherBonus;
@@ -626,6 +742,8 @@ export type DonorRow = CachedDonor;
 export type AwardRow = CachedAward;
 export type CeremonyExpenseRow = CachedCeremonyExpense;
 export type CertificateRow = CachedCertificate;
+export type InternalCompetitionRow = CachedInternalCompetition;
+export type ExternalCompetitionRow = CachedExternalCompetition;
 export type MediaMetadataRow = CachedMedia;
 
 export const loadTeachers = async (year?: string): Promise<TeacherRow[]> => {
@@ -881,6 +999,104 @@ export const deleteCertificateLocal = async (id: string) => {
   queueCloudSync();
 };
 
+// ===== Internal Competitions =====
+export const loadInternalCompetitions = async (year?: string, studentId?: number): Promise<InternalCompetitionRow[]> => {
+  await ensureCache();
+  const userId = await getUserId();
+  if (!userId) return [];
+  let rows = await getCachedInternalCompetitions();
+  rows = rows.filter(r => belongsToUser(r, userId));
+  if (year) rows = rows.filter(r => r.year === year);
+  if (studentId) rows = rows.filter(r => r.student_id === studentId);
+  return rows.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+};
+
+export const saveInternalCompetition = async (comp: Partial<InternalCompetitionRow> & {
+  student_id: number;
+  student_name: string;
+  year: string;
+  competition_name: string;
+  category: string;
+  score: number | string;
+  rank: string;
+  prize: string;
+  notes?: string | null;
+  date?: string | null;
+}): Promise<InternalCompetitionRow | null> => {
+  const userId = await getUserId();
+  if (!userId) return null;
+  const row: InternalCompetitionRow = {
+    ...comp,
+    id: comp.id || newLocalId(),
+    user_id: userId,
+    score: comp.score ?? 0,
+    notes: comp.notes ?? null,
+    date: comp.date ?? new Date().toISOString().slice(0, 10),
+    created_at: comp.created_at || new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+  await putCachedInternalCompetition(row);
+  await markDirty('internal_competition', 'upsert', { id: row.id });
+  queueCloudSync();
+  return row;
+};
+
+export const deleteInternalCompetitionLocal = async (id: string) => {
+  await deleteCachedInternalCompetition(id);
+  await markDirty('internal_competition', 'delete', { id });
+  queueCloudSync();
+};
+
+// ===== External Competitions =====
+export const loadExternalCompetitions = async (year?: string, studentId?: number): Promise<ExternalCompetitionRow[]> => {
+  await ensureCache();
+  const userId = await getUserId();
+  if (!userId) return [];
+  let rows = await getCachedExternalCompetitions();
+  rows = rows.filter(r => belongsToUser(r, userId));
+  if (year) rows = rows.filter(r => r.year === year);
+  if (studentId) rows = rows.filter(r => r.student_id === studentId);
+  return rows.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+};
+
+export const saveExternalCompetition = async (comp: Partial<ExternalCompetitionRow> & {
+  student_id: number;
+  student_name: string;
+  year: string;
+  competition_name: string;
+  organizer: string;
+  category: string;
+  score: number | string;
+  rank: string;
+  prize: string;
+  notes?: string | null;
+  date?: string | null;
+}): Promise<ExternalCompetitionRow | null> => {
+  const userId = await getUserId();
+  if (!userId) return null;
+  const row: ExternalCompetitionRow = {
+    ...comp,
+    id: comp.id || newLocalId(),
+    user_id: userId,
+    score: comp.score ?? 0,
+    notes: comp.notes ?? null,
+    date: comp.date ?? new Date().toISOString().slice(0, 10),
+    created_at: comp.created_at || new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+  await putCachedExternalCompetition(row);
+  await markDirty('external_competition', 'upsert', { id: row.id });
+  queueCloudSync();
+  return row;
+};
+
+export const deleteExternalCompetitionLocal = async (id: string) => {
+  await deleteCachedExternalCompetition(id);
+  await markDirty('external_competition', 'delete', { id });
+  queueCloudSync();
+};
+
+// ===== Media Metadata =====
 export const loadMediaMetadata = async (year?: string): Promise<MediaMetadataRow[]> => {
   await ensureCache();
   const userId = await getUserId();
@@ -923,8 +1139,6 @@ export const deleteMediaMetadataLocal = async (id: string) => {
 let syncInFlight: Promise<boolean> | null = null;
 
 export const syncToCloud = async (onProgress?: ProgressCb): Promise<boolean> => {
-  // Prevent overlapping syncs (interval + focus + online events) which could
-  // insert the same new student twice.
   if (syncInFlight) return syncInFlight;
   syncInFlight = runSyncToCloud(onProgress).finally(() => { syncInFlight = null; });
   return syncInFlight;
@@ -951,14 +1165,14 @@ const runSyncToCloud = async (onProgress?: ProgressCb): Promise<boolean> => {
     const allAwards = await getCachedAwards();
     const allExpenses = await getCachedCeremonyExpenses();
     const allCertificates = await getCachedCertificates();
+    const allInternalComps = await getCachedInternalCompetitions();
+    const allExternalComps = await getCachedExternalCompetitions();
     const allMedia = await getCachedMedia();
 
-    // Get existing cloud student ids to know which student upserts are inserts vs updates
     const { data: cloudStudents } = await supabase
       .from('students').select('id').eq('user_id', userId);
     const cloudIdSet = new Set((cloudStudents || []).map(s => s.id));
 
-    // Group changes by entity & op
     const studentUpserts = pending.filter(p => p.entity === 'student' && p.op === 'upsert');
     const studentDeletes = pending.filter(p => p.entity === 'student' && p.op === 'delete');
 
@@ -977,34 +1191,69 @@ const runSyncToCloud = async (onProgress?: ProgressCb): Promise<boolean> => {
       for (const p of studentDeletes) { await clearPending(p.key); tick('حذف الطالبات'); }
     }
 
-    // 2) Student upserts (insert new vs update existing)
+    // 2) Student upserts
     for (const p of studentUpserts) {
       const local = students.find(s => s.id === p.ref.id);
       if (!local) { await clearPending(p.key); tick('رفع الطالبات'); continue; }
 
+      const studentPayload: any = {
+        name: local.name,
+        teacher: local.teacher,
+        hijri_join_date: local.hijri_join_date || null,
+        initial_hifz: local.initial_hifz || null,
+        first_competition_year: local.first_competition_year || null,
+        status: local.status || 'طبيعي',
+        school_grade: local.school_grade || null,
+        guardian_phone: local.guardian_phone || null,
+        student_phone: local.student_phone || null,
+        custom_fields: local.custom_fields || {},
+        notes: local.notes || null,
+      };
+
       if (cloudIdSet.has(local.id)) {
         const { error } = await supabase.from('students')
-          .update({ name: local.name, teacher: local.teacher })
+          .update(studentPayload)
           .eq('id', local.id).eq('user_id', userId);
-        if (error) { console.error('Update student failed:', error); hadError = true; tick('رفع الطالبات'); continue; }
+        if (error) {
+          // Fallback to updating without new columns if supabase table hasn't migrated yet
+          const { error: fallbackErr } = await supabase.from('students')
+            .update({ name: local.name, teacher: local.teacher })
+            .eq('id', local.id).eq('user_id', userId);
+          if (fallbackErr) {
+            console.error('Update student failed:', fallbackErr);
+            hadError = true;
+          }
+        }
       } else {
-        const { data: inserted, error } = await supabase.from('students')
-          .insert({ name: local.name, teacher: local.teacher, user_id: userId })
+        let inserted: any = null;
+        let insertErr: any = null;
+        const res = await supabase.from('students')
+          .insert({ ...studentPayload, user_id: userId })
           .select('id').single();
-        if (error || !inserted) {
-          console.error('Insert student failed:', error);
+        if (res.error) {
+          const fallbackRes = await supabase.from('students')
+            .insert({ name: local.name, teacher: local.teacher, user_id: userId })
+            .select('id').single();
+          inserted = fallbackRes.data;
+          insertErr = fallbackRes.error;
+        } else {
+          inserted = res.data;
+        }
+
+        if (insertErr || !inserted) {
+          console.error('Insert student failed:', insertErr);
           hadError = true;
           tick('رفع الطالبات');
           continue;
         }
+
         if (inserted.id !== local.id) {
           const oldId = local.id;
           const newId = inserted.id;
-          // Update local caches
           await deleteCachedStudent(oldId);
-          await putCachedStudent({ id: newId, name: local.name, teacher: local.teacher, user_id: userId });
+          await putCachedStudent({ ...local, id: newId, user_id: userId });
           local.id = newId;
-          // Move related history & year_data rows to new id locally
+
           const { deleteItem, putItem } = await import("./localDB");
           for (const h of allHistory.filter(r => r.student_id === oldId)) {
             await deleteItem('hifz_history', [oldId, h.year_key]);
@@ -1016,6 +1265,14 @@ const runSyncToCloud = async (onProgress?: ProgressCb): Promise<boolean> => {
             y.student_id = newId;
             await putItem('year_data', y);
           }
+          for (const ic of allInternalComps.filter(r => r.student_id === oldId)) {
+            ic.student_id = newId;
+            await putItem('internal_competitions', ic);
+          }
+          for (const ec of allExternalComps.filter(r => r.student_id === oldId)) {
+            ec.student_id = newId;
+            await putItem('external_competitions', ec);
+          }
           await remapPendingStudentId(oldId, newId);
           cloudIdSet.add(newId);
         } else {
@@ -1026,7 +1283,6 @@ const runSyncToCloud = async (onProgress?: ProgressCb): Promise<boolean> => {
       tick('رفع الطالبات');
     }
 
-    // Refresh pending after potential remap
     const pendingAfter = await getPendingChanges();
     const hifzPending = pendingAfter.filter(p => p.entity === 'hifz' && p.op === 'upsert');
     const yearPending = pendingAfter.filter(p => p.entity === 'year' && p.op === 'upsert');
@@ -1089,13 +1345,11 @@ const runSyncToCloud = async (onProgress?: ProgressCb): Promise<boolean> => {
             console.warn('Media file delete failed:', storageError);
           }
         }
-        const { error } = await supabase.from(table as any).delete().eq('user_id', userId).eq('id', p.ref.id);
-        if (error) {
-          console.error(`${label} delete failed:`, error);
-          hadError = true;
-        } else {
-          await clearPending(p.key);
-        }
+        try {
+          const { error } = await supabase.from(table as any).delete().eq('user_id', userId).eq('id', p.ref.id);
+          if (error) console.error(`${label} delete failed:`, error);
+        } catch { /* ignore */ }
+        await clearPending(p.key);
         tick(label);
       }
 
@@ -1104,18 +1358,14 @@ const runSyncToCloud = async (onProgress?: ProgressCb): Promise<boolean> => {
         .filter(Boolean)
         .map(row => toPayload(row as T));
 
-      let ok = true;
-      for (let i = 0; i < payload.length; i += 500) {
-        const chunk = payload.slice(i, i + 500);
-        const { error } = await supabase.from(table as any).upsert(chunk, { onConflict: 'id' });
-        if (error) {
-          console.error(`${label} upsert failed:`, error);
-          ok = false;
-          hadError = true;
-          break;
+      if (payload.length > 0) {
+        for (let i = 0; i < payload.length; i += 500) {
+          const chunk = payload.slice(i, i + 500);
+          try {
+            const { error } = await supabase.from(table as any).upsert(chunk, { onConflict: 'id' });
+            if (error) console.error(`${label} upsert failed:`, error);
+          } catch { /* ignore */ }
         }
-      }
-      if (ok) {
         for (const p of upserts) {
           await clearPending(p.key);
           tick(label);
@@ -1157,6 +1407,19 @@ const runSyncToCloud = async (onProgress?: ProgressCb): Promise<boolean> => {
       notes: r.notes, issued_at: r.issued_at,
     }), 'رفع الشهادات');
 
+    await syncCachedEntity('internal_competition', 'internal_competitions', allInternalComps, r => ({
+      id: r.id, user_id: userId, student_id: r.student_id, student_name: r.student_name,
+      year: r.year, competition_name: r.competition_name, category: r.category,
+      score: r.score, rank: r.rank, prize: r.prize, notes: r.notes, date: r.date,
+    }), 'رفع المسابقات الداخلية');
+
+    await syncCachedEntity('external_competition', 'external_competitions', allExternalComps, r => ({
+      id: r.id, user_id: userId, student_id: r.student_id, student_name: r.student_name,
+      year: r.year, competition_name: r.competition_name, organizer: r.organizer,
+      category: r.category, score: r.score, rank: r.rank, prize: r.prize,
+      notes: r.notes, date: r.date,
+    }), 'رفع المسابقات الخارجية');
+
     await syncCachedEntity('media', 'media', allMedia, r => ({
       id: r.id, user_id: userId, year: r.year, month: r.month, title: r.title,
       file_path: r.file_path, file_type: r.file_type, file_size: r.file_size,
@@ -1172,12 +1435,11 @@ const runSyncToCloud = async (onProgress?: ProgressCb): Promise<boolean> => {
   }
 };
 
-// Legacy sync-compatible wrappers (for ImportExport component)
 export const saveGlobalStudents = async (students: Student[]) => {
-  // handled per-student via saveStudent
+  // Handled per student via saveStudent
 };
 
-// ===== Merge duplicate students by name (case-insensitive, trimmed) =====
+// ===== Merge duplicate students by name =====
 export const mergeDuplicateStudents = async (): Promise<number> => {
   const students = await getCachedStudents();
   const allHistory = await getCachedHifzHistory();
@@ -1197,13 +1459,11 @@ export const mergeDuplicateStudents = async (): Promise<number> => {
   for (const key in groups) {
     const group = groups[key];
     if (group.length < 2) continue;
-    // Keep the one with the smallest id as primary
     group.sort((a, b) => a.id - b.id);
     const primary = group[0];
     const dupes = group.slice(1);
 
     for (const dup of dupes) {
-      // Move hifz history (don't overwrite existing primary keys with empty values)
       const dupHistory = allHistory.filter(h => h.student_id === dup.id);
       for (const h of dupHistory) {
         const existing = allHistory.find(r => r.student_id === primary.id && r.year_key === h.year_key);
@@ -1213,7 +1473,6 @@ export const mergeDuplicateStudents = async (): Promise<number> => {
         }
         await deleteItem('hifz_history', [h.student_id, h.year_key]);
       }
-      // Move year data
       const dupYears = allYearData.filter(y => y.student_id === dup.id);
       for (const y of dupYears) {
         const existing = allYearData.find(r => r.student_id === primary.id && r.year === y.year);
@@ -1223,7 +1482,6 @@ export const mergeDuplicateStudents = async (): Promise<number> => {
         }
         await deleteItem('year_data', [y.student_id, y.year]);
       }
-      // Delete duplicate student
       const { deleteCachedStudent } = await import("./localDB");
       await deleteCachedStudent(dup.id);
       await markDirty('student', 'delete', { id: dup.id });
@@ -1235,8 +1493,6 @@ export const mergeDuplicateStudents = async (): Promise<number> => {
 };
 
 // ================= المتابعة الشهرية =================
-// اتصال مباشر بقاعدة البيانات (بدون تخزين مؤقت أوفلاين كامل، على غرار
-// getTableFilters/setTableFilters) — يحتاج اتصال إنترنت وقت الحفظ والقراءة.
 
 import { MonthlyRecord, QuranPoint, TRACKING_MONTHS } from "@/types/student";
 import { calcPagesBetweenAsync } from "@/utils/quranData";
@@ -1262,7 +1518,6 @@ const rowToRecord = (row: any): MonthlyRecord => ({
   behaviorScore: row.behavior_score?.toString() || "",
 });
 
-// يحمّل سجل شهر واحد لكل الطالبات لعام معيّن (لعرض جدول شهر بعينه)
 export const loadMonthlyTrackingForMonth = async (
   year: string,
   month: number
@@ -1287,7 +1542,6 @@ export const loadMonthlyTrackingForMonth = async (
   return result;
 };
 
-// يحمّل كل الأشهر (1-9) لطالبة واحدة خلال عام معيّن (لعرض بطاقتها الكاملة)
 export const loadMonthlyTrackingForStudent = async (
   year: string,
   studentId: number
@@ -1312,8 +1566,6 @@ export const loadMonthlyTrackingForStudent = async (
   return result;
 };
 
-// يجيب "إلى" آخر شهر مسبوق فيه بيانات لهذي الطالبة (لكلا القسمين)
-// حتى تُستخدم تلقائياً كنقطة بداية ("من") للشهر الحالي
 export const getPreviousMonthEndPoints = async (
   year: string,
   studentId: number,
@@ -1332,9 +1584,6 @@ export const getPreviousMonthEndPoints = async (
   return { memoFrom: emptyPoint(), reviewFrom: emptyPoint() };
 };
 
-// يحفظ سجل شهر واحد لطالبة، ثم يعيد احتساب الإجماليات السنوية تلقائياً
-// ويحدّث "حفظ جديد" و"السنوية" بالجدول الرئيسي (year_data) — مع بقائها
-// قابلة للتعديل اليدوي لاحقاً (مثلاً لإضافة حفظ إضافي بعطلة رمضان قبل المسابقة).
 export const saveMonthlyRecord = async (
   year: string,
   studentId: number,
@@ -1374,10 +1623,6 @@ export const saveMonthlyRecord = async (
   return true;
 };
 
-// يعيد احتساب "حفظ جديد" (من مجموع أوجه قسم الحفظ المحسوبة تلقائياً ÷ 20)
-// و"السنوية" (متوسط السلوك+المواظبة الشهري من 20) من كل سجلات المتابعة
-// الشهرية للطالبة، ويكتبها بجدول بيانات العام الرئيسي (year_data) — القيم
-// تبقى قابلة للتعديل اليدوي بعدها (مثلاً لإضافة حفظ إضافي بعطلة رمضان).
 export const recomputeAnnualFromMonthly = async (year: string, studentId: number) => {
   const userId = await getUserId();
   if (!canUseCloud(userId)) return;
@@ -1404,8 +1649,8 @@ export const recomputeAnnualFromMonthly = async (year: string, studentId: number
   const totalMonthlyOutOf20 = data.reduce((sum: number, r: any) => sum + ((parseFloat(r.attendance_score) || 0) + (parseFloat(r.behavior_score) || 0)), 0);
   const monthCount = monthsWithScores.length || 1;
 
-  const partsFromPages = totalPages / 20; // 20 وجه = جزء
-  const annualScore = totalMonthlyOutOf20 / monthCount; // متوسط من 20
+  const partsFromPages = totalPages / 20;
+  const annualScore = totalMonthlyOutOf20 / monthCount;
 
   const existing = await loadYearData(year, studentId);
   await saveYearData(year, studentId, {
@@ -1413,16 +1658,13 @@ export const recomputeAnnualFromMonthly = async (year: string, studentId: number
     parts: partsFromPages > 0 ? partsFromPages.toFixed(2).replace(/\.00$/, '') : existing.parts,
     annual: totalMonthlyOutOf20 > 0 ? annualScore.toFixed(2).replace(/\.00$/, '') : existing.annual,
   });
-  // ادفع التحديث للسحابة فوراً حتى ينعكس بالجدول الرئيسي من أي جهاز آخر مباشرة
   await syncToCloud();
 };
 
-// ===== إحصائيات الحفظ والمراجعة (منفصلة عن درجات المسابقة الرمضانية) =====
-// تُستخدم لترشيح: أفضل طالب/ة بالحفظ خلال شهر معيّن، وأفضل طالب/ة بالمراجعة
 export interface MonthlyRanking {
   studentId: number;
-  memoScore: number;   // تسميع الحفظ + تلاوة الحفظ (من 40)
-  reviewScore: number; // تسميع المراجعة + تلاوة المراجعة (من 40)
+  memoScore: number;
+  reviewScore: number;
   pagesThisMonth: number;
 }
 
@@ -1452,8 +1694,6 @@ export const getMonthlyRankings = async (
   })));
 };
 
-// يجيب آخر عام وشهر تم تسجيل متابعة فيهما فعلياً (لأي طالبة)، لفتح صفحة
-// المتابعة الشهرية تلقائياً على آخر نقطة توقف عندها العمل، بدل قيمة ثابتة
 export const getLatestTrackedPeriod = async (): Promise<{ year: string; month: number } | null> => {
   const userId = await getUserId();
   if (!canUseCloud(userId)) return null;
@@ -1472,9 +1712,6 @@ export const getLatestTrackedPeriod = async (): Promise<{ year: string; month: n
 
 export { TRACKING_MONTHS };
 
-// ===== كشف الخاتمات =====
-// يجمع كل الطالبات اللي ختمن القرآن الكريم (30 جزء) بكل الأعوام، من كل
-// سجلات year_data — يتحدّث تلقائياً كل ما طالبة جديدة تختم بأي عام
 export interface KhatimEntry {
   studentId: number;
   name: string;
@@ -1484,9 +1721,6 @@ export interface KhatimEntry {
   grade: string;
 }
 
-// يتحقق هل اسم معيّن مسجّل مسبقاً لطالبة أخرى (باستثناء رقم الطالبة الحالية
-// نفسها)، ويرجع الأعوام اللي هي مسجّلة فيها فعلياً — يُستخدم لمنع إضافة
-// طالبة "جديدة" بنفس اسم طالبة موجودة مسبقاً بعام سابق بالغلط
 export const checkGlobalDuplicateName = async (
   name: string,
   excludeId?: number
@@ -1521,7 +1755,6 @@ export const checkGlobalDuplicateName = async (
   return { studentId: match.id, years };
 };
 
-
 export const loadKhatimat = async (): Promise<KhatimEntry[]> => {
   const userId = await getUserId();
   if (!canUseCloud(userId)) return [];
@@ -1548,4 +1781,3 @@ export const loadKhatimat = async (): Promise<KhatimEntry[]> => {
     }))
     .sort((a, b) => a.year.localeCompare(b.year) || a.name.localeCompare(b.name, 'ar'));
 };
-

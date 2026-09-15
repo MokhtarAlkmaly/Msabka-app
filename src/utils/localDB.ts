@@ -1,12 +1,7 @@
 /**
- * طبقة التخزين المحلي — تعمل الآن فوق قاعدة بيانات SQLite حقيقية بدل IndexedDB
+ * طبقة التخزين المحلي — تعمل فوق قاعدة بيانات SQLite حقيقية
  * (عبر @capacitor-community/sqlite: محرك SQLite أصلي على أندرويد/iOS، ومحرك
- * sql.js/WASM على المتصفح). البيانات تُخزَّن محليًا وتتزامن مع السحابة فقط
- * عند الضغط على "حفظ" (كما كان الحال سابقًا).
- *
- * ملاحظة مهمة: كل الدوال المُصدَّرة من هذا الملف تحمل نفس الأسماء والتوقيعات
- * التي كانت موجودة في نسخة IndexedDB السابقة، حتى لا يحتاج أي ملف آخر في
- * المشروع (storage.ts والصفحات) إلى أي تعديل.
+ * sql.js/WASM على المتصفح).
  */
 
 import type { capSQLiteSet } from "@capacitor-community/sqlite";
@@ -25,25 +20,59 @@ const STORES = {
   awards: "awards",
   ceremonyExpenses: "ceremony_expenses",
   certificates: "certificates",
+  internalCompetitions: "internal_competitions",
+  externalCompetitions: "external_competitions",
   media: "media",
 } as const;
 
-// ========== سجلّ الجداول: يصف كل جدول (أعمدته ومفتاحه الأساسي) لتبقى دوال
-// CRUD العامة أدناه صالحة لأي جدول دون تكرار كود SQL يدويًا ==========
+// ========== سجلّ الجداول ==========
 
 interface TableConfig {
   columns: string[];
   pk: string[];
-  /** تحويل الكائن القادم من الاستدعاء إلى صف أعمدة مسطّح (افتراضيًا: أخذ نفس الحقول) */
   toRow?: (item: any) => Record<string, any>;
-  /** تحويل الصف القادم من SQLite إلى الشكل الذي يتوقعه بقية الكود */
   fromRow?: (row: any) => any;
 }
 
 const TABLES: Record<string, TableConfig> = {
   [STORES.students]: {
-    columns: ["id", "name", "teacher", "user_id"],
+    columns: [
+      "id",
+      "name",
+      "teacher",
+      "user_id",
+      "hijri_join_date",
+      "initial_hifz",
+      "first_competition_year",
+      "status",
+      "school_grade",
+      "guardian_phone",
+      "student_phone",
+      "custom_fields",
+      "notes",
+    ],
     pk: ["id"],
+    toRow: (item) => ({
+      ...item,
+      custom_fields:
+        typeof item.custom_fields === "object" && item.custom_fields !== null
+          ? JSON.stringify(item.custom_fields)
+          : item.custom_fields ?? null,
+    }),
+    fromRow: (row) => {
+      let customFieldsObj = {};
+      if (row.custom_fields) {
+        try {
+          customFieldsObj = JSON.parse(row.custom_fields);
+        } catch {
+          customFieldsObj = {};
+        }
+      }
+      return {
+        ...row,
+        custom_fields: customFieldsObj,
+      };
+    },
   },
   [STORES.hifzHistory]: {
     columns: ["student_id", "year_key", "value"],
@@ -110,6 +139,20 @@ const TABLES: Record<string, TableConfig> = {
     ],
     pk: ["id"],
   },
+  [STORES.internalCompetitions]: {
+    columns: [
+      "id", "user_id", "student_id", "student_name", "year", "competition_name",
+      "category", "score", "rank", "prize", "notes", "date", "created_at", "updated_at",
+    ],
+    pk: ["id"],
+  },
+  [STORES.externalCompetitions]: {
+    columns: [
+      "id", "user_id", "student_id", "student_name", "year", "competition_name",
+      "organizer", "category", "score", "rank", "prize", "notes", "date", "created_at", "updated_at",
+    ],
+    pk: ["id"],
+  },
   [STORES.media]: {
     columns: ["id", "user_id", "year", "month", "title", "file_path", "file_type", "file_size", "created_at"],
     pk: ["id"],
@@ -133,7 +176,7 @@ const fromRow = (cfg: TableConfig, row: any): any => (cfg.fromRow ? cfg.fromRow(
 
 const keyValues = (key: any): any[] => (Array.isArray(key) ? key : [key]);
 
-// ========== دوال CRUD العامة (نفس توقيعات IndexedDB السابقة تمامًا) ==========
+// ========== دوال CRUD العامة ==========
 
 export const putItem = async (storeName: string, item: any) => {
   const cfg = getTable(storeName);
@@ -170,13 +213,13 @@ export const deleteItem = async (storeName: string, key: any) => {
 };
 
 export const clearStore = async (storeName: string) => {
-  getTable(storeName); // يتحقق أن الاسم معروف
+  getTable(storeName);
   const db = await getDB();
   await db.run(`DELETE FROM ${storeName}`, [], true);
   await persist();
 };
 
-/** استبدال كامل محتوى جدول دفعة واحدة (حذف ثم إدراج) ضمن معاملة واحدة ذرّية */
+/** استبدال كامل محتوى جدول دفعة واحدة */
 const cacheRecords = async <T>(storeName: string, rows: T[]) => {
   const cfg = getTable(storeName);
   const db = await getDB();
@@ -198,6 +241,15 @@ export interface CachedStudent {
   name: string;
   teacher: string;
   user_id: string;
+  hijri_join_date?: string | null;
+  initial_hifz?: string | null;
+  first_competition_year?: string | null;
+  status?: string | null;
+  school_grade?: string | null;
+  guardian_phone?: string | null;
+  student_phone?: string | null;
+  custom_fields?: Record<string, string> | null;
+  notes?: string | null;
 }
 
 export const cacheStudents = async (students: CachedStudent[]) => cacheRecords(STORES.students, students);
@@ -369,6 +421,57 @@ export const getCachedCertificate = (id: string) => getItem<CachedCertificate>(S
 export const putCachedCertificate = (row: CachedCertificate) => putItem(STORES.certificates, row);
 export const deleteCachedCertificate = (id: string) => deleteItem(STORES.certificates, id);
 
+// ========== Internal Competitions ==========
+
+export interface CachedInternalCompetition {
+  id: string;
+  user_id: string;
+  student_id: number;
+  student_name: string;
+  year: string;
+  competition_name: string;
+  category: string;
+  score: number | string;
+  rank: string;
+  prize: string;
+  notes: string | null;
+  date?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export const cacheInternalCompetitions = (rows: CachedInternalCompetition[]) => cacheRecords(STORES.internalCompetitions, rows);
+export const getCachedInternalCompetitions = () => getAllItems<CachedInternalCompetition>(STORES.internalCompetitions);
+export const getCachedInternalCompetition = (id: string) => getItem<CachedInternalCompetition>(STORES.internalCompetitions, id);
+export const putCachedInternalCompetition = (row: CachedInternalCompetition) => putItem(STORES.internalCompetitions, row);
+export const deleteCachedInternalCompetition = (id: string) => deleteItem(STORES.internalCompetitions, id);
+
+// ========== External Competitions ==========
+
+export interface CachedExternalCompetition {
+  id: string;
+  user_id: string;
+  student_id: number;
+  student_name: string;
+  year: string;
+  competition_name: string;
+  organizer: string;
+  category: string;
+  score: number | string;
+  rank: string;
+  prize: string;
+  notes: string | null;
+  date?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export const cacheExternalCompetitions = (rows: CachedExternalCompetition[]) => cacheRecords(STORES.externalCompetitions, rows);
+export const getCachedExternalCompetitions = () => getAllItems<CachedExternalCompetition>(STORES.externalCompetitions);
+export const getCachedExternalCompetition = (id: string) => getItem<CachedExternalCompetition>(STORES.externalCompetitions, id);
+export const putCachedExternalCompetition = (row: CachedExternalCompetition) => putItem(STORES.externalCompetitions, row);
+export const deleteCachedExternalCompetition = (id: string) => deleteItem(STORES.externalCompetitions, id);
+
 // ========== Media Metadata ==========
 
 export interface CachedMedia {
@@ -438,13 +541,15 @@ export type PendingEntity =
   | "award"
   | "expense"
   | "certificate"
+  | "internal_competition"
+  | "external_competition"
   | "media";
 
 export interface PendingChange {
-  key: string; // e.g. "student:5", "hifz:5|h1441", "year:5|1447"
+  key: string;
   entity: PendingEntity;
   op: PendingOp;
-  ref: any; // identifier(s) needed to resolve the record
+  ref: any;
   ts: number;
 }
 
@@ -459,6 +564,8 @@ export const markDirty = (entity: PendingEntity, op: PendingOp, ref: any) => {
   else if (entity === "award") key = `award:${ref.id}`;
   else if (entity === "expense") key = `expense:${ref.id}`;
   else if (entity === "certificate") key = `certificate:${ref.id}`;
+  else if (entity === "internal_competition") key = `internal_comp:${ref.id}`;
+  else if (entity === "external_competition") key = `external_comp:${ref.id}`;
   else if (entity === "media") key = `media:${ref.id}`;
   return putItem(STORES.pending, { key, entity, op, ref, ts: Date.now() } as PendingChange);
 };
@@ -480,6 +587,9 @@ export const remapPendingStudentId = async (oldId: number, newId: number) => {
     } else if ((p.entity === "hifz" || p.entity === "year") && p.ref?.student_id === oldId) {
       p.ref.student_id = newId;
       touched = true;
+    } else if ((p.entity === "internal_competition" || p.entity === "external_competition") && p.ref?.student_id === oldId) {
+      p.ref.student_id = newId;
+      touched = true;
     }
     if (touched) {
       await deleteItem(STORES.pending, p.key);
@@ -488,16 +598,14 @@ export const remapPendingStudentId = async (oldId: number, newId: number) => {
   }
 };
 
-// ========== استعلامات إضافية مستفيدة من SQL حقيقي (إضافات "متقدمة" فوق نفس الواجهة) ==========
-
-/** بحث بالاسم مباشرة داخل SQLite (بدل تحميل كل الطلاب وفلترتهم في الجافاسكربت) */
+/** بحث بالاسم مباشرة داخل SQLite */
 export const searchCachedStudentsByName = async (query: string): Promise<CachedStudent[]> => {
   const db = await getDB();
   const res = await db.query(`SELECT * FROM ${STORES.students} WHERE name LIKE ? ORDER BY name`, [`%${query}%`]);
   return (res.values ?? []) as CachedStudent[];
 };
 
-/** بيانات سنة معيّنة لطالب واحد فقط، عبر فهرس student_id بدل مسح الجدول كاملاً */
+/** بيانات سنة معيّنة لطالب واحد فقط */
 export const getCachedYearDataForStudent = async (studentId: number): Promise<CachedYearData[]> => {
   const db = await getDB();
   const res = await db.query(`SELECT * FROM ${STORES.yearData} WHERE student_id = ? ORDER BY year`, [studentId]);

@@ -1,0 +1,858 @@
+import { useState, useMemo, useCallback } from "react";
+import { Student, CustomColumnDef, DEFAULT_STATUSES } from "@/types/student";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Trash2,
+  Phone,
+  MessageCircle,
+  Plus,
+  Search,
+  Printer,
+  FileSpreadsheet,
+  Columns,
+  GraduationCap,
+  Sparkles,
+  ExternalLink,
+  ChevronDown,
+  UserCheck,
+} from "lucide-react";
+import { StudentProfileModal } from "./StudentProfileModal";
+import * as XLSX from "xlsx";
+import { Capacitor } from "@capacitor/core";
+import { Filesystem, Directory } from "@capacitor/filesystem";
+import { Share as NativeShare } from "@capacitor/share";
+import { useToast } from "@/hooks/use-toast";
+import logo from "@/assets/logo.png";
+
+interface Props {
+  students: Student[];
+  onUpdate: () => void;
+  onSaveStudent: (student: Partial<Student> & { id?: number; name: string }) => Promise<any>;
+  onDeleteStudent: (id: number) => Promise<any>;
+  teacherNames: string[];
+  customColumns: CustomColumnDef[];
+  onAddCustomColumn: (col: CustomColumnDef) => Promise<any>;
+  onDeleteCustomColumn: (colId: string) => Promise<any>;
+  studentStatuses: string[];
+  onAddStatus: (status: string) => Promise<any>;
+  dirtyMap: Record<number, Student>;
+  onDirtyChange: (studentId: number, data: Student) => void;
+  activeYear?: string;
+}
+
+export const StudentsTable = ({
+  students,
+  onUpdate,
+  onSaveStudent,
+  onDeleteStudent,
+  teacherNames,
+  customColumns,
+  onAddCustomColumn,
+  onDeleteCustomColumn,
+  studentStatuses = DEFAULT_STATUSES,
+  onAddStatus,
+  dirtyMap,
+  onDirtyChange,
+  activeYear = "1447",
+}: Props) => {
+  const { toast } = useToast();
+
+  // Filters & Search
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedTeacher, setSelectedTeacher] = useState<string>("all");
+  const [selectedStatus, setSelectedStatus] = useState<string>("all");
+  const [selectedGrade, setSelectedGrade] = useState<string>("all");
+
+  // Active student for profile modal
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+
+  // Dialogs
+  const [newColumnDialogOpen, setNewColumnDialogOpen] = useState(false);
+  const [newColumnName, setNewColumnName] = useState("");
+  const [newColumnType, setNewColumnType] = useState<CustomColumnDef["type"]>("text");
+
+  const [newStatusDialogOpen, setNewStatusDialogOpen] = useState(false);
+  const [newStatusName, setNewStatusName] = useState("");
+  const [statusTargetStudentId, setStatusTargetStudentId] = useState<number | null>(null);
+
+  const [manageColsOpen, setManageColsOpen] = useState(false);
+
+  // Local student update helper
+  const updateStudentField = (
+    student: Student,
+    field: keyof Student,
+    value: any
+  ) => {
+    const current = dirtyMap[student.id] || student;
+    const updated = { ...current, [field]: value };
+    onDirtyChange(student.id, updated);
+  };
+
+  const updateStudentCustomField = (
+    student: Student,
+    columnId: string,
+    value: string
+  ) => {
+    const current = dirtyMap[student.id] || student;
+    const customFields = { ...(current.custom_fields || {}), [columnId]: value };
+    const updated = { ...current, custom_fields: customFields };
+    onDirtyChange(student.id, updated);
+  };
+
+  const handleOpenProfile = (student: Student) => {
+    const current = dirtyMap[student.id] || student;
+    setSelectedStudent(current);
+    setProfileModalOpen(true);
+  };
+
+  // Status creation
+  const handleCreateStatus = async () => {
+    const trimmed = newStatusName.trim();
+    if (!trimmed) return;
+    await onAddStatus(trimmed);
+    if (statusTargetStudentId) {
+      const s = students.find((st) => st.id === statusTargetStudentId);
+      if (s) {
+        updateStudentField(s, "status", trimmed);
+      }
+    }
+    setNewStatusName("");
+    setStatusTargetStudentId(null);
+    setNewStatusDialogOpen(false);
+    toast({ title: "تمت إضافة الحالة الجديدة", description: `أُضيفت "${trimmed}" لقائمة الحالات` });
+  };
+
+  // Column creation
+  const handleCreateColumn = async () => {
+    const trimmed = newColumnName.trim();
+    if (!trimmed) {
+      toast({ title: "اسم العمود مطلوب", variant: "destructive" });
+      return;
+    }
+    const newId = `col_${Date.now()}`;
+    await onAddCustomColumn({
+      id: newId,
+      name: trimmed,
+      type: newColumnType,
+    });
+    setNewColumnName("");
+    setNewColumnDialogOpen(false);
+    toast({ title: "تمت إضافة العمود الجديد", description: `أُضيف عمود "${trimmed}" للجدول` });
+  };
+
+  // Grade options
+  const gradeOptions = useMemo(() => {
+    const set = new Set<string>();
+    students.forEach((s) => {
+      if (s.school_grade && s.school_grade.trim()) set.add(s.school_grade.trim());
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "ar"));
+  }, [students]);
+
+  // Filtered Students list
+  const filteredStudents = useMemo(() => {
+    return students.filter((s) => {
+      const current = dirtyMap[s.id] || s;
+      if (selectedTeacher !== "all" && (current.teacher || "") !== selectedTeacher) return false;
+      if (selectedStatus !== "all" && (current.status || "طبيعي") !== selectedStatus) return false;
+      if (selectedGrade !== "all" && (current.school_grade || "") !== selectedGrade) return false;
+
+      if (searchQuery.trim()) {
+        const q = searchQuery.trim().toLowerCase();
+        const matchesName = (current.name || "").toLowerCase().includes(q);
+        const matchesGuardianPhone = (current.guardian_phone || "").includes(q);
+        const matchesStudentPhone = (current.student_phone || "").includes(q);
+        const matchesTeacher = (current.teacher || "").toLowerCase().includes(q);
+        const matchesStatus = (current.status || "").toLowerCase().includes(q);
+        const matchesGrade = (current.school_grade || "").toLowerCase().includes(q);
+        if (
+          !matchesName &&
+          !matchesGuardianPhone &&
+          !matchesStudentPhone &&
+          !matchesTeacher &&
+          !matchesStatus &&
+          !matchesGrade
+        ) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [students, dirtyMap, selectedTeacher, selectedStatus, selectedGrade, searchQuery]);
+
+  // Export to Excel
+  const handleExportExcel = async () => {
+    const data = filteredStudents.map((s, i) => {
+      const current = dirtyMap[s.id] || s;
+      const row: Record<string, any> = {
+        "م": i + 1,
+        "رقم القيد": current.id,
+        "اسم الطالب": current.name,
+        "المعلمة": current.teacher || "",
+        "تاريخ هجري الالتحاق": current.hijri_join_date || "",
+        "الحفظ قبل الالتحاق": current.initial_hifz || "0",
+        "عام أول مسابقة": current.first_competition_year || "",
+        "الحالة": current.status || "طبيعي",
+        "السنة الدراسية وقت الالتحاق": current.school_grade || "",
+        "رقم ولي الأمر": current.guardian_phone || "",
+        "رقم الطالب": current.student_phone || "",
+      };
+
+      customColumns.forEach((col) => {
+        row[col.name] = current.custom_fields?.[col.id] || "";
+      });
+
+      return row;
+    });
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "سجل الطلاب الرسمي");
+
+    const fileName = `سجل_الطلاب_الرسمي_مركز_إنماء.xlsx`;
+    if (Capacitor.isNativePlatform()) {
+      const base64 = XLSX.write(wb, { type: "base64", bookType: "xlsx" });
+      const result = await Filesystem.writeFile({
+        path: fileName,
+        data: base64,
+        directory: Directory.Cache,
+      });
+      await NativeShare.share({ title: fileName, url: result.uri });
+    } else {
+      XLSX.writeFile(wb, fileName);
+    }
+    toast({ title: "تم التصدير", description: "تم تصدير سجل الطلاب إلى ملف Excel بنجاح" });
+  };
+
+  // Print Official Table
+  const handlePrint = async () => {
+    const { printHtmlDocument } = await import("@/utils/nativePrint");
+
+    const rowsHtml = filteredStudents
+      .map((s, i) => {
+        const current = dirtyMap[s.id] || s;
+        const customCells = customColumns
+          .map((col) => `<td>${esc(current.custom_fields?.[col.id] || "—")}</td>`)
+          .join("");
+
+        return `<tr>
+          <td>${i + 1}</td>
+          <td class="name font-bold">${esc(current.name)}</td>
+          <td>${esc(current.teacher || "—")}</td>
+          <td>${esc(current.hijri_join_date || "—")}</td>
+          <td>${esc(current.initial_hifz || "0")} جزء</td>
+          <td>${esc(current.status || "طبيعي")}</td>
+          <td>${esc(current.school_grade || "—")}</td>
+          <td dir="ltr">${esc(current.guardian_phone || "—")}</td>
+          <td dir="ltr">${esc(current.student_phone || "—")}</td>
+          ${customCells}
+        </tr>`;
+      })
+      .join("");
+
+    const customHeaders = customColumns.map((col) => `<th>${esc(col.name)}</th>`).join("");
+
+    const fullHtml = `<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8">
+      <title>سجل الطلاب الرسمي - مركز إنماء الأهلي الخيري</title>
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; padding: 20px; color: #1a3a2a; }
+        .header { text-align: center; margin-bottom: 20px; border-bottom: 3px double #0e6b3a; padding-bottom: 12px; }
+        .header img { height: 75px; margin-bottom: 6px; }
+        .header h1 { font-size: 20px; color: #0e6b3a; font-weight: bold; }
+        .header h2 { font-size: 15px; color: #444; margin-top: 3px; }
+        .sub { font-size: 12px; color: #666; margin-top: 4px; }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 10px; }
+        th { background: #0e6b3a; color: white; padding: 6px 4px; border: 1px solid #084826; text-align: center; }
+        td { padding: 5px 4px; border: 1px solid #ccc; text-align: center; }
+        tr:nth-child(even) { background: #f9fdfb; }
+        .name { text-align: right; padding-right: 8px; font-weight: 600; color: #000; }
+        .footer { text-align: center; margin-top: 24px; font-size: 11px; color: #888; border-top: 1px solid #ddd; padding-top: 8px; }
+        @media print { body { padding: 10px; } @page { size: landscape; margin: 8mm; } }
+      </style></head><body>
+        <div class="header">
+          <img src="${logo}" alt="الشعار" />
+          <h1>مركز إنماء الأهلي الخيري - قسم القرآن الكريم</h1>
+          <h2>كشف سجل الطلاب الرسمي المعتمد (جميع الأعوام)</h2>
+          <div class="sub">إجمالي الطلاب المقيدين: <strong>${filteredStudents.length}</strong> طالب</div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>م</th><th>اسم الطالب</th><th>المعلمة</th><th>تاريخ هجري الالتحاق</th>
+              <th>الحفظ قبل الالتحاق</th><th>الحالة</th><th>السنة الدراسية</th>
+              <th>رقم ولي الأمر</th><th>رقم الطالب</th>
+              ${customHeaders}
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+        <div class="footer">
+          تصميم أ/ مختار الكمالي — طُبع بتاريخ: ${new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" })}
+        </div>
+      </body></html>`;
+
+    printHtmlDocument(fullHtml, `سجل_الطلاب_الرسمي_مركز_إنماء`);
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Controls & Search Toolbar */}
+      <div className="rounded-[1.75rem] border border-white/70 bg-card/90 p-4 shadow-xl shadow-primary/5 backdrop-blur sm:p-5 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <div className="rounded-2xl bg-primary/10 p-2.5 text-primary">
+              <GraduationCap className="h-6 w-6" />
+            </div>
+            <div>
+              <h2 className="text-lg font-black text-foreground sm:text-xl">
+                سجل الطلاب الرسمي المعتمد
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                السجل الشامل لكل الطلاب عبر جميع الأعوام — قاعدة البيانات المركزية التي تُستدعى منها بيانات الطلاب في كل الصفحات
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setNewColumnDialogOpen(true)}
+              className="gap-1.5 rounded-xl border-dashed border-primary/40 font-bold text-primary hover:bg-primary/10"
+            >
+              <Plus className="h-4 w-4" /> إضافة عمود جديد
+            </Button>
+            {customColumns.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setManageColsOpen(true)}
+                className="gap-1 rounded-xl text-xs font-bold"
+              >
+                <Columns className="h-3.5 w-3.5" /> إدارة الأعمدة ({customColumns.length})
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportExcel}
+              className="gap-1 rounded-xl font-bold"
+            >
+              <FileSpreadsheet className="h-4 w-4 text-emerald-600" /> تصدير Excel
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handlePrint}
+              className="gap-1 rounded-xl font-bold"
+            >
+              <Printer className="h-4 w-4" /> طباعة السجل
+            </Button>
+          </div>
+        </div>
+
+        {/* Filter Bar */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 pt-2 border-t border-border/60">
+          <div className="relative">
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="بحث بالاسم، رقم الهاتف، المعلمة..."
+              className="h-10 pr-9 rounded-xl border-border/80 bg-background/80 text-xs"
+            />
+          </div>
+
+          <Select value={selectedTeacher} onValueChange={setSelectedTeacher}>
+            <SelectTrigger className="h-10 rounded-xl bg-background/80 text-xs font-bold border-border/80">
+              <SelectValue placeholder="تصفية حسب المعلمة" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">كل المعلمات</SelectItem>
+              {teacherNames.map((t) => (
+                <SelectItem key={t} value={t}>{t}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+            <SelectTrigger className="h-10 rounded-xl bg-background/80 text-xs font-bold border-border/80">
+              <SelectValue placeholder="تصفية حسب الحالة" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">كل الحالات</SelectItem>
+              {studentStatuses.map((st) => (
+                <SelectItem key={st} value={st}>{st}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={selectedGrade} onValueChange={setSelectedGrade}>
+            <SelectTrigger className="h-10 rounded-xl bg-background/80 text-xs font-bold border-border/80">
+              <SelectValue placeholder="تصفية حسب السنة الدراسية" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">كل السنوات الدراسية</SelectItem>
+              {gradeOptions.map((g) => (
+                <SelectItem key={g} value={g}>{g}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Main Students Table */}
+      <div className="relative overflow-hidden rounded-[1.75rem] border border-white/70 bg-card/90 shadow-2xl shadow-primary/10 backdrop-blur">
+        <div className="flex items-center justify-between gap-3 border-b border-border/60 bg-background/55 px-4 py-3 print:hidden">
+          <div className="flex items-center gap-2">
+            <h3 className="font-black text-foreground">جدول الطلاب الرسمي</h3>
+            <span className="text-xs text-muted-foreground">
+              (اضغط على اسم أي طالب لفتح ملفه الشامل ومتابعاته عبر جميع الأعوام)
+            </span>
+          </div>
+          <div className="rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
+            {filteredStudents.length} طالب
+          </div>
+        </div>
+
+        <div className="max-h-[72vh] overflow-auto">
+          <table className="w-full min-w-[1200px] table-fixed border-separate border-spacing-0 bg-card text-sm whitespace-nowrap">
+            <thead>
+              <tr className="bg-gradient-to-r from-emerald-900 to-teal-900 text-white font-bold text-xs sticky top-0 z-20">
+                <th className="sticky right-0 z-30 w-12 bg-emerald-900 p-2.5 text-center border-b border-l border-emerald-800">
+                  م
+                </th>
+                <th className="sticky right-12 z-30 min-w-[180px] bg-emerald-900 p-2.5 text-right border-b border-l border-emerald-800 shadow-[-8px_0_12px_-10px_rgba(0,0,0,0.5)]">
+                  اسم الطالب
+                </th>
+                <th className="min-w-[130px] p-2.5 text-center border-b border-l border-emerald-800">
+                  المعلمة
+                </th>
+                <th className="min-w-[130px] p-2.5 text-center border-b border-l border-emerald-800">
+                  تاريخ هجري الالتحاق
+                </th>
+                <th className="min-w-[130px] p-2.5 text-center border-b border-l border-emerald-800">
+                  مقدار الحفظ قبل الالتحاق
+                </th>
+                <th className="min-w-[110px] p-2.5 text-center border-b border-l border-emerald-800">
+                  عام المسابقة الأولى
+                </th>
+                <th className="min-w-[120px] p-2.5 text-center border-b border-l border-emerald-800">
+                  الحالة
+                </th>
+                <th className="min-w-[140px] p-2.5 text-center border-b border-l border-emerald-800">
+                  السنة الدراسية وقت الالتحاق
+                </th>
+                <th className="min-w-[130px] p-2.5 text-center border-b border-l border-emerald-800">
+                  رقم ولي الأمر
+                </th>
+                <th className="min-w-[120px] p-2.5 text-center border-b border-l border-emerald-800">
+                  رقم الطالب
+                </th>
+
+                {/* Dynamic custom columns */}
+                {customColumns.map((col) => (
+                  <th
+                    key={col.id}
+                    className="min-w-[130px] p-2.5 text-center border-b border-l border-emerald-800 bg-emerald-950/80"
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      <span>{col.name}</span>
+                    </div>
+                  </th>
+                ))}
+
+                <th className="w-24 p-2.5 text-center border-b border-emerald-800">
+                  إجراءات
+                </th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {filteredStudents.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={11 + customColumns.length}
+                    className="p-12 text-center text-muted-foreground"
+                  >
+                    لا يوجد طلاب مطابقون لمعايير البحث
+                  </td>
+                </tr>
+              ) : (
+                filteredStudents.map((student, index) => {
+                  const current = dirtyMap[student.id] || student;
+                  const isDirtyRow = !!dirtyMap[student.id];
+
+                  return (
+                    <tr
+                      key={student.id}
+                      className={`group transition-colors odd:bg-white even:bg-secondary/20 hover:bg-primary/5 ${
+                        isDirtyRow ? "bg-amber-50/70" : ""
+                      }`}
+                    >
+                      {/* Index */}
+                      <td className="sticky right-0 z-10 w-12 border-b border-l border-border/70 bg-card p-1 text-center font-black text-primary group-hover:bg-primary/5">
+                        {index + 1}
+                      </td>
+
+                      {/* Student Name: Clickable to open profile */}
+                      <td className="sticky right-12 z-10 border-b border-l border-border/70 bg-card p-1.5 shadow-[-8px_0_12px_-10px_rgba(0,0,0,0.3)] group-hover:bg-primary/5">
+                        <div className="flex items-center justify-between gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenProfile(student)}
+                            className="text-right font-black text-primary hover:text-emerald-700 hover:underline flex items-center gap-1.5 group-hover:translate-x-[-2px] transition-transform"
+                            title="اضغط لفتح الملف الأكاديمي الشامل للطالب"
+                          >
+                            <span>{current.name || "طالب بدون اسم"}</span>
+                            <ExternalLink className="h-3 w-3 opacity-60 inline" />
+                          </button>
+                        </div>
+                      </td>
+
+                      {/* Teacher */}
+                      <td className="border-b border-l border-border/70 p-1">
+                        <Select
+                          value={current.teacher || "__none__"}
+                          onValueChange={(v) =>
+                            updateStudentField(student, "teacher", v === "__none__" ? "" : v)
+                          }
+                        >
+                          <SelectTrigger className="h-9 w-full min-w-[110px] rounded-xl border-0 bg-background/70 text-center text-xs">
+                            <SelectValue placeholder="المعلمة" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">— بدون —</SelectItem>
+                            {current.teacher && !teacherNames.includes(current.teacher) && (
+                              <SelectItem value={current.teacher}>{current.teacher}</SelectItem>
+                            )}
+                            {teacherNames.map((t) => (
+                              <SelectItem key={t} value={t}>{t}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </td>
+
+                      {/* Hijri Join Date */}
+                      <td className="border-b border-l border-border/70 p-1">
+                        <Input
+                          value={current.hijri_join_date || ""}
+                          onChange={(e) =>
+                            updateStudentField(student, "hijri_join_date", e.target.value)
+                          }
+                          placeholder="مثال: 1443هـ"
+                          className="h-9 rounded-xl border-0 bg-background/70 text-center text-xs"
+                        />
+                      </td>
+
+                      {/* Initial Memorization before joining */}
+                      <td className="border-b border-l border-border/70 p-1 bg-amber-500/5">
+                        <div className="flex items-center justify-center gap-1">
+                          <Input
+                            type="number"
+                            value={current.initial_hifz || ""}
+                            onChange={(e) =>
+                              updateStudentField(student, "initial_hifz", e.target.value)
+                            }
+                            placeholder="0"
+                            min="0"
+                            max="30"
+                            className="h-9 w-16 rounded-xl border-0 bg-background/70 text-center font-bold text-xs"
+                          />
+                          <span className="text-[11px] text-muted-foreground">جزء</span>
+                        </div>
+                      </td>
+
+                      {/* First Competition Year */}
+                      <td className="border-b border-l border-border/70 p-1">
+                        <Input
+                          value={current.first_competition_year || ""}
+                          onChange={(e) =>
+                            updateStudentField(student, "first_competition_year", e.target.value)
+                          }
+                          placeholder="1443هـ"
+                          className="h-9 w-20 mx-auto rounded-xl border-0 bg-background/70 text-center text-xs"
+                        />
+                      </td>
+
+                      {/* Status */}
+                      <td className="border-b border-l border-border/70 p-1">
+                        <Select
+                          value={current.status || "طبيعي"}
+                          onValueChange={(v) => {
+                            if (v === "__new_status__") {
+                              setStatusTargetStudentId(student.id);
+                              setNewStatusDialogOpen(true);
+                            } else {
+                              updateStudentField(student, "status", v);
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="h-9 w-full min-w-[100px] rounded-xl border-0 bg-background/70 text-center text-xs font-bold">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {studentStatuses.map((st) => (
+                              <SelectItem key={st} value={st}>{st}</SelectItem>
+                            ))}
+                            <SelectItem value="__new_status__" className="text-primary font-bold">
+                              + إضافة حالة جديدة...
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </td>
+
+                      {/* School Grade at Enrollment */}
+                      <td className="border-b border-l border-border/70 p-1">
+                        <Input
+                          value={current.school_grade || ""}
+                          onChange={(e) =>
+                            updateStudentField(student, "school_grade", e.target.value)
+                          }
+                          placeholder="مثال: الصف الرابع"
+                          className="h-9 rounded-xl border-0 bg-background/70 text-center text-xs"
+                        />
+                      </td>
+
+                      {/* Guardian Phone */}
+                      <td className="border-b border-l border-border/70 p-1">
+                        <div className="flex items-center gap-1 justify-center">
+                          <Input
+                            value={current.guardian_phone || ""}
+                            onChange={(e) =>
+                              updateStudentField(student, "guardian_phone", e.target.value)
+                            }
+                            placeholder="770000000"
+                            className="h-9 w-28 rounded-xl border-0 bg-background/70 text-center text-xs"
+                            dir="ltr"
+                          />
+                          {current.guardian_phone && (
+                            <a
+                              href={`https://wa.me/${current.guardian_phone.replace(/[^0-9]/g, "")}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="rounded-lg bg-emerald-600/15 p-1.5 text-emerald-700 hover:bg-emerald-600 hover:text-white"
+                              title="مراسلة واتساب"
+                            >
+                              <MessageCircle className="h-3.5 w-3.5" />
+                            </a>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Student Phone */}
+                      <td className="border-b border-l border-border/70 p-1">
+                        <Input
+                          value={current.student_phone || ""}
+                          onChange={(e) =>
+                            updateStudentField(student, "student_phone", e.target.value)
+                          }
+                          placeholder="770000000"
+                          className="h-9 w-28 mx-auto rounded-xl border-0 bg-background/70 text-center text-xs"
+                          dir="ltr"
+                        />
+                      </td>
+
+                      {/* Dynamic Custom Columns */}
+                      {customColumns.map((col) => (
+                        <td key={col.id} className="border-b border-l border-border/70 p-1">
+                          <Input
+                            type={col.type === "number" ? "number" : "text"}
+                            value={current.custom_fields?.[col.id] || ""}
+                            onChange={(e) =>
+                              updateStudentCustomField(student, col.id, e.target.value)
+                            }
+                            placeholder="—"
+                            className="h-9 rounded-xl border-0 bg-background/70 text-center text-xs"
+                          />
+                        </td>
+                      ))}
+
+                      {/* Actions */}
+                      <td className="border-b border-border/70 p-1 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleOpenProfile(student)}
+                            className="h-8 w-8 rounded-lg p-0 text-primary hover:bg-primary/10"
+                            title="عرض الملف والتبويبات"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onDeleteStudent(student.id)}
+                            className="h-8 w-8 rounded-lg p-0 text-rose-500 hover:bg-rose-500/10 hover:text-rose-600"
+                            title="حذف الطالب"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Student Profile Modal */}
+      <StudentProfileModal
+        student={selectedStudent}
+        open={profileModalOpen}
+        onOpenChange={setProfileModalOpen}
+        onStudentUpdated={onUpdate}
+        initialYear={activeYear}
+        customColumns={customColumns}
+      />
+
+      {/* Dialog: Add New Dynamic Column */}
+      <Dialog open={newColumnDialogOpen} onOpenChange={setNewColumnDialogOpen}>
+        <DialogContent dir="rtl" className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="h-5 w-5 text-primary" />
+              إضافة عمود جديد إلى جدول الطلاب
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2 text-xs">
+            <div>
+              <label className="font-bold text-foreground">عنوان / اسم العمود</label>
+              <Input
+                value={newColumnName}
+                onChange={(e) => setNewColumnName(e.target.value)}
+                placeholder="مثال: رقم الهوية، عنوان السكن، ملاحظات صحية..."
+                className="h-10 mt-1 rounded-xl text-sm"
+              />
+            </div>
+            <div>
+              <label className="font-bold text-foreground">نوع البيانات</label>
+              <Select
+                value={newColumnType}
+                onValueChange={(v) => setNewColumnType(v as CustomColumnDef["type"])}
+              >
+                <SelectTrigger className="h-10 mt-1 rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="text">نص عادي</SelectItem>
+                  <SelectItem value="number">أرقام</SelectItem>
+                  <SelectItem value="date">تاريخ</SelectItem>
+                  <SelectItem value="phone">رقم هاتف</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setNewColumnDialogOpen(false)}>
+              إلغاء
+            </Button>
+            <Button onClick={handleCreateColumn} className="gap-1 rounded-xl">
+              <Plus className="h-4 w-4" /> إنشاء العمود
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Add New Status */}
+      <Dialog open={newStatusDialogOpen} onOpenChange={setNewStatusDialogOpen}>
+        <DialogContent dir="rtl" className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>إضافة حالة طالب جديدة</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2 text-xs">
+            <div>
+              <label className="font-bold text-foreground">اسم الحالة الجديدة</label>
+              <Input
+                value={newStatusName}
+                onChange={(e) => setNewStatusName(e.target.value)}
+                placeholder="مثال: ذوي الدخل المحدود، متفوق..."
+                className="h-10 mt-1 rounded-xl text-sm"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setNewStatusName("");
+                setStatusTargetStudentId(null);
+                setNewStatusDialogOpen(false);
+              }}
+            >
+              إلغاء
+            </Button>
+            <Button onClick={handleCreateStatus} className="gap-1 rounded-xl">
+              <Plus className="h-4 w-4" /> إضافة الحالة
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Manage Custom Columns */}
+      <Dialog open={manageColsOpen} onOpenChange={setManageColsOpen}>
+        <DialogContent dir="rtl" className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Columns className="h-5 w-5 text-primary" />
+              إدارة الأعمدة المخصصة
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 py-2 max-h-64 overflow-y-auto">
+            {customColumns.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-4">لا توجد أعمدة مخصصة</p>
+            ) : (
+              customColumns.map((col) => (
+                <div
+                  key={col.id}
+                  className="flex items-center justify-between p-2.5 rounded-xl border border-border bg-secondary/30"
+                >
+                  <div>
+                    <span className="font-bold text-sm text-foreground">{col.name}</span>
+                    <span className="text-xs text-muted-foreground ms-2">({col.type || "نص"})</span>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={async () => {
+                      if (!confirm(`هل تريد حذف عمود "${col.name}"؟`)) return;
+                      await onDeleteCustomColumn(col.id);
+                      toast({ title: "تم حذف العمود", variant: "destructive" });
+                    }}
+                    className="text-rose-500 hover:text-rose-600 h-8 w-8 p-0"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setManageColsOpen(false)}>
+              إغلاق
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
