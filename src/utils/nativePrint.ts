@@ -1,8 +1,6 @@
 import { Capacitor } from "@capacitor/core";
 import { Filesystem, Directory } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
-import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
 
 // يطبع مستند HTML كامل (نفس ما كان يُمرَّر سابقاً لنافذة window.open + print):
 // - بالمتصفح العادي (Chrome): نفس الطريقة القديمة تماماً (فتح نافذة وطباعتها)
@@ -18,6 +16,11 @@ export const printHtmlDocument = async (fullHtml: string, fileName: string) => {
     setTimeout(() => printWindow.print(), 300);
     return;
   }
+
+  const html2canvasPkg = "html2canvas";
+  const jspdfPkg = "jspdf";
+  const html2canvas = (await import(/* @vite-ignore */ html2canvasPkg)).default;
+  const jsPDF = (await import(/* @vite-ignore */ jspdfPkg)).default;
 
   // إنشاء إطار مخفي لعرض المحتوى وتصويره
   const iframe = document.createElement('iframe');
@@ -89,6 +92,11 @@ export const printCurrentPage = async (fileName = "طباعة") => {
     window.print();
     return;
   }
+
+  const html2canvasPkg = "html2canvas";
+  const jspdfPkg = "jspdf";
+  const html2canvas = (await import(/* @vite-ignore */ html2canvasPkg)).default;
+  const jsPDF = (await import(/* @vite-ignore */ jspdfPkg)).default;
 
   const styleEl = document.createElement('style');
   styleEl.id = 'native-print-style';

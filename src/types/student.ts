@@ -18,13 +18,76 @@ export interface YearData {
   teacher: string;
 }
 
+export interface CustomColumnDef {
+  id: string;
+  name: string;
+  type?: "text" | "number" | "date" | "phone";
+}
+
 export interface Student {
   id: number;
   name: string;
   teacher: string;
+  hijri_join_date?: string; // تاريخ هجري الالتحاق
+  initial_hifz?: string; // مقدار الحفظ قبل الالتحاق
+  first_competition_year?: string; // عام أول مسابقة
+  status?: string; // الحالة: يتيم، معوق، مسكين، طبيعي، أو حالة مخصصة
+  school_grade?: string; // السنة الدراسية وقت الالتحاق
+  guardian_phone?: string; // رقم ولي الأمر
+  student_phone?: string; // رقم الطالب
+  custom_fields?: Record<string, string>; // بيانات الأعمدة المخصصة
+  notes?: string;
   hifzHistory?: HifzHistory;
   yearData?: YearData;
 }
+
+export interface InternalCompetition {
+  id: string;
+  user_id?: string;
+  student_id: number;
+  student_name: string;
+  year: string;
+  competition_name: string;
+  category: string;
+  score: number | string;
+  rank: string;
+  prize: string;
+  notes?: string | null;
+  date?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ExternalCompetition {
+  id: string;
+  user_id?: string;
+  student_id: number;
+  student_name: string;
+  year: string;
+  competition_name: string;
+  organizer: string;
+  category: string;
+  score: number | string;
+  rank: string;
+  prize: string;
+  notes?: string | null;
+  date?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export const DEFAULT_STATUSES = [
+  "طبيعي",
+  "يتيم",
+  "يتيمة",
+  "معوق",
+  "معوقة",
+  "فقير",
+  "مسكين",
+  "ذوي احتياجات خاصة",
+  "وافد",
+  "أخرى",
+];
 
 export const START_YEAR = 1441;
 export const END_YEAR = 1450;

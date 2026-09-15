@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import Index from "@/pages/Index";
 
-const title = "كشف المسابقة الرمضانية - مركز إنماء";
+const title = "مركز إنماء الأهلي الخيري - قسم القرآن الكريم | سجل الطلاب الرسمي";
 const description =
-  "نظام إدارة المسابقة الرمضانية لحفظ القرآن الكريم - مركز إنماء الأهلي الخيري.";
+  "السجل الرسمي لطلاب حلقات القرآن الكريم ونظام إدارة المسابقات - مركز إنماء الأهلي الخيري.";
 
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({

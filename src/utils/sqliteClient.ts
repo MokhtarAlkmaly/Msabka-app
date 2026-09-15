@@ -19,14 +19,23 @@ import type {
 export const DB_NAME = "inmaa_local";
 const DB_VERSION = 1;
 
-// ========== إنشاء الجداول (سكيمة حقيقية بأعمدة نموذجية، وليست JSON مبهم) ==========
+// ========== إنشاء الجداول (سكيمة حقيقية بأعمدة نموذجية) ==========
 
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS students (
   id INTEGER PRIMARY KEY,
   name TEXT,
   teacher TEXT,
-  user_id TEXT
+  user_id TEXT,
+  hijri_join_date TEXT,
+  initial_hifz TEXT,
+  first_competition_year TEXT,
+  status TEXT,
+  school_grade TEXT,
+  guardian_phone TEXT,
+  student_phone TEXT,
+  custom_fields TEXT,
+  notes TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_students_teacher ON students(teacher);
 
@@ -165,6 +174,45 @@ CREATE TABLE IF NOT EXISTS certificates (
 );
 CREATE INDEX IF NOT EXISTS idx_certificates_year ON certificates(year);
 
+CREATE TABLE IF NOT EXISTS internal_competitions (
+  id TEXT PRIMARY KEY,
+  user_id TEXT,
+  student_id INTEGER,
+  student_name TEXT,
+  year TEXT,
+  competition_name TEXT,
+  category TEXT,
+  score REAL,
+  rank TEXT,
+  prize TEXT,
+  notes TEXT,
+  date TEXT,
+  created_at TEXT,
+  updated_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_internal_comp_student ON internal_competitions(student_id);
+CREATE INDEX IF NOT EXISTS idx_internal_comp_year ON internal_competitions(year);
+
+CREATE TABLE IF NOT EXISTS external_competitions (
+  id TEXT PRIMARY KEY,
+  user_id TEXT,
+  student_id INTEGER,
+  student_name TEXT,
+  year TEXT,
+  competition_name TEXT,
+  organizer TEXT,
+  category TEXT,
+  score REAL,
+  rank TEXT,
+  prize TEXT,
+  notes TEXT,
+  date TEXT,
+  created_at TEXT,
+  updated_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_external_comp_student ON external_competitions(student_id);
+CREATE INDEX IF NOT EXISTS idx_external_comp_year ON external_competitions(year);
+
 CREATE TABLE IF NOT EXISTS media (
   id TEXT PRIMARY KEY,
   user_id TEXT,
@@ -178,6 +226,18 @@ CREATE TABLE IF NOT EXISTS media (
 );
 CREATE INDEX IF NOT EXISTS idx_media_year_month ON media(year, month);
 `;
+
+const MIGRATE_STUDENTS_COLS = [
+  "ALTER TABLE students ADD COLUMN hijri_join_date TEXT;",
+  "ALTER TABLE students ADD COLUMN initial_hifz TEXT;",
+  "ALTER TABLE students ADD COLUMN first_competition_year TEXT;",
+  "ALTER TABLE students ADD COLUMN status TEXT;",
+  "ALTER TABLE students ADD COLUMN school_grade TEXT;",
+  "ALTER TABLE students ADD COLUMN guardian_phone TEXT;",
+  "ALTER TABLE students ADD COLUMN student_phone TEXT;",
+  "ALTER TABLE students ADD COLUMN custom_fields TEXT;",
+  "ALTER TABLE students ADD COLUMN notes TEXT;",
+];
 
 let sqliteConn: SQLiteConnectionType | null = null;
 let dbConn: SQLiteDBConnection | null = null;
@@ -247,10 +307,18 @@ export const getDB = (): Promise<SQLiteDBConnection> => {
       await db.open();
       await db.execute(SCHEMA_SQL, true);
 
+      // Migrations for existing tables
+      for (const sql of MIGRATE_STUDENTS_COLS) {
+        try {
+          await db.run(sql, [], true);
+        } catch {
+          // column already exists, ignore
+        }
+      }
+
       dbConn = db;
       return db;
     } catch (err) {
-      // إعادة تعيين initPromise حتى تُتاح محاولة جديدة لاحقًا بدل تجميد الخطأ للأبد
       initPromise = null;
       throw err;
     }
