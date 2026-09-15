@@ -34,8 +34,21 @@ import {
 } from "./localDB";
 
 // ===== Helper: get cached user =====
+const CACHE_USER_SETTING = 'cache_user_id';
+
 let cachedUserId: string | null = null;
 let knownUserId: string | null = null;
+let cacheResetInFlight: Promise<void> | null = null;
+
+const clearSessionCache = () => {
+  const reset = clearAllCache().catch((error) => {
+    console.error('Failed to clear the previous user cache:', error);
+  });
+  const inFlight = reset.finally(() => {
+    if (cacheResetInFlight === inFlight) cacheResetInFlight = null;
+  });
+  cacheResetInFlight = inFlight;
+};
 
 const getUserId = async (): Promise<string | null> => {
   if (cachedUserId) return cachedUserId;
@@ -63,12 +76,12 @@ supabase.auth.onAuthStateChange((event, session) => {
 
   if (signedOut || identityChanged) {
     knownUserId = newUserId;
-    clearAllCache().catch(console.error);
+    clearSessionCache();
   }
 });
 
 // ===== Online check =====
-const isOnline = () => navigator.onLine;
+const isOnline = () => typeof navigator !== 'undefined' && navigator.onLine;
 
 const canUseCloud = (userId: string | null): userId is string => !!userId && isOnline();
 
@@ -84,8 +97,37 @@ const newLocalId = () => {
 };
 
 const ensureCache = async () => {
+  const userId = await getUserId();
+  if (!userId) return;
+  if (cacheResetInFlight) await cacheResetInFlight;
+
   const hasCache = await isCachePopulated();
-  if (!hasCache) {
+  const cacheOwner = await getCachedSetting<string>(CACHE_USER_SETTING);
+  const cachedStudents = await getCachedStudents();
+  const containsAnotherUsersStudents = cachedStudents.some(
+    (student) => student.user_id !== userId
+  );
+
+  // The local database is shared by sessions on the same device. Never expose
+  // the previous account's students while a new session is being initialized.
+  if ((cacheOwner && cacheOwner !== userId) || containsAnotherUsersStudents) {
+    clearSessionCache();
+    if (cacheResetInFlight) await cacheResetInFlight;
+
+    if (isOnline()) {
+      await syncFromCloud();
+    }
+    return;
+  }
+
+  // Adopt a legacy cache only when every cached student already belongs to the
+  // current user. This avoids an unnecessary download without weakening the
+  // per-user isolation guarantee.
+  if (!cacheOwner && cachedStudents.length > 0) {
+    await setCachedSetting(CACHE_USER_SETTING, userId);
+  }
+
+  if (!hasCache && isOnline()) {
     await syncFromCloud();
   }
 };
@@ -98,7 +140,18 @@ const byYear = <T extends { year: string }>(rows: T[], year?: string) =>
 // ===== Initial sync: download all data from cloud to local =====
 export type ProgressCb = (current: number, total: number, label?: string) => void;
 
+let syncFromCloudInFlight: Promise<boolean> | null = null;
+
 export const syncFromCloud = async (onProgress?: ProgressCb): Promise<boolean> => {
+  if (syncFromCloudInFlight) return syncFromCloudInFlight;
+
+  syncFromCloudInFlight = runSyncFromCloud(onProgress).finally(() => {
+    syncFromCloudInFlight = null;
+  });
+  return syncFromCloudInFlight;
+};
+
+const runSyncFromCloud = async (onProgress?: ProgressCb): Promise<boolean> => {
   const userId = await getUserId();
   if (!canUseCloud(userId)) return false;
 
@@ -203,18 +256,26 @@ export const syncFromCloud = async (onProgress?: ProgressCb): Promise<boolean> =
 
     onProgress?.(10, 13, 'حفظ المسابقات الداخلية');
     if (!internalCompRes.error && internalCompRes.data) {
-      await cacheInternalCompetitions((internalCompRes.data || []) as CachedInternalCompetition[]);
+      await cacheInternalCompetitions(
+        (internalCompRes.data || []) as unknown as CachedInternalCompetition[]
+      );
     }
 
     onProgress?.(11, 13, 'حفظ المسابقات الخارجية');
     if (!externalCompRes.error && externalCompRes.data) {
-      await cacheExternalCompetitions((externalCompRes.data || []) as CachedExternalCompetition[]);
+      await cacheExternalCompetitions(
+        (externalCompRes.data || []) as unknown as CachedExternalCompetition[]
+      );
     }
 
     onProgress?.(12, 13, 'حفظ بيانات الوسائط');
     if (!mediaRes.error && mediaRes.data) {
       await cacheMedia((mediaRes.data || []) as CachedMedia[]);
     }
+
+    // Mark the cache owner only after all user-scoped records were downloaded.
+    // This lets the next session detect and replace a cache from another user.
+    await setCachedSetting(CACHE_USER_SETTING, userId);
 
     // Cache active year
     const { data: settingsData } = await supabase
@@ -259,12 +320,13 @@ export const saveStudentStatuses = async (statuses: string[]) => {
 
 // ===== Load students with data from LOCAL cache =====
 export const loadAllStudentsWithData = async (currentYear: string): Promise<Student[]> => {
-  const hasCache = await isCachePopulated();
-  if (!hasCache) {
-    await syncFromCloud();
-  }
+  await ensureCache();
+  const userId = await getUserId();
+  if (!userId) return [];
 
-  const students = await getCachedStudents();
+  const students = (await getCachedStudents()).filter(
+    (student) => student.user_id === userId
+  );
   const allHistory = await getCachedHifzHistory();
   const allYearData = await getCachedYearData();
 
@@ -421,7 +483,12 @@ export const registerStudentInYear = async (year: string, studentId: number, tea
 // تحميل كل الطلاب المسجلين في كل الأعوام من السجل الرسمي الشامل
 export const loadGlobalStudents = async (): Promise<Student[]> => {
   await ensureCache();
-  const students = await getCachedStudents();
+  const userId = await getUserId();
+  if (!userId) return [];
+
+  const students = (await getCachedStudents()).filter(
+    (student) => student.user_id === userId
+  );
   return students.map(s => ({
     id: s.id,
     name: s.name,
@@ -621,19 +688,29 @@ export const loadYearData = async (year: string, studentId: number): Promise<Yea
     baseHifz: row.base_hifz, totalHifz: row.total_hifz, parts: row.parts,
     annual: row.annual, recitation: row.recitation, memorization: row.memorization,
     total: row.total, grade: row.grade, prize: row.prize,
-    status_prize: row.status_prize, rank: row.rank, teacher: row.teacher || '',
+    statusPrize: row.status_prize, rank: row.rank, teacher: row.teacher || '',
   };
 };
 
 // Latest Hijri year that actually has data
 const getLatestDataYear = async (): Promise<string> => {
+  const userId = await getUserId();
+  if (!userId) return String(START_YEAR);
+
   try {
+    const studentIds = new Set(
+      (await getCachedStudents())
+        .filter((student) => student.user_id === userId)
+        .map((student) => student.id)
+    );
     const cached = await getCachedYearData();
-    const cachedYears = cached.map(r => r.year).filter(Boolean);
+    const cachedYears = cached
+      .filter((row) => studentIds.has(row.student_id))
+      .map((row) => row.year)
+      .filter(Boolean);
     if (cachedYears.length) return cachedYears.sort().slice(-1)[0];
   } catch { /* ignore */ }
 
-  const userId = await getUserId();
   if (canUseCloud(userId)) {
     const { data } = await supabase
       .from('year_data')
@@ -648,6 +725,10 @@ const getLatestDataYear = async (): Promise<string> => {
 };
 
 export const getActiveYear = async (): Promise<string> => {
+  const userId = await getUserId();
+  if (!userId) return String(START_YEAR);
+
+  await ensureCache();
   const hasCache = await isCachePopulated();
   if (hasCache) {
     const year = await getCachedSetting<string>('active_year');
@@ -655,7 +736,6 @@ export const getActiveYear = async (): Promise<string> => {
     return getLatestDataYear();
   }
 
-  const userId = await getUserId();
   if (!canUseCloud(userId)) return getLatestDataYear();
 
   const { data } = await supabase

@@ -18,6 +18,14 @@ const isVercel = !!process.env["VERCEL"];
 const isCapacitorBuild = !!process.env["CAPACITOR_BUILD"];
 
 export default defineConfig({
+  // Arena proxies the dev server through a generated preview hostname.
+  // Allow that host while still binding Vite on all interfaces.
+  vite: {
+    server: {
+      host: "0.0.0.0",
+      allowedHosts: true,
+    },
+  },
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this

@@ -2,11 +2,8 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { InstallPrompt } from "@/components/InstallPrompt";
-import { AppSidebar } from "@/components/AppSidebar";
 import { StudentsTable } from "@/components/StudentsTable";
-import { StudentProfileModal } from "@/components/StudentProfileModal";
 import {
-  Plus,
   RefreshCw,
   Wifi,
   WifiOff,
@@ -17,19 +14,22 @@ import {
   Heart,
   Calendar,
   Sparkles,
-  Download,
-  Printer,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
-import { Student, START_YEAR, END_YEAR } from "@/types/student";
+import { Student, START_YEAR, END_YEAR, CustomColumnDef, DEFAULT_STATUSES } from "@/types/student";
 import {
   loadGlobalStudents,
   getActiveYear,
   setActiveYear,
   syncToCloud,
   syncFromCloud,
-  saveStudent,
   loadTeachers,
+  loadCustomColumns,
+  saveCustomColumns,
+  loadStudentStatuses,
+  saveStudentStatuses,
+  saveStudent,
+  deleteStudent,
 } from "@/utils/storage";
 import { getPendingChanges } from "@/utils/localDB";
 import { useToast } from "@/hooks/use-toast";
@@ -42,23 +42,115 @@ const Index = () => {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState<{ current: number; total: number; label?: string } | null>(null);
-  const [online, setOnline] = useState(navigator.onLine);
+  const [online, setOnline] = useState(
+    typeof navigator !== "undefined" ? navigator.onLine : true
+  );
   const [teacherNames, setTeacherNames] = useState<string[]>([]);
-  const [selectedStudentForProfile, setSelectedStudentForProfile] = useState<Student | null>(null);
+  const [customColumns, setCustomColumns] = useState<CustomColumnDef[]>([]);
+  const [studentStatuses, setStudentStatuses] = useState<string[]>(DEFAULT_STATUSES);
+  const [dirtyMap, setDirtyMap] = useState<Record<number, Student>>({});
 
   const { toast } = useToast();
   const { user, signOut } = useAuth();
 
   const loadData = useCallback(async () => {
     setLoading(true);
-    const [allStudents, teachers] = await Promise.all([
-      loadGlobalStudents(),
-      loadTeachers(currentYear),
-    ]);
-    setStudents(allStudents);
-    setTeacherNames(teachers.map((t) => t.name));
-    setLoading(false);
-  }, [currentYear]);
+    try {
+      // Load the registry first. It initializes the user-scoped cache so the
+      // related settings and teacher list read from the same account snapshot.
+      const allStudents = await loadGlobalStudents();
+      const [teachers, columns, statuses] = await Promise.all([
+        loadTeachers(currentYear),
+        loadCustomColumns(),
+        loadStudentStatuses(),
+      ]);
+      setStudents(allStudents);
+      setTeacherNames(teachers.map((t) => t.name));
+      setCustomColumns(columns);
+      setStudentStatuses(statuses);
+      setDirtyMap({});
+    } catch (error) {
+      console.error("Failed to load student registry:", error);
+      toast({
+        title: "تعذر تحميل سجل الطلاب",
+        description: "تحقق من الاتصال ثم حاول مرة أخرى",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [currentYear, toast, user]);
+
+  const handleSaveStudent = useCallback(
+    async (student: Partial<Student> & { id?: number; name: string }) => {
+      const id = await saveStudent(student);
+      if (id === null) {
+        throw new Error("Unable to save student without an authenticated user");
+      }
+      setDirtyMap((current) => {
+        const next = { ...current };
+        if (student.id) delete next[student.id];
+        return next;
+      });
+      return id;
+    },
+    []
+  );
+
+  const handleDeleteStudent = useCallback(
+    async (id: number) => {
+      await deleteStudent(id);
+      setDirtyMap((current) => {
+        const next = { ...current };
+        delete next[id];
+        return next;
+      });
+      await loadData();
+    },
+    [loadData]
+  );
+
+  const handleAddCustomColumn = useCallback(async (column: CustomColumnDef) => {
+    const next = [...customColumns, column];
+    await saveCustomColumns(next);
+    setCustomColumns(next);
+  }, [customColumns]);
+
+  const handleDeleteCustomColumn = useCallback(async (columnId: string) => {
+    const next = customColumns.filter((column) => column.id !== columnId);
+    await saveCustomColumns(next);
+    setCustomColumns(next);
+  }, [customColumns]);
+
+  const handleAddStatus = useCallback(async (status: string) => {
+    if (studentStatuses.includes(status)) return;
+    const next = [...studentStatuses, status];
+    await saveStudentStatuses(next);
+    setStudentStatuses(next);
+  }, [studentStatuses]);
+
+  const handleDirtyChange = useCallback((studentId: number, data: Student) => {
+    setDirtyMap((current) => ({ ...current, [studentId]: data }));
+
+    // Keep inline edits local-first as well. The table emits this callback on
+    // every field change and the storage layer queues the cloud update when
+    // connectivity is available.
+    void saveStudent(data)
+      .then(() => {
+        setStudents((current) =>
+          current.map((student) => (student.id === studentId ? data : student))
+        );
+        setDirtyMap((current) => {
+          if (current[studentId] !== data) return current;
+          const next = { ...current };
+          delete next[studentId];
+          return next;
+        });
+      })
+      .catch((error) => {
+        console.error("Failed to save inline student edit:", error);
+      });
+  }, []);
 
   // Auto-sync queued offline changes
   const autoSyncPending = useCallback(async () => {
@@ -125,27 +217,29 @@ const Index = () => {
       toast({ title: "لا يوجد اتصال", description: "يرجى الاتصال بالإنترنت أولاً", variant: "destructive" });
       return;
     }
+
     setSyncing(true);
-    setSyncProgress({ current: 0, total: 4, label: "بدء التنزيل" });
-    const success = await syncFromCloud((current, total, label) =>
-      setSyncProgress({ current, total, label })
-    );
-    setSyncProgress(null);
-    if (success) {
-      await loadData();
-      toast({ title: "تمت المزامنة", description: "تم تحديث البيانات من السحابة بنجاح" });
-    } else {
+    setSyncProgress({ current: 0, total: 13, label: "بدء التنزيل" });
+    try {
+      const success = await syncFromCloud((current, total, label) =>
+        setSyncProgress({ current, total, label })
+      );
+      if (success) {
+        await loadData();
+        toast({ title: "تمت المزامنة", description: "تم تحديث البيانات من السحابة بنجاح" });
+      } else {
+        toast({ title: "خطأ", description: "فشل في المزامنة", variant: "destructive" });
+      }
+    } catch (error) {
+      console.error("Cloud sync error:", error);
       toast({ title: "خطأ", description: "فشل في المزامنة", variant: "destructive" });
+    } finally {
+      setSyncProgress(null);
+      setSyncing(false);
     }
-    setSyncing(false);
   };
 
   const now = new Date();
-  const currentDate = now.toLocaleDateString("ar-EG", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
   const dayName = now.toLocaleDateString("ar-EG", { weekday: "long" });
   const hijriDate = now.toLocaleDateString("ar-SA-u-ca-islamic-umalqura", {
     year: "numeric",
@@ -170,13 +264,10 @@ const Index = () => {
     >
       <InstallPrompt />
 
-      {/* Main Layout with Right Vertical Sidebar */}
-      <div className="flex min-h-screen w-full">
-        {/* Right Vertical Sidebar */}
-        <AppSidebar currentYear={currentYear} />
-
-        {/* Content Area */}
-        <div className="flex-1 min-w-0 flex flex-col overflow-x-hidden">
+      {/* The authenticated route provides the shared sidebar and reserves its
+          desktop width. This page only owns the registry content. */}
+      <div className="flex min-h-screen w-full flex-col">
+        <div className="flex min-w-0 flex-1 flex-col overflow-x-hidden">
           {/* Header */}
           <header className="relative isolate mx-3 mt-3 px-4 pb-6 pt-4 text-primary-foreground">
             <div className="pointer-events-none absolute inset-0 -z-10 rounded-[2rem] bg-gradient-to-br from-primary via-emerald-700 to-teal-950 shadow-2xl shadow-primary/20" />
@@ -319,10 +410,18 @@ const Index = () => {
             ) : (
               <StudentsTable
                 students={students}
-                currentYear={currentYear}
+                onUpdate={loadData}
+                onSaveStudent={handleSaveStudent}
+                onDeleteStudent={handleDeleteStudent}
                 teacherNames={teacherNames}
-                onRefresh={loadData}
-                onSelectStudentForProfile={(s) => setSelectedStudentForProfile(s)}
+                customColumns={customColumns}
+                onAddCustomColumn={handleAddCustomColumn}
+                onDeleteCustomColumn={handleDeleteCustomColumn}
+                studentStatuses={studentStatuses}
+                onAddStatus={handleAddStatus}
+                dirtyMap={dirtyMap}
+                onDirtyChange={handleDirtyChange}
+                activeYear={currentYear}
               />
             )}
           </main>
@@ -334,18 +433,7 @@ const Index = () => {
         </div>
       </div>
 
-      {/* Student Profile Modal */}
-      {selectedStudentForProfile && (
-        <StudentProfileModal
-          student={selectedStudentForProfile}
-          initialYear={currentYear}
-          open={!!selectedStudentForProfile}
-          onOpenChange={(open) => {
-            if (!open) setSelectedStudentForProfile(null);
-          }}
-          onStudentUpdated={loadData}
-        />
-      )}
+
     </div>
   );
 };
