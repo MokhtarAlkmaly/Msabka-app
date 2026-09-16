@@ -32,11 +32,12 @@ import {
   markDirty, getPendingChanges, clearPending,
   remapPendingStudentId,
 } from "./localDB";
+import { getViewAsId, isViewingOtherUser, subscribeViewAs } from "./viewAs";
 
 // ===== Helper: get cached user =====
 const CACHE_USER_SETTING = 'cache_user_id';
 
-let cachedUserId: string | null = null;
+let cachedAuthUserId: string | null = null;
 let knownUserId: string | null = null;
 let cacheResetInFlight: Promise<void> | null = null;
 
@@ -50,23 +51,48 @@ const clearSessionCache = () => {
   cacheResetInFlight = inFlight;
 };
 
-const getUserId = async (): Promise<string | null> => {
-  if (cachedUserId) return cachedUserId;
+/** معرّف الحساب المسجَّل دخوله فعلياً (وليس الحساب المعروض). */
+const getAuthUserId = async (): Promise<string | null> => {
+  if (cachedAuthUserId) return cachedAuthUserId;
 
   const { data: { session } } = await supabase.auth.getSession();
-  cachedUserId = session?.user?.id || null;
-  if (!cachedUserId && isOnline()) {
+  cachedAuthUserId = session?.user?.id || null;
+  if (!cachedAuthUserId && isOnline()) {
     const { data: { user } } = await supabase.auth.getUser();
-    cachedUserId = user?.id || null;
+    cachedAuthUserId = user?.id || null;
   }
 
-  if (cachedUserId) knownUserId = cachedUserId;
-  return cachedUserId;
+  if (cachedAuthUserId) knownUserId = cachedAuthUserId;
+  return cachedAuthUserId;
+};
+
+/**
+ * صاحب البيانات التي تُقرأ/تُكتب حالياً.
+ * في الوضع الطبيعي هو الحساب نفسه، وفي وضع الاطلاع هو المستخدم المعروض
+ * (قراءة فقط — كل دوال الكتابة محمية بـ guardWrite).
+ */
+const getUserId = async (): Promise<string | null> => {
+  const viewing = getViewAsId();
+  if (viewing) return viewing;
+  return getAuthUserId();
+};
+
+/** خطأ يُرمى عند محاولة التعديل أثناء الاطلاع على بيانات مستخدم آخر. */
+export class ReadOnlyViewError extends Error {
+  constructor() {
+    super('أنت في وضع الاطلاع على بيانات مستخدم آخر — التعديل غير مسموح');
+    this.name = 'ReadOnlyViewError';
+  }
+}
+
+/** يمنع أي كتابة أثناء وضع الاطلاع. */
+const guardWrite = () => {
+  if (isViewingOtherUser()) throw new ReadOnlyViewError();
 };
 
 supabase.auth.onAuthStateChange((event, session) => {
   const newUserId = session?.user?.id || null;
-  cachedUserId = newUserId;
+  cachedAuthUserId = newUserId;
 
   const identityChanged = knownUserId !== null && newUserId !== null
     && knownUserId !== newUserId;
@@ -78,6 +104,11 @@ supabase.auth.onAuthStateChange((event, session) => {
     knownUserId = newUserId;
     clearSessionCache();
   }
+});
+
+// تبديل الحساب المعروض يُبطل الكاش المحلي، لأن الكاش يخص مالكاً واحداً فقط.
+subscribeViewAs(() => {
+  clearSessionCache();
 });
 
 // ===== Online check =====
@@ -156,10 +187,14 @@ const runSyncFromCloud = async (onProgress?: ProgressCb): Promise<boolean> => {
   if (!canUseCloud(userId)) return false;
 
   try {
-    const pendingBefore = await getPendingChanges();
-    if (pendingBefore.length > 0) {
-      const pushed = await syncToCloud();
-      if (!pushed) return false;
+    // في وضع الاطلاع لا توجد تغييرات محلية تُرفع (الكتابة معطّلة أصلاً)، لذا
+    // نتخطى خطوة الرفع ولا نعتبر فشلها سبباً لإلغاء التنزيل.
+    if (!isViewingOtherUser()) {
+      const pendingBefore = await getPendingChanges();
+      if (pendingBefore.length > 0) {
+        const pushed = await syncToCloud();
+        if (!pushed) return false;
+      }
     }
 
     onProgress?.(0, 13, 'تحميل البيانات');
@@ -304,6 +339,7 @@ export const loadCustomColumns = async (): Promise<CustomColumnDef[]> => {
 };
 
 export const saveCustomColumns = async (cols: CustomColumnDef[]) => {
+  guardWrite();
   await setCachedSetting('student_custom_columns', cols);
 };
 
@@ -315,6 +351,7 @@ export const loadStudentStatuses = async (): Promise<string[]> => {
 };
 
 export const saveStudentStatuses = async (statuses: string[]) => {
+  guardWrite();
   await setCachedSetting('student_statuses', statuses);
 };
 
@@ -449,6 +486,7 @@ export const listRecallCandidates = async (year: string): Promise<RecallCandidat
 
 // استدعاء طالبات من السجل العام إلى العام المختار مع ترحيل الحفظ التراكمي
 export const recallStudentsToYear = async (year: string, ids: number[]): Promise<number> => {
+  guardWrite();
   const candidates = await listRecallCandidates(year);
   const map = new Map(candidates.map(c => [c.id, c]));
   let added = 0;
@@ -470,6 +508,7 @@ export const recallStudentsToYear = async (year: string, ids: number[]): Promise
 
 // تسجيل طالبة في العام المختار
 export const registerStudentInYear = async (year: string, studentId: number, teacher = '') => {
+  guardWrite();
   const student = (await getCachedStudents()).find(s => s.id === studentId);
   const initialBase = student?.initial_hifz ? student.initial_hifz : '0';
   await saveYearData(year, studentId, {
@@ -507,6 +546,7 @@ export const loadGlobalStudents = async (): Promise<Student[]> => {
 
 // ===== Save to LOCAL cache =====
 export const saveStudent = async (student: Partial<Student> & { id?: number; name: string }): Promise<number | null> => {
+  guardWrite();
   const userId = await getUserId();
   if (!userId) return null;
 
@@ -558,6 +598,7 @@ export const saveStudent = async (student: Partial<Student> & { id?: number; nam
 };
 
 export const deleteStudent = async (id: number) => {
+  guardWrite();
   await deleteCachedStudent(id);
   await markDirty('student', 'delete', { id });
   const allHistory = await getCachedHifzHistory();
@@ -581,6 +622,7 @@ export const deleteStudent = async (id: number) => {
 };
 
 export const deleteAllStudents = async () => {
+  guardWrite();
   const { clearStore } = await import("./localDB");
   const userId = await getUserId();
   if (canUseCloud(userId)) {
@@ -616,6 +658,7 @@ export const deleteAllStudents = async () => {
 };
 
 export const deleteYearData = async (year: string) => {
+  guardWrite();
   const { deleteItem } = await import("./localDB");
   const userId = await getUserId();
 
@@ -641,12 +684,14 @@ export const deleteYearData = async (year: string) => {
 };
 
 export const deleteStudents = async (ids: number[]) => {
+  guardWrite();
   for (const id of ids) {
     await deleteStudent(id);
   }
 };
 
 export const saveHifzHistory = async (studentId: number, history: HifzHistory) => {
+  guardWrite();
   for (const [yearKey, value] of Object.entries(history)) {
     await putCachedHifzRow({ student_id: studentId, year_key: yearKey, value: value || '0' });
     await markDirty('hifz', 'upsert', { student_id: studentId, year_key: yearKey });
@@ -663,6 +708,7 @@ export const loadHifzHistory = async (studentId: number): Promise<HifzHistory> =
 };
 
 export const saveYearData = async (year: string, studentId: number, data: YearData) => {
+  guardWrite();
   await putCachedYearData({
     student_id: studentId, year,
     base_hifz: data.baseHifz, total_hifz: data.totalHifz, parts: data.parts,
@@ -750,7 +796,10 @@ export const getActiveYear = async (): Promise<string> => {
 };
 
 export const setActiveYear = async (year: string) => {
+  // تبديل العام مجرد تنقل في العرض، لذا يبقى مسموحاً أثناء الاطلاع، لكنه
+  // يُحفظ محلياً فقط ولا يمسّ إعدادات صاحب البيانات.
   await setCachedSetting('active_year', year);
+  if (isViewingOtherUser()) return;
   const userId = await getUserId();
   if (canUseCloud(userId)) {
     await supabase
@@ -780,7 +829,9 @@ export const getTableFilters = async <T>(): Promise<T | undefined> => {
 };
 
 export const setTableFilters = async (filters: any) => {
+  // مرشّحات الجدول تفضيل عرض محلي؛ تُحفظ محلياً فقط أثناء الاطلاع.
   await setCachedSetting('table_filters', filters);
+  if (isViewingOtherUser()) return;
 
   const userId = await getUserId();
   if (!canUseCloud(userId)) return;
@@ -791,6 +842,7 @@ export const setTableFilters = async (filters: any) => {
 };
 
 export const migrateYearData = async (newYear: string, students: { id: number }[]) => {
+  guardWrite();
   const newYearNum = parseInt(newYear);
   const previousYear = newYearNum - 1;
 
@@ -808,6 +860,7 @@ export const migrateYearData = async (newYear: string, students: { id: number }[
 };
 
 const queueCloudSync = () => {
+  if (isViewingOtherUser()) return;
   if (!isOnline()) return;
   window.setTimeout(() => {
     void syncToCloud();
@@ -835,6 +888,7 @@ export const loadTeachers = async (year?: string): Promise<TeacherRow[]> => {
 };
 
 export const saveTeacher = async (teacher: Partial<TeacherRow> & { name: string; year: string }): Promise<TeacherRow | null> => {
+  guardWrite();
   const userId = await getUserId();
   if (!userId) return null;
   const existing = teacher.id
@@ -855,6 +909,7 @@ export const saveTeacher = async (teacher: Partial<TeacherRow> & { name: string;
 };
 
 export const deleteTeacherLocal = async (id: string) => {
+  guardWrite();
   await deleteCachedTeacher(id);
   await markDirty('teacher', 'delete', { id });
   queueCloudSync();
@@ -871,6 +926,7 @@ export const loadTeacherBonuses = async (year?: string): Promise<TeacherBonusRow
 export const saveTeacherBonus = async (
   bonus: Partial<TeacherBonusRow> & { teacher_name: string; year: string; month: number; amount: number }
 ): Promise<TeacherBonusRow | null> => {
+  guardWrite();
   const userId = await getUserId();
   if (!userId) return null;
   const existing = bonus.id
@@ -895,6 +951,7 @@ export const saveTeacherBonus = async (
 };
 
 export const deleteTeacherBonusLocal = async (id: string) => {
+  guardWrite();
   await deleteCachedTeacherBonus(id);
   await markDirty('teacher_bonus', 'delete', { id });
   queueCloudSync();
@@ -918,6 +975,7 @@ export const saveDonor = async (donor: Partial<DonorRow> & {
   in_kind?: string | null;
   notes?: string | null;
 }): Promise<DonorRow | null> => {
+  guardWrite();
   const userId = await getUserId();
   if (!userId) return null;
   const row: DonorRow = {
@@ -938,6 +996,7 @@ export const saveDonor = async (donor: Partial<DonorRow> & {
 };
 
 export const deleteDonorLocal = async (id: string) => {
+  guardWrite();
   await deleteCachedDonor(id);
   await markDirty('donor', 'delete', { id });
   queueCloudSync();
@@ -965,6 +1024,7 @@ export const saveAward = async (award: Partial<AwardRow> & {
   awarded_at: string;
   funded_by?: string | null;
 }): Promise<AwardRow | null> => {
+  guardWrite();
   const userId = await getUserId();
   if (!userId) return null;
   const row: AwardRow = {
@@ -985,6 +1045,7 @@ export const saveAward = async (award: Partial<AwardRow> & {
 };
 
 export const deleteAwardLocal = async (id: string) => {
+  guardWrite();
   await deleteCachedAward(id);
   await markDirty('award', 'delete', { id });
   queueCloudSync();
@@ -1008,6 +1069,7 @@ export const saveCeremonyExpense = async (expense: Partial<CeremonyExpenseRow> &
   funded_by?: string | null;
   notes?: string | null;
 }): Promise<CeremonyExpenseRow | null> => {
+  guardWrite();
   const userId = await getUserId();
   if (!userId) return null;
   const row: CeremonyExpenseRow = {
@@ -1026,6 +1088,7 @@ export const saveCeremonyExpense = async (expense: Partial<CeremonyExpenseRow> &
 };
 
 export const deleteCeremonyExpenseLocal = async (id: string) => {
+  guardWrite();
   await deleteCachedCeremonyExpense(id);
   await markDirty('expense', 'delete', { id });
   queueCloudSync();
@@ -1048,6 +1111,7 @@ export const saveCertificate = async (certificate: Partial<CertificateRow> & {
   notes?: string | null;
   issued_at: string;
 }): Promise<CertificateRow | null> => {
+  guardWrite();
   const userId = await getUserId();
   if (!userId) return null;
   const row: CertificateRow = {
@@ -1065,6 +1129,7 @@ export const saveCertificate = async (certificate: Partial<CertificateRow> & {
 };
 
 export const saveCertificates = async (certificates: Array<Parameters<typeof saveCertificate>[0]>) => {
+  guardWrite();
   const saved: CertificateRow[] = [];
   for (const certificate of certificates) {
     const row = await saveCertificate(certificate);
@@ -1074,6 +1139,7 @@ export const saveCertificates = async (certificates: Array<Parameters<typeof sav
 };
 
 export const deleteCertificateLocal = async (id: string) => {
+  guardWrite();
   await deleteCachedCertificate(id);
   await markDirty('certificate', 'delete', { id });
   queueCloudSync();
@@ -1103,6 +1169,7 @@ export const saveInternalCompetition = async (comp: Partial<InternalCompetitionR
   notes?: string | null;
   date?: string | null;
 }): Promise<InternalCompetitionRow | null> => {
+  guardWrite();
   const userId = await getUserId();
   if (!userId) return null;
   const row: InternalCompetitionRow = {
@@ -1122,6 +1189,7 @@ export const saveInternalCompetition = async (comp: Partial<InternalCompetitionR
 };
 
 export const deleteInternalCompetitionLocal = async (id: string) => {
+  guardWrite();
   await deleteCachedInternalCompetition(id);
   await markDirty('internal_competition', 'delete', { id });
   queueCloudSync();
@@ -1152,6 +1220,7 @@ export const saveExternalCompetition = async (comp: Partial<ExternalCompetitionR
   notes?: string | null;
   date?: string | null;
 }): Promise<ExternalCompetitionRow | null> => {
+  guardWrite();
   const userId = await getUserId();
   if (!userId) return null;
   const row: ExternalCompetitionRow = {
@@ -1171,6 +1240,7 @@ export const saveExternalCompetition = async (comp: Partial<ExternalCompetitionR
 };
 
 export const deleteExternalCompetitionLocal = async (id: string) => {
+  guardWrite();
   await deleteCachedExternalCompetition(id);
   await markDirty('external_competition', 'delete', { id });
   queueCloudSync();
@@ -1194,6 +1264,7 @@ export const saveMediaMetadata = async (media: Partial<MediaMetadataRow> & {
   file_type: 'image' | 'video';
   file_size: number;
 }): Promise<MediaMetadataRow | null> => {
+  guardWrite();
   const userId = await getUserId();
   if (!userId) return null;
   const row: MediaMetadataRow = {
@@ -1209,6 +1280,7 @@ export const saveMediaMetadata = async (media: Partial<MediaMetadataRow> & {
 };
 
 export const deleteMediaMetadataLocal = async (id: string) => {
+  guardWrite();
   const existing = (await getCachedMedia()).find(item => item.id === id);
   await deleteCachedMedia(id);
   await markDirty('media', 'delete', { id, file_path: existing?.file_path });
@@ -1219,6 +1291,8 @@ export const deleteMediaMetadataLocal = async (id: string) => {
 let syncInFlight: Promise<boolean> | null = null;
 
 export const syncToCloud = async (onProgress?: ProgressCb): Promise<boolean> => {
+  // وضع الاطلاع للقراءة فقط: لا نرفع أي شيء إلى حساب صاحب البيانات.
+  if (isViewingOtherUser()) return false;
   if (syncInFlight) return syncInFlight;
   syncInFlight = runSyncToCloud(onProgress).finally(() => { syncInFlight = null; });
   return syncInFlight;
@@ -1516,11 +1590,13 @@ const runSyncToCloud = async (onProgress?: ProgressCb): Promise<boolean> => {
 };
 
 export const saveGlobalStudents = async (students: Student[]) => {
+  guardWrite();
   // Handled per student via saveStudent
 };
 
 // ===== Merge duplicate students by name =====
 export const mergeDuplicateStudents = async (): Promise<number> => {
+  guardWrite();
   const students = await getCachedStudents();
   const allHistory = await getCachedHifzHistory();
   const allYearData = await getCachedYearData();
@@ -1670,6 +1746,7 @@ export const saveMonthlyRecord = async (
   month: number,
   record: MonthlyRecord
 ): Promise<boolean> => {
+  guardWrite();
   const userId = await getUserId();
   if (!canUseCloud(userId)) return false;
 
@@ -1704,6 +1781,7 @@ export const saveMonthlyRecord = async (
 };
 
 export const recomputeAnnualFromMonthly = async (year: string, studentId: number) => {
+  guardWrite();
   const userId = await getUserId();
   if (!canUseCloud(userId)) return;
 
