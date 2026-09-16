@@ -1,9 +1,8 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo } from "react";
 import { Student, CustomColumnDef, DEFAULT_STATUSES } from "@/types/student";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -13,7 +12,6 @@ import {
 } from "@/components/ui/dialog";
 import {
   Trash2,
-  Phone,
   MessageCircle,
   Plus,
   Search,
@@ -21,12 +19,12 @@ import {
   FileSpreadsheet,
   Columns,
   GraduationCap,
-  Sparkles,
   ExternalLink,
-  ChevronDown,
-  UserCheck,
+  AlertTriangle,
 } from "lucide-react";
 import { StudentProfileModal } from "./StudentProfileModal";
+import { getDuplicateNameCounts, getDuplicateCountFor } from "@/utils/studentNames";
+import { esc } from "@/utils/report";
 import * as XLSX from "xlsx";
 import { Capacitor } from "@capacitor/core";
 import { Filesystem, Directory } from "@capacitor/filesystem";
@@ -72,6 +70,7 @@ export const StudentsTable = ({
   const [selectedTeacher, setSelectedTeacher] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [selectedGrade, setSelectedGrade] = useState<string>("all");
+  const [duplicatesOnly, setDuplicatesOnly] = useState(false);
 
   // Active student for profile modal
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -160,11 +159,26 @@ export const StudentsTable = ({
     return Array.from(set).sort((a, b) => a.localeCompare(b, "ar"));
   }, [students]);
 
+  // Duplicate names across the whole registry (normalized, Arabic-aware)
+  const duplicateNameCounts = useMemo(() => getDuplicateNameCounts(students), [students]);
+  const duplicateGroupsCount = duplicateNameCounts.size;
+  const duplicateStudentsCount = useMemo(
+    () =>
+      students.reduce(
+        (acc, s) => acc + (getDuplicateCountFor(s.name, duplicateNameCounts) > 1 ? 1 : 0),
+        0,
+      ),
+    [students, duplicateNameCounts],
+  );
+
   // Filtered Students list
   const filteredStudents = useMemo(() => {
     return students.filter((s) => {
       const current = dirtyMap[s.id] || s;
       if (selectedTeacher !== "all" && (current.teacher || "") !== selectedTeacher) return false;
+      if (duplicatesOnly && getDuplicateCountFor(current.name, duplicateNameCounts) < 2) {
+        return false;
+      }
       if (selectedStatus !== "all" && (current.status || "طبيعي") !== selectedStatus) return false;
       if (selectedGrade !== "all" && (current.school_grade || "") !== selectedGrade) return false;
 
@@ -190,7 +204,16 @@ export const StudentsTable = ({
 
       return true;
     });
-  }, [students, dirtyMap, selectedTeacher, selectedStatus, selectedGrade, searchQuery]);
+  }, [
+    students,
+    dirtyMap,
+    selectedTeacher,
+    selectedStatus,
+    selectedGrade,
+    searchQuery,
+    duplicatesOnly,
+    duplicateNameCounts,
+  ]);
 
   // Export to Excel
   const handleExportExcel = async () => {
@@ -328,12 +351,12 @@ export const StudentsTable = ({
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setNewColumnDialogOpen(true)}
-              className="gap-1.5 rounded-xl border-dashed border-primary/40 font-bold text-primary hover:bg-primary/10"
+              className="w-full sm:w-auto gap-1.5 rounded-xl border-dashed border-primary/40 font-bold text-primary hover:bg-primary/10"
             >
               <Plus className="h-4 w-4" /> إضافة عمود جديد
             </Button>
@@ -342,7 +365,7 @@ export const StudentsTable = ({
                 variant="ghost"
                 size="sm"
                 onClick={() => setManageColsOpen(true)}
-                className="gap-1 rounded-xl text-xs font-bold"
+                className="w-full sm:w-auto gap-1 rounded-xl text-xs font-bold"
               >
                 <Columns className="h-3.5 w-3.5" /> إدارة الأعمدة ({customColumns.length})
               </Button>
@@ -351,7 +374,7 @@ export const StudentsTable = ({
               variant="outline"
               size="sm"
               onClick={handleExportExcel}
-              className="gap-1 rounded-xl font-bold"
+              className="w-full sm:w-auto gap-1 rounded-xl font-bold"
             >
               <FileSpreadsheet className="h-4 w-4 text-emerald-600" /> تصدير Excel
             </Button>
@@ -359,15 +382,38 @@ export const StudentsTable = ({
               variant="secondary"
               size="sm"
               onClick={handlePrint}
-              className="gap-1 rounded-xl font-bold"
+              className="w-full sm:w-auto gap-1 rounded-xl font-bold"
             >
               <Printer className="h-4 w-4" /> طباعة السجل
             </Button>
           </div>
         </div>
 
+        {/* Duplicate names warning strip */}
+        {duplicateGroupsCount > 0 && (
+          <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-amber-300/70 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span className="font-bold">
+              تنبيه: يوجد {duplicateStudentsCount} طالب ضمن {duplicateGroupsCount} اسمًا مكررًا في
+              السجل — تم تمييز أسمائهم باللون الكهرماني داخل الجدول.
+            </span>
+            <Button
+              size="sm"
+              variant={duplicatesOnly ? "default" : "outline"}
+              onClick={() => setDuplicatesOnly((v) => !v)}
+              className={`h-7 rounded-lg px-2.5 text-xs font-bold ${
+                duplicatesOnly
+                  ? "bg-amber-600 text-white hover:bg-amber-700"
+                  : "border-amber-400/70 text-amber-800 hover:bg-amber-100 dark:text-amber-300 dark:hover:bg-amber-500/20"
+              }`}
+            >
+              {duplicatesOnly ? "إظهار كل الطلاب" : "عرض الأسماء المكررة فقط"}
+            </Button>
+          </div>
+        )}
+
         {/* Filter Bar */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 pt-2 border-t border-border/60">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2 pt-2 border-t border-border/60">
           <div className="relative">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -418,11 +464,14 @@ export const StudentsTable = ({
 
       {/* Main Students Table */}
       <div className="relative overflow-hidden rounded-[1.75rem] border border-white/70 bg-card/90 shadow-2xl shadow-primary/10 backdrop-blur">
-        <div className="flex items-center justify-between gap-3 border-b border-border/60 bg-background/55 px-4 py-3 print:hidden">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-background/55 px-4 py-3 print:hidden">
           <div className="flex items-center gap-2">
             <h3 className="font-black text-foreground">جدول الطلاب الرسمي</h3>
-            <span className="text-xs text-muted-foreground">
+            <span className="hidden text-xs text-muted-foreground md:inline">
               (اضغط على اسم أي طالب لفتح ملفه الشامل ومتابعاته عبر جميع الأعوام)
+            </span>
+            <span className="text-[11px] text-muted-foreground md:hidden">
+              اسحب الجدول يمينًا ويسارًا لعرض كل الأعمدة ⇄
             </span>
           </div>
           <div className="rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
@@ -430,38 +479,43 @@ export const StudentsTable = ({
           </div>
         </div>
 
-        <div className="max-h-[72vh] overflow-auto">
+        <div className="table-scroll max-h-[60vh] overflow-auto md:max-h-[72vh]">
           <table className="w-full min-w-[1200px] table-fixed border-separate border-spacing-0 bg-card text-sm whitespace-nowrap">
             <thead>
-              <tr className="bg-gradient-to-r from-emerald-900 to-teal-900 text-white font-bold text-xs sticky top-0 z-20">
-                <th className="sticky right-0 z-30 w-12 bg-emerald-900 p-2.5 text-center border-b border-l border-emerald-800">
+              {/*
+                كل خلية رأس ثابتة (sticky) بخلفية معتمة خاصة بها — لا نعتمد على
+                خلفية الصف لأنها لا تتحرك مع الخلايا الثابتة فتظهر مشكلة
+                التداخل عند التمرير.
+              */}
+              <tr className="text-white font-bold text-xs">
+                <th className="sticky top-0 right-0 z-40 w-12 bg-emerald-900 p-2.5 text-center border-b border-l border-emerald-800">
                   م
                 </th>
-                <th className="sticky right-12 z-30 min-w-[180px] bg-emerald-900 p-2.5 text-right border-b border-l border-emerald-800 shadow-[-8px_0_12px_-10px_rgba(0,0,0,0.5)]">
+                <th className="sticky top-0 right-12 z-40 min-w-[180px] bg-emerald-900 p-2.5 text-right border-b border-l border-emerald-800 shadow-[-8px_0_12px_-10px_rgba(0,0,0,0.5)]">
                   اسم الطالب
                 </th>
-                <th className="min-w-[130px] p-2.5 text-center border-b border-l border-emerald-800">
+                <th className="sticky top-0 z-30 min-w-[130px] bg-emerald-900 p-2.5 text-center border-b border-l border-emerald-800">
                   المعلمة
                 </th>
-                <th className="min-w-[130px] p-2.5 text-center border-b border-l border-emerald-800">
+                <th className="sticky top-0 z-30 min-w-[130px] bg-emerald-900 p-2.5 text-center border-b border-l border-emerald-800">
                   تاريخ هجري الالتحاق
                 </th>
-                <th className="min-w-[130px] p-2.5 text-center border-b border-l border-emerald-800">
+                <th className="sticky top-0 z-30 min-w-[130px] bg-emerald-900 p-2.5 text-center border-b border-l border-emerald-800">
                   مقدار الحفظ قبل الالتحاق
                 </th>
-                <th className="min-w-[110px] p-2.5 text-center border-b border-l border-emerald-800">
+                <th className="sticky top-0 z-30 min-w-[110px] bg-emerald-900 p-2.5 text-center border-b border-l border-emerald-800">
                   عام المسابقة الأولى
                 </th>
-                <th className="min-w-[120px] p-2.5 text-center border-b border-l border-emerald-800">
+                <th className="sticky top-0 z-30 min-w-[120px] bg-emerald-900 p-2.5 text-center border-b border-l border-emerald-800">
                   الحالة
                 </th>
-                <th className="min-w-[140px] p-2.5 text-center border-b border-l border-emerald-800">
+                <th className="sticky top-0 z-30 min-w-[140px] bg-emerald-900 p-2.5 text-center border-b border-l border-emerald-800">
                   السنة الدراسية وقت الالتحاق
                 </th>
-                <th className="min-w-[130px] p-2.5 text-center border-b border-l border-emerald-800">
+                <th className="sticky top-0 z-30 min-w-[130px] bg-emerald-900 p-2.5 text-center border-b border-l border-emerald-800">
                   رقم ولي الأمر
                 </th>
-                <th className="min-w-[120px] p-2.5 text-center border-b border-l border-emerald-800">
+                <th className="sticky top-0 z-30 min-w-[120px] bg-emerald-900 p-2.5 text-center border-b border-l border-emerald-800">
                   رقم الطالب
                 </th>
 
@@ -469,7 +523,7 @@ export const StudentsTable = ({
                 {customColumns.map((col) => (
                   <th
                     key={col.id}
-                    className="min-w-[130px] p-2.5 text-center border-b border-l border-emerald-800 bg-emerald-950/80"
+                    className="sticky top-0 z-30 min-w-[130px] bg-teal-900 p-2.5 text-center border-b border-l border-emerald-800"
                   >
                     <div className="flex items-center justify-center gap-1">
                       <span>{col.name}</span>
@@ -477,7 +531,7 @@ export const StudentsTable = ({
                   </th>
                 ))}
 
-                <th className="w-24 p-2.5 text-center border-b border-emerald-800">
+                <th className="sticky top-0 z-30 w-24 bg-teal-900 p-2.5 text-center border-b border-l border-emerald-800">
                   إجراءات
                 </th>
               </tr>
@@ -497,6 +551,8 @@ export const StudentsTable = ({
                 filteredStudents.map((student, index) => {
                   const current = dirtyMap[student.id] || student;
                   const isDirtyRow = !!dirtyMap[student.id];
+                  const dupCount = getDuplicateCountFor(current.name, duplicateNameCounts);
+                  const isDuplicateName = dupCount > 1;
 
                   return (
                     <tr
@@ -506,19 +562,41 @@ export const StudentsTable = ({
                       }`}
                     >
                       {/* Index */}
-                      <td className="sticky right-0 z-10 w-12 border-b border-l border-border/70 bg-card p-1 text-center font-black text-primary group-hover:bg-primary/5">
+                      <td className="sticky right-0 z-10 w-12 border-b border-l border-border/70 bg-card p-1 text-center font-black text-primary group-hover:bg-emerald-50 dark:group-hover:bg-emerald-950">
                         {index + 1}
                       </td>
 
                       {/* Student Name: Clickable to open profile */}
-                      <td className="sticky right-12 z-10 border-b border-l border-border/70 bg-card p-1.5 shadow-[-8px_0_12px_-10px_rgba(0,0,0,0.3)] group-hover:bg-primary/5">
+                      <td
+                        className={`sticky right-12 z-10 border-b border-l border-border/70 p-1.5 shadow-[-8px_0_12px_-10px_rgba(0,0,0,0.3)] ${
+                          isDuplicateName
+                            ? "bg-amber-100 group-hover:bg-amber-200 dark:bg-amber-800 dark:group-hover:bg-amber-700"
+                            : "bg-card group-hover:bg-emerald-50 dark:group-hover:bg-emerald-950"
+                        }`}
+                      >
                         <div className="flex items-center justify-between gap-1">
                           <button
                             type="button"
                             onClick={() => handleOpenProfile(student)}
-                            className="text-right font-black text-primary hover:text-emerald-700 hover:underline flex items-center gap-1.5 group-hover:translate-x-[-2px] transition-transform"
-                            title="اضغط لفتح الملف الأكاديمي الشامل للطالب"
+                            className={`text-right font-black flex items-center gap-1.5 group-hover:translate-x-[-2px] transition-transform ${
+                              isDuplicateName
+                                ? "text-amber-800 hover:text-amber-900 dark:text-amber-300"
+                                : "text-primary hover:text-emerald-700 hover:underline"
+                            }`}
+                            title={
+                              isDuplicateName
+                                ? `⚠️ اسم مكرر: يوجد ${dupCount} طلاب بنفس الاسم في السجل — اضغط لفتح الملف والتحقق`
+                                : "اضغط لفتح الملف الأكاديمي الشامل للطالب"
+                            }
                           >
+                            {isDuplicateName && (
+                              <span
+                                className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-amber-500 text-white"
+                                aria-label="اسم مكرر"
+                              >
+                                <AlertTriangle className="h-3 w-3" />
+                              </span>
+                            )}
                             <span>{current.name || "طالب بدون اسم"}</span>
                             <ExternalLink className="h-3 w-3 opacity-60 inline" />
                           </button>
