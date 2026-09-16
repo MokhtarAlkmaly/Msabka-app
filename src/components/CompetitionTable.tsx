@@ -324,7 +324,7 @@ export const CompetitionTable = ({ students, currentYear, competitionLabel = "ا
           </div>
         </div>
         <div className="table-scroll max-h-[60vh] overflow-auto md:max-h-[72vh]">
-        <table className="w-full min-w-[1400px] table-fixed border-separate border-spacing-0 bg-card text-sm whitespace-nowrap">
+        <table className="w-full min-w-[1480px] table-fixed border-separate border-spacing-0 bg-card text-sm whitespace-nowrap">
           <TableHeader currentYear={currentYear} sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
           <tbody>
             {filteredStudents.map((student, index) => (

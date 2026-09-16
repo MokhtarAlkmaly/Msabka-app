@@ -480,7 +480,7 @@ export const StudentsTable = ({
         </div>
 
         <div className="table-scroll max-h-[60vh] overflow-auto md:max-h-[72vh]">
-          <table className="w-full min-w-[1200px] table-fixed border-separate border-spacing-0 bg-card text-sm whitespace-nowrap">
+          <table className="w-full min-w-[1340px] table-fixed border-separate border-spacing-0 bg-card text-sm whitespace-nowrap">
             <thead>
               {/*
                 كل خلية رأس ثابتة (sticky) بخلفية معتمة خاصة بها — لا نعتمد على
@@ -491,7 +491,7 @@ export const StudentsTable = ({
                 <th className="sticky top-0 right-0 z-40 w-12 bg-emerald-900 p-2.5 text-center border-b border-l border-emerald-800">
                   م
                 </th>
-                <th className="sticky top-0 right-12 z-40 min-w-[180px] bg-emerald-900 p-2.5 text-right border-b border-l border-emerald-800 shadow-[-8px_0_12px_-10px_rgba(0,0,0,0.5)]">
+                <th className="sticky top-0 right-12 z-40 w-[320px] min-w-[300px] bg-emerald-900 p-2.5 text-right border-b border-l border-emerald-800 shadow-[-8px_0_12px_-10px_rgba(0,0,0,0.5)]">
                   اسم الطالب
                 </th>
                 <th className="sticky top-0 z-30 min-w-[130px] bg-emerald-900 p-2.5 text-center border-b border-l border-emerald-800">
@@ -568,25 +568,25 @@ export const StudentsTable = ({
 
                       {/* Student Name: Clickable to open profile */}
                       <td
-                        className={`sticky right-12 z-10 border-b border-l border-border/70 p-1.5 shadow-[-8px_0_12px_-10px_rgba(0,0,0,0.3)] ${
+                        className={`sticky right-12 z-10 w-[320px] min-w-[300px] max-w-[320px] overflow-hidden border-b border-l border-border/70 p-1.5 shadow-[-8px_0_12px_-10px_rgba(0,0,0,0.3)] ${
                           isDuplicateName
                             ? "bg-amber-100 group-hover:bg-amber-200 dark:bg-amber-800 dark:group-hover:bg-amber-700"
                             : "bg-card group-hover:bg-emerald-50 dark:group-hover:bg-emerald-950"
                         }`}
                       >
-                        <div className="flex items-center justify-between gap-1">
+                        <div className="flex min-w-0 items-center justify-between gap-1">
                           <button
                             type="button"
                             onClick={() => handleOpenProfile(student)}
-                            className={`text-right font-black flex items-center gap-1.5 group-hover:translate-x-[-2px] transition-transform ${
+                            className={`flex min-w-0 items-center gap-1.5 text-right font-black group-hover:translate-x-[-2px] transition-transform ${
                               isDuplicateName
                                 ? "text-amber-800 hover:text-amber-900 dark:text-amber-300"
                                 : "text-primary hover:text-emerald-700 hover:underline"
                             }`}
                             title={
                               isDuplicateName
-                                ? `⚠️ اسم مكرر: يوجد ${dupCount} طلاب بنفس الاسم في السجل — اضغط لفتح الملف والتحقق`
-                                : "اضغط لفتح الملف الأكاديمي الشامل للطالب"
+                                ? `⚠️ اسم مكرر: يوجد ${dupCount} طلاب بنفس الاسم في السجل (${current.name}) — اضغط لفتح الملف والتحقق`
+                                : `${current.name || "طالب بدون اسم"} — اضغط لفتح الملف الأكاديمي الشامل للطالب`
                             }
                           >
                             {isDuplicateName && (
@@ -597,8 +597,8 @@ export const StudentsTable = ({
                                 <AlertTriangle className="h-3 w-3" />
                               </span>
                             )}
-                            <span>{current.name || "طالب بدون اسم"}</span>
-                            <ExternalLink className="h-3 w-3 opacity-60 inline" />
+                            <span className="truncate">{current.name || "طالب بدون اسم"}</span>
+                            <ExternalLink className="h-3 w-3 shrink-0 opacity-60 inline" />
                           </button>
                         </div>
                       </td>
