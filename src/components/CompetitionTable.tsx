@@ -5,6 +5,7 @@ import { SortField, SortDirection } from "./table/TableHeader";
 import { TableRow } from "./table/TableRow";
 import { TableFilters } from "./table/TableFilters";
 import { calculateGrade, resolveBaseHifz } from "@/utils/calculations";
+import { getDuplicateNameCounts, getDuplicateCountFor } from "@/utils/studentNames";
 import logo from "@/assets/logo.png";
 import { getTableFilters, setTableFilters } from "@/utils/storage";
 
@@ -124,6 +125,9 @@ export const CompetitionTable = ({ students, currentYear, competitionLabel = "ا
     const uniqueTeachers = Array.from(new Set(students.map(s => s.teacher).filter(Boolean)));
     return uniqueTeachers.sort((a, b) => a.localeCompare(b, 'ar'));
   }, [students]);
+
+  // كشف الأسماء المكررة (بعد التطبيع) لتمييزها داخل الجدول
+  const duplicateNameCounts = useMemo(() => getDuplicateNameCounts(students), [students]);
 
   const currentYearNum = parseInt(currentYear);
 
@@ -319,7 +323,7 @@ export const CompetitionTable = ({ students, currentYear, competitionLabel = "ا
             {filteredStudents.length} طالبة
           </div>
         </div>
-        <div className="max-h-[72vh] overflow-auto">
+        <div className="table-scroll max-h-[60vh] overflow-auto md:max-h-[72vh]">
         <table className="w-full min-w-[1400px] table-fixed border-separate border-spacing-0 bg-card text-sm whitespace-nowrap">
           <TableHeader currentYear={currentYear} sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
           <tbody>
@@ -332,6 +336,7 @@ export const CompetitionTable = ({ students, currentYear, competitionLabel = "ا
                 onDelete={onDelete}
                 onDirtyChange={onDirtyChange}
                 teacherNames={teacherNames}
+                duplicateNameCount={getDuplicateCountFor(student.name, duplicateNameCounts)}
               />
             ))}
           </tbody>

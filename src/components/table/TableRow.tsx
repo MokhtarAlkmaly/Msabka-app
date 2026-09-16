@@ -15,9 +15,11 @@ interface Props {
   onDelete: (id: number) => void;
   onDirtyChange: (studentId: number, data: { name: string; teacher: string; history: HifzHistory; yearData: YearData }) => void;
   teacherNames?: string[];
+  /** عدد مرات تكرار الاسم في السجل — يُمرَّر من الجدول الأب لتمييز الأسماء المكررة */
+  duplicateNameCount?: number;
 }
 
-export const TableRow = ({ student, index, currentYear, onDelete, onDirtyChange, teacherNames = [] }: Props) => {
+export const TableRow = ({ student, index, currentYear, onDelete, onDirtyChange, teacherNames = [], duplicateNameCount = 0 }: Props) => {
   const currentYearNum = parseInt(currentYear);
   const [name, setName] = useState(student.name);
   const [history, setHistory] = useState<HifzHistory>(student.hifzHistory || {});
@@ -89,12 +91,28 @@ export const TableRow = ({ student, index, currentYear, onDelete, onDirtyChange,
     notifyDirty(name, history, updated);
   };
 
+  const isDuplicateName = duplicateNameCount > 1;
+
   return (
     <tr className="group transition-colors odd:bg-white even:bg-secondary/20 hover:bg-primary/5">
-      <td className="sticky right-0 z-10 w-[50px] min-w-[50px] border-b border-l border-border/70 bg-card p-1 text-center font-black text-primary shadow-[-10px_0_18px_-18px_rgba(0,0,0,.35)] group-hover:bg-primary/5">{index}</td>
+      <td className="sticky right-0 z-10 w-[50px] min-w-[50px] border-b border-l border-border/70 bg-card p-1 text-center font-black text-primary shadow-[-10px_0_18px_-18px_rgba(0,0,0,.35)] group-hover:bg-emerald-50 dark:group-hover:bg-emerald-950">{index}</td>
 
-      <td className="sticky right-[50px] z-10 border-b border-l border-border/70 bg-card p-1 transition-colors shadow-[-10px_0_18px_-18px_rgba(0,0,0,.35)] group-hover:bg-primary/5">
-        <Input value={name} onChange={(e) => updateName(e.target.value)} placeholder="الاسم" className="h-10 rounded-xl border-0 bg-background/70 text-center font-semibold focus-visible:ring-1" />
+      <td className={`sticky right-[50px] z-10 border-b border-l border-border/70 p-1 transition-colors shadow-[-10px_0_18px_-18px_rgba(0,0,0,.35)] ${
+        isDuplicateName
+          ? "bg-amber-100 group-hover:bg-amber-200 dark:bg-amber-800 dark:group-hover:bg-amber-700"
+          : "bg-card group-hover:bg-emerald-50 dark:group-hover:bg-emerald-950"
+      }`}>
+        <Input
+          value={name}
+          onChange={(e) => updateName(e.target.value)}
+          placeholder="الاسم"
+          title={isDuplicateName ? `⚠️ اسم مكرر: يوجد ${duplicateNameCount} طالبات بنفس الاسم في السجل` : undefined}
+          className={`h-10 rounded-xl border-0 text-center font-semibold focus-visible:ring-1 ${
+            isDuplicateName
+              ? "bg-amber-50 text-amber-900 ring-2 ring-amber-400 dark:bg-amber-900 dark:text-amber-100"
+              : "bg-background/70"
+          }`}
+        />
       </td>
 
       <td className="border-b border-l border-border/70 p-1">
