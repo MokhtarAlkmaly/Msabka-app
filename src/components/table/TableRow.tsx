@@ -97,7 +97,7 @@ export const TableRow = ({ student, index, currentYear, onDelete, onDirtyChange,
     <tr className="group transition-colors odd:bg-white even:bg-secondary/20 hover:bg-primary/5">
       <td className="sticky right-0 z-10 w-[50px] min-w-[50px] border-b border-l border-border/70 bg-card p-1 text-center font-black text-primary shadow-[-10px_0_18px_-18px_rgba(0,0,0,.35)] group-hover:bg-emerald-50 dark:group-hover:bg-emerald-950">{index}</td>
 
-      <td className={`sticky right-[50px] z-10 border-b border-l border-border/70 p-1 transition-colors shadow-[-10px_0_18px_-18px_rgba(0,0,0,.35)] ${
+      <td className={`sticky right-[50px] z-10 w-[280px] min-w-[280px] border-b border-l border-border/70 p-1 transition-colors shadow-[-10px_0_18px_-18px_rgba(0,0,0,.35)] ${
         isDuplicateName
           ? "bg-amber-100 group-hover:bg-amber-200 dark:bg-amber-800 dark:group-hover:bg-amber-700"
           : "bg-card group-hover:bg-emerald-50 dark:group-hover:bg-emerald-950"

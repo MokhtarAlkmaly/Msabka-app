@@ -100,7 +100,7 @@ export const TableHeader = ({ currentYear, sortField, sortDirection, onSort }: P
     <thead className="bg-primary text-primary-foreground text-xs whitespace-normal">
       <tr>
         {sortableHeader("م", "index", "right-0 w-[50px] min-w-[50px]", 2, "z-40")}
-        {sortableHeader("اسم الطالبة", "name", "right-[50px] min-w-[200px] w-[200px]", 2, "z-40")}
+        {sortableHeader("اسم الطالبة", "name", "right-[50px] min-w-[280px] w-[280px]", 2, "z-40")}
         {sortableHeader("المعلمة", "teacher", "min-w-[200px] w-[200px]", 2)}
         {sortableHeader("الحفظ السابق", "baseHifz", "min-w-[80px]", 2)}
         {sortableHeader(`حفظ جديد (${currentYear})`, "parts", "min-w-[80px]", 2)}
