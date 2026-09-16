@@ -21,6 +21,9 @@ import {
   GraduationCap,
   Globe2,
   Medal,
+  UserCog,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { useAuth } from "@/hooks/useAuth";
@@ -32,8 +35,23 @@ interface SidebarProps {
 export const AppSidebar = ({ online = true }: SidebarProps) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
-  const { signOut } = useAuth();
+  const { signOut, isAdmin, sharedWithMe, viewAs, setViewAs } = useAuth();
   const pathname = location.pathname || "/";
+
+  // أصحاب البيانات الذين سمحوا لي بالاطلاع (يُستثنى حسابي أنا).
+  const shareableOwners = sharedWithMe;
+
+  const enterViewAs = (ownerId: string, name: string, email: string | null) => {
+    setMobileOpen(false);
+    setViewAs({ id: ownerId, name, email });
+    if (typeof window !== "undefined") window.location.reload();
+  };
+
+  const exitViewAs = () => {
+    setMobileOpen(false);
+    setViewAs(null);
+    if (typeof window !== "undefined") window.location.reload();
+  };
 
   const navItems = [
     {
@@ -121,6 +139,18 @@ export const AppSidebar = ({ online = true }: SidebarProps) => {
       icon: Camera,
       color: "text-violet-300",
     },
+    // تظهر للمسؤول فقط
+    ...(isAdmin
+      ? [
+          {
+            to: "/users",
+            label: "إدارة المستخدمين",
+            icon: UserCog,
+            badge: "المسؤول",
+            color: "text-fuchsia-300",
+          },
+        ]
+      : []),
   ];
 
   const isActive = (path: string) => {
@@ -162,11 +192,7 @@ export const AppSidebar = ({ online = true }: SidebarProps) => {
         {/* Header Branding */}
         <div className="flex flex-col items-center border-b border-white/10 p-4 text-center">
           <div className="relative mb-2 rounded-2xl bg-white/95 p-2 shadow-lg ring-2 ring-amber-400/30">
-            <img
-              src={logo}
-              alt="مركز إنماء الأهلي الخيري"
-              className="h-14 w-14 object-contain"
-            />
+            <img src={logo} alt="مركز إنماء الأهلي الخيري" className="h-14 w-14 object-contain" />
           </div>
           <div className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-0.5 text-[11px] font-bold text-amber-300 ring-1 ring-white/15">
             <Sparkles className="h-3 w-3" />
@@ -214,7 +240,9 @@ export const AppSidebar = ({ online = true }: SidebarProps) => {
                 <div className="flex items-center gap-2.5">
                   <div
                     className={`rounded-lg p-1.5 transition-colors ${
-                      active ? "bg-white/20 text-white" : "bg-white/5 text-white/70 group-hover:bg-white/15 group-hover:text-white"
+                      active
+                        ? "bg-white/20 text-white"
+                        : "bg-white/5 text-white/70 group-hover:bg-white/15 group-hover:text-white"
                     }`}
                   >
                     <Icon className={`h-4 w-4 ${active ? "text-white" : item.color}`} />
@@ -233,6 +261,46 @@ export const AppSidebar = ({ online = true }: SidebarProps) => {
 
         {/* Footer info & Logout */}
         <div className="border-t border-white/10 p-3 bg-black/20">
+          {/* الاطلاع على بيانات من سمح لي */}
+          {(viewAs || shareableOwners.length > 0) && (
+            <div className="mb-2 rounded-xl bg-white/5 p-2 ring-1 ring-white/10">
+              {viewAs ? (
+                <>
+                  <p className="mb-1.5 px-1 text-[10px] font-bold text-amber-300">
+                    تطالع بيانات: {viewAs.name}
+                  </p>
+                  <Button
+                    onClick={exitViewAs}
+                    variant="ghost"
+                    size="sm"
+                    className="w-full justify-center gap-2 rounded-lg text-amber-200 hover:bg-amber-500/20 hover:text-amber-100"
+                  >
+                    <EyeOff className="h-4 w-4" />
+                    <span>العودة لبياناتي</span>
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <p className="mb-1.5 px-1 text-[10px] font-bold text-white/50">
+                    مسموح لك بالاطلاع على
+                  </p>
+                  {shareableOwners.map((owner) => (
+                    <Button
+                      key={owner.owner_id}
+                      onClick={() => enterViewAs(owner.owner_id, owner.name, owner.email)}
+                      variant="ghost"
+                      size="sm"
+                      className="w-full justify-start gap-2 rounded-lg text-sky-200 hover:bg-sky-500/20 hover:text-sky-100"
+                    >
+                      <Eye className="h-4 w-4 shrink-0" />
+                      <span className="truncate">{owner.name}</span>
+                    </Button>
+                  ))}
+                </>
+              )}
+            </div>
+          )}
+
           <Button
             onClick={() => {
               setMobileOpen(false);
@@ -245,9 +313,7 @@ export const AppSidebar = ({ online = true }: SidebarProps) => {
             <LogOut className="h-4 w-4" />
             <span>تسجيل الخروج</span>
           </Button>
-          <p className="mt-2 text-center text-[10px] text-white/40">
-            تصميم أ/ مختار الكمالي
-          </p>
+          <p className="mt-2 text-center text-[10px] text-white/40">تصميم أ/ مختار الكمالي</p>
         </div>
       </aside>
     </>

@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { AppSidebar } from "@/components/AppSidebar";
+import { ViewAsBanner } from "@/components/ViewAsBanner";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated")({
@@ -21,6 +22,8 @@ function AuthenticatedLayout() {
       {/* AppSidebar is fixed on desktop; reserve its width so pages do not sit
           underneath it. The margin is removed on mobile where it becomes a drawer. */}
       <main className="min-h-screen min-w-0 md:mr-72">
+        {/* يظهر فقط أثناء الاطلاع على بيانات مستخدم آخر (قراءة فقط) */}
+        <ViewAsBanner />
         <Outlet />
       </main>
     </div>
