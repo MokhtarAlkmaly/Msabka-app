@@ -22,6 +22,7 @@ import {
   Globe2,
   Medal,
   UserCog,
+  Settings,
   Eye,
   EyeOff,
 } from "lucide-react";
@@ -138,6 +139,12 @@ export const AppSidebar = ({ online = true }: SidebarProps) => {
       label: "الوسائط والصور",
       icon: Camera,
       color: "text-violet-300",
+    },
+    {
+      to: "/settings",
+      label: "إدارة الإعدادات",
+      icon: Settings,
+      color: "text-emerald-200",
     },
     // تظهر للمسؤول فقط
     ...(isAdmin
