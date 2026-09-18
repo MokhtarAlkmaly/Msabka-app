@@ -20,12 +20,19 @@ export const Route = createFileRoute("/auth")({
   component: AuthRoute,
 });
 
+const isRecoveryRequest = () => {
+  if (typeof window === "undefined") return false;
+  const search = new URLSearchParams(window.location.search);
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  return search.get("type") === "recovery" || hash.get("type") === "recovery";
+};
+
 function AuthRoute() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (loading || !user) return;
+    if (loading || !user || isRecoveryRequest()) return;
     const params = new URLSearchParams(window.location.search);
     const next = params.get("next");
     const safe = next && next.startsWith("/") && !next.startsWith("//") ? next : "/";

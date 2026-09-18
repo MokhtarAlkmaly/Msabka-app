@@ -23,6 +23,9 @@ import {
   RefreshCw,
   UserCheck,
   Crown,
+  UserPlus,
+  Copy,
+  Link as LinkIcon,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { listAllUsers, grantAccess, revokeAccess, setUserRole, type AppUser } from "@/utils/users";
@@ -45,6 +48,9 @@ const Users = () => {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [roleTarget, setRoleTarget] = useState<AppUser | null>(null);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteName, setInviteName] = useState("");
+  const [inviteEmail, setInviteEmail] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -93,6 +99,41 @@ const Users = () => {
     }),
     [users],
   );
+
+  const inviteLink = useMemo(() => {
+    if (typeof window === "undefined") return "";
+    const params = new URLSearchParams({ mode: "signup" });
+    const email = inviteEmail.trim().toLowerCase();
+    const name = inviteName.trim();
+    if (email) params.set("email", email);
+    if (name) params.set("name", name);
+    return `${window.location.origin}/auth?${params.toString()}`;
+  }, [inviteEmail, inviteName]);
+
+  const copyInviteLink = async () => {
+    if (!inviteEmail.trim()) {
+      toast({
+        title: "البريد مطلوب",
+        description: "اكتب بريد المستخدم لتجهيز رابط التسجيل.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(inviteLink);
+      toast({
+        title: "تم نسخ رابط التسجيل",
+        description: "أرسل الرابط للمستخدم ليكمل إنشاء حسابه بنفسه.",
+      });
+    } catch {
+      toast({
+        title: "تعذّر النسخ التلقائي",
+        description: "يمكنك تحديد الرابط ونسخه يدوياً.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const toggleAccess = async (target: AppUser) => {
     setBusyId(target.id);
@@ -226,14 +267,19 @@ const Users = () => {
               className="rounded-2xl pr-10"
             />
           </div>
-          <Button
-            variant="outline"
-            onClick={() => void load()}
-            className="gap-1"
-            disabled={loading}
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> تحديث
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button onClick={() => setInviteOpen(true)} className="gap-1 rounded-xl">
+              <UserPlus className="h-4 w-4" /> إضافة مستخدم
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => void load()}
+              className="gap-1 rounded-xl"
+              disabled={loading}
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> تحديث
+            </Button>
+          </div>
         </div>
 
         {loading ? (
@@ -345,6 +391,68 @@ const Users = () => {
           يستطيع التعديل أو الحذف. بيانات كل مستخدم تبقى خاصة به ولا يراها غيره.
         </p>
       </div>
+
+      {/* إضافة/دعوة مستخدم جديد */}
+      <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+        <DialogContent dir="rtl" className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="h-5 w-5 text-primary" /> إضافة مستخدم جديد
+            </DialogTitle>
+            <DialogDescription>
+              حفاظاً على الأمان لا تُنشأ كلمات المرور من حساب المسؤول. أرسل هذا الرابط للمستخدم
+              ليكمل إنشاء حسابه، وبعد أول دخول سيظهر تلقائياً في القائمة.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <label className="text-sm font-semibold">اسم المستخدم</label>
+              <Input
+                value={inviteName}
+                onChange={(e) => setInviteName(e.target.value)}
+                placeholder="مثال: محمد أحمد"
+                className="h-11 rounded-2xl"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-semibold">البريد الإلكتروني</label>
+              <Input
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                placeholder="user@example.com"
+                className="h-11 rounded-2xl"
+                dir="ltr"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="flex items-center gap-1 text-sm font-semibold">
+                <LinkIcon className="h-4 w-4" /> رابط التسجيل
+              </label>
+              <Input
+                value={inviteLink}
+                readOnly
+                className="h-11 rounded-2xl bg-muted/70"
+                dir="ltr"
+              />
+              <p className="text-xs leading-6 text-muted-foreground">
+                إذا كنت تريد تجربة الرابط على نفس الجهاز، افتحه في نافذة خاصة أو بعد تسجيل الخروج
+                حتى لا ينتقل بك النظام لحسابك الحالي.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setInviteOpen(false)}>
+              إغلاق
+            </Button>
+            <Button onClick={() => void copyInviteLink()} className="gap-2">
+              <Copy className="h-4 w-4" /> نسخ رابط التسجيل
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* تأكيد تغيير الصلاحية */}
       <Dialog open={!!roleTarget} onOpenChange={(open) => !open && setRoleTarget(null)}>

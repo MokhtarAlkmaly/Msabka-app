@@ -116,6 +116,47 @@ const isOnline = () => typeof navigator !== 'undefined' && navigator.onLine;
 
 const canUseCloud = (userId: string | null): userId is string => !!userId && isOnline();
 
+type UserSettingsRecord = Record<string, unknown> | null;
+type SettingsQuery = Promise<{ data: UserSettingsRecord; error: unknown }> & {
+  eq: (column: string, value: string) => SettingsQuery;
+  maybeSingle: () => Promise<{ data: UserSettingsRecord; error: unknown }>;
+};
+type SettingsClient = {
+  from: (table: string) => {
+    select: (columns: string) => SettingsQuery;
+    upsert: (
+      values: Record<string, unknown>,
+      options?: Record<string, unknown>,
+    ) => Promise<{ error: unknown }>;
+  };
+};
+const settingsDb = supabase as unknown as SettingsClient;
+
+const logOptionalSettingsColumnError = (field: string, error: unknown) => {
+  if (!error) return;
+  console.warn(`تعذّر مزامنة إعداد ${field} مع السحابة. تأكد من تطبيق آخر ترحيلات Supabase:`, error);
+};
+
+const loadCloudSettingField = async <T,>(userId: string, field: string): Promise<T | undefined> => {
+  const { data, error } = await settingsDb
+    .from('user_settings')
+    .select(field)
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (error) {
+    logOptionalSettingsColumnError(field, error);
+    return undefined;
+  }
+  return data?.[field] as T | undefined;
+};
+
+const saveCloudSettingFields = async (userId: string, values: Record<string, unknown>) => {
+  const { error } = await settingsDb
+    .from('user_settings')
+    .upsert({ user_id: userId, ...values }, { onConflict: 'user_id' });
+  if (error) logOptionalSettingsColumnError(Object.keys(values).join(', '), error);
+};
+
 const newLocalId = () => {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
     return crypto.randomUUID();
@@ -334,25 +375,58 @@ const runSyncFromCloud = async (onProgress?: ProgressCb): Promise<boolean> => {
 // ===== Custom Columns Settings =====
 export const loadCustomColumns = async (): Promise<CustomColumnDef[]> => {
   await ensureCache();
-  const list = await getCachedSetting<CustomColumnDef[]>('student_custom_columns');
-  return list || [];
+  const cached = await getCachedSetting<CustomColumnDef[]>('student_custom_columns');
+  if (Array.isArray(cached)) return cached;
+
+  const userId = await getUserId();
+  if (canUseCloud(userId)) {
+    const cloud = await loadCloudSettingField<CustomColumnDef[]>(userId, 'student_custom_columns');
+    if (Array.isArray(cloud)) {
+      await setCachedSetting('student_custom_columns', cloud);
+      return cloud;
+    }
+  }
+
+  return [];
 };
 
 export const saveCustomColumns = async (cols: CustomColumnDef[]) => {
   guardWrite();
   await setCachedSetting('student_custom_columns', cols);
+
+  const userId = await getUserId();
+  if (canUseCloud(userId)) {
+    await saveCloudSettingFields(userId, { student_custom_columns: cols });
+  }
 };
 
 // ===== Student Statuses Settings =====
 export const loadStudentStatuses = async (): Promise<string[]> => {
   await ensureCache();
-  const list = await getCachedSetting<string[]>('student_statuses');
-  return list && list.length > 0 ? list : DEFAULT_STATUSES;
+  const cached = await getCachedSetting<string[]>('student_statuses');
+  if (Array.isArray(cached) && cached.length > 0) return cached;
+
+  const userId = await getUserId();
+  if (canUseCloud(userId)) {
+    const cloud = await loadCloudSettingField<string[]>(userId, 'student_statuses');
+    if (Array.isArray(cloud) && cloud.length > 0) {
+      await setCachedSetting('student_statuses', cloud);
+      return cloud;
+    }
+  }
+
+  return DEFAULT_STATUSES;
 };
 
 export const saveStudentStatuses = async (statuses: string[]) => {
   guardWrite();
-  await setCachedSetting('student_statuses', statuses);
+  const normalized = statuses.map((status) => status.trim()).filter(Boolean);
+  await setCachedSetting('student_statuses', normalized);
+
+  const userId = await getUserId();
+  if (canUseCloud(userId)) {
+    await saveCloudSettingFields(userId, { student_statuses: normalized });
+  }
 };
 
 // ===== Load students with data from LOCAL cache =====
