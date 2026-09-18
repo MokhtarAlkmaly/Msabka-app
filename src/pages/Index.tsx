@@ -18,7 +18,7 @@ import {
 import logo from "@/assets/logo.png";
 import { Student, START_YEAR, END_YEAR, CustomColumnDef, DEFAULT_STATUSES } from "@/types/student";
 import {
-  loadGlobalStudents,
+  loadStudentsForYear,
   getActiveYear,
   setActiveYear,
   syncToCloud,
@@ -38,7 +38,7 @@ import { Progress } from "@/components/ui/progress";
 
 const Index = () => {
   const [students, setStudents] = useState<Student[]>([]);
-  const [currentYear, setCurrentYear] = useState<string>("1447");
+  const [currentYear, setCurrentYear] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState<{ current: number; total: number; label?: string } | null>(null);
@@ -54,11 +54,12 @@ const Index = () => {
   const { user, signOut } = useAuth();
 
   const loadData = useCallback(async () => {
+    if (!currentYear) return;
     setLoading(true);
     try {
       // Load the registry first. It initializes the user-scoped cache so the
       // related settings and teacher list read from the same account snapshot.
-      const allStudents = await loadGlobalStudents();
+      const allStudents = await loadStudentsForYear(currentYear);
       const [teachers, columns, statuses] = await Promise.all([
         loadTeachers(currentYear),
         loadCustomColumns(),
@@ -371,8 +372,8 @@ const Index = () => {
             {/* Action Bar */}
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/60 bg-card/85 p-3 shadow-md backdrop-blur">
               <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold text-foreground sm:text-lg">
-                  جدول بيانات الطلاب الرسمي
+                  <h2 className="text-base font-bold text-foreground sm:text-lg">
+                  جدول طلاب العام {currentYear}هـ
                 </h2>
                 <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
                   {students.length} طالب

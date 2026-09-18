@@ -24,7 +24,8 @@ import {
   cacheInternalCompetitions, getCachedInternalCompetitions, putCachedInternalCompetition, deleteCachedInternalCompetition,
   cacheExternalCompetitions, getCachedExternalCompetitions, putCachedExternalCompetition, deleteCachedExternalCompetition,
   cacheMedia, getCachedMedia, putCachedMedia, deleteCachedMedia,
-  getCachedYearDataForStudent,
+  getCachedYearDataForStudent, getCachedYearDataForStudents, getCachedYearDataForYear,
+  getCachedStudentsForYear, getCachedHifzHistoryForStudents,
   CachedTeacher, CachedTeacherBonus, CachedDonor, CachedAward,
   CachedCeremonyExpense, CachedCertificate, CachedMedia,
   CachedInternalCompetition, CachedExternalCompetition,
@@ -431,65 +432,83 @@ export const saveStudentStatuses = async (statuses: string[]) => {
 };
 
 // ===== Load students with data from LOCAL cache =====
-export const loadAllStudentsWithData = async (currentYear: string): Promise<Student[]> => {
+/**
+ * تحميل طلاب عام محدد فقط. الاستعلامات المحلية لا تقرأ year_data أو سجل الحفظ
+ * لكل الأعوام، وهو ما يجعل فتح الصفحة الرئيسية والحلقات أسرع مع كبر السجل.
+ */
+export const loadStudentsForYear = async (currentYear: string): Promise<Student[]> => {
+  if (!currentYear) return [];
   await ensureCache();
   const userId = await getUserId();
   if (!userId) return [];
 
-  const students = (await getCachedStudents()).filter(
-    (student) => student.user_id === userId
-  );
-  const allHistory = await getCachedHifzHistory();
-  const allYearData = await getCachedYearData();
+  const [studentsForYear, yearRows] = await Promise.all([
+    getCachedStudentsForYear(currentYear),
+    getCachedYearDataForYear(currentYear),
+  ]);
+  const students = studentsForYear.filter((student) => student.user_id === userId);
+  const studentIds = students.map((student) => student.id);
+  const allHistory = await getCachedHifzHistoryForStudents(studentIds);
 
   const historyMap: Record<number, HifzHistory> = {};
-  allHistory.forEach(row => {
+  allHistory.forEach((row) => {
     if (!historyMap[row.student_id]) historyMap[row.student_id] = {};
     historyMap[row.student_id][row.year_key] = row.value;
   });
 
-  allYearData.forEach(row => {
+  // يظل مقدار الحفظ الجديد في أي صف سابق مرجعاً صالحاً للحفظ التراكمي.
+  // نقرأ صفوف الأعوام للطلاب الظاهرين فقط، لا كامل قاعدة البيانات.
+  const studentYearRows = await getCachedYearDataForStudents(studentIds);
+  studentYearRows.forEach((row) => {
     const parts = parseFloat(row.parts) || 0;
     if (parts <= 0) return;
     if (!historyMap[row.student_id]) historyMap[row.student_id] = {};
     const key = `h${row.year}`;
     const existing = parseFloat(historyMap[row.student_id][key]) || 0;
-    if (parts > existing) {
-      historyMap[row.student_id][key] = parts.toString();
-    }
+    if (parts > existing) historyMap[row.student_id][key] = parts.toString();
   });
 
   const yearDataMap: Record<number, YearData> = {};
-  allYearData
-    .filter(r => r.year === currentYear)
-    .forEach(row => {
-      yearDataMap[row.student_id] = {
-        baseHifz: row.base_hifz, totalHifz: row.total_hifz, parts: row.parts,
-        annual: row.annual, recitation: row.recitation, memorization: row.memorization,
-        total: row.total, grade: row.grade, prize: row.prize,
-        statusPrize: row.status_prize, rank: row.rank, teacher: row.teacher || '',
-      };
-    });
+  yearRows.forEach((row) => {
+    if (!students.some((student) => student.id === row.student_id)) return;
+    yearDataMap[row.student_id] = {
+      baseHifz: row.base_hifz,
+      totalHifz: row.total_hifz,
+      parts: row.parts,
+      annual: row.annual,
+      recitation: row.recitation,
+      memorization: row.memorization,
+      total: row.total,
+      grade: row.grade,
+      prize: row.prize,
+      statusPrize: row.status_prize,
+      rank: row.rank,
+      teacher: row.teacher || "",
+    };
+  });
 
   return students
-    .filter(s => yearDataMap[s.id])
-    .map(s => ({
-      id: s.id,
-      name: s.name,
-      teacher: yearDataMap[s.id]?.teacher || s.teacher || '',
-      hijri_join_date: s.hijri_join_date || undefined,
-      initial_hifz: s.initial_hifz || undefined,
-      first_competition_year: s.first_competition_year || undefined,
-      status: s.status || 'طبيعي',
-      school_grade: s.school_grade || undefined,
-      guardian_phone: s.guardian_phone || undefined,
-      student_phone: s.student_phone || undefined,
-      custom_fields: s.custom_fields || {},
-      notes: s.notes || undefined,
-      hifzHistory: historyMap[s.id] || {},
-      yearData: yearDataMap[s.id],
+    .filter((student) => yearDataMap[student.id])
+    .map((student) => ({
+      id: student.id,
+      name: student.name,
+      teacher: yearDataMap[student.id]?.teacher || student.teacher || "",
+      hijri_join_date: student.hijri_join_date || undefined,
+      initial_hifz: student.initial_hifz || undefined,
+      first_competition_year: student.first_competition_year || undefined,
+      status: student.status || "طبيعي",
+      school_grade: student.school_grade || undefined,
+      guardian_phone: student.guardian_phone || undefined,
+      student_phone: student.student_phone || undefined,
+      custom_fields: student.custom_fields || {},
+      notes: student.notes || undefined,
+      hifzHistory: historyMap[student.id] || {},
+      yearData: yearDataMap[student.id],
     }));
 };
+
+// الاسم القديم يبقى متاحاً لكل الصفحات الحالية.
+export const loadAllStudentsWithData = loadStudentsForYear;
 
 export const emptyYearData = (): YearData => ({
   baseHifz: '0', totalHifz: '0', parts: '', annual: '', recitation: '',
@@ -927,23 +946,40 @@ export const saveYearData = async (year: string, studentId: number, data: YearDa
   await markDirty('year', 'upsert', { student_id: studentId, year });
 };
 
+const defaultYearData = (): YearData => ({
+  baseHifz: "0", totalHifz: "0", parts: "", annual: "", recitation: "",
+  memorization: "", total: "0", grade: "", prize: "0", statusPrize: "", rank: "-",
+  teacher: "",
+});
+
+const yearRowToData = (row: { base_hifz: string; total_hifz: string; parts: string; annual: string; recitation: string; memorization: string; total: string; grade: string; prize: string; status_prize: string; rank: string; teacher: string }): YearData => ({
+  baseHifz: row.base_hifz,
+  totalHifz: row.total_hifz,
+  parts: row.parts,
+  annual: row.annual,
+  recitation: row.recitation,
+  memorization: row.memorization,
+  total: row.total,
+  grade: row.grade,
+  prize: row.prize,
+  statusPrize: row.status_prize,
+  rank: row.rank,
+  teacher: row.teacher || "",
+});
+
 export const loadYearData = async (year: string, studentId: number): Promise<YearData> => {
-  const defaultData: YearData = {
-    baseHifz: '0', totalHifz: '0', parts: '', annual: '', recitation: '',
-    memorization: '', total: '0', grade: '', prize: '0', statusPrize: '', rank: '-',
-    teacher: ''
-  };
+  const rows = await getCachedYearDataForStudent(studentId);
+  const row = rows.find((item) => item.year === year);
+  return row ? yearRowToData(row) : defaultYearData();
+};
 
-  const allYearData = await getCachedYearData();
-  const row = allYearData.find(r => r.student_id === studentId && r.year === year);
-  if (!row) return defaultData;
-
-  return {
-    baseHifz: row.base_hifz, totalHifz: row.total_hifz, parts: row.parts,
-    annual: row.annual, recitation: row.recitation, memorization: row.memorization,
-    total: row.total, grade: row.grade, prize: row.prize,
-    statusPrize: row.status_prize, rank: row.rank, teacher: row.teacher || '',
-  };
+/** يقرأ جميع أعوام الطالب باستعلام محلي واحد لملف الطالب الشامل. */
+export const loadYearDataForStudent = async (studentId: number): Promise<Record<string, YearData>> => {
+  const rows = await getCachedYearDataForStudent(studentId);
+  return rows.reduce<Record<string, YearData>>((result, row) => {
+    result[row.year] = yearRowToData(row);
+    return result;
+  }, {});
 };
 
 // Latest Hijri year that actually has data

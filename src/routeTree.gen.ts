@@ -20,6 +20,7 @@ import { Route as AuthenticatedCompetitionRouteImport } from './routes/_authenti
 import { Route as AuthenticatedDonorsRouteImport } from './routes/_authenticated/donors'
 import { Route as AuthenticatedExpensesRouteImport } from './routes/_authenticated/expenses'
 import { Route as AuthenticatedExternalCompetitionsRouteImport } from './routes/_authenticated/external-competitions'
+import { Route as AuthenticatedHalaqatRouteImport } from './routes/_authenticated/halaqat'
 import { Route as AuthenticatedInternalCompetitionsRouteImport } from './routes/_authenticated/internal-competitions'
 import { Route as AuthenticatedKhatimatRouteImport } from './routes/_authenticated/khatimat'
 import { Route as AuthenticatedMediaRouteImport } from './routes/_authenticated/media'
@@ -86,6 +87,11 @@ const AuthenticatedExternalCompetitionsRoute =
     path: '/external-competitions',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedHalaqatRoute = AuthenticatedHalaqatRouteImport.update({
+  id: '/halaqat',
+  path: '/halaqat',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedInternalCompetitionsRoute =
   AuthenticatedInternalCompetitionsRouteImport.update({
     id: '/internal-competitions',
@@ -139,6 +145,7 @@ export interface FileRoutesByFullPath {
   '/donors': typeof AuthenticatedDonorsRoute
   '/expenses': typeof AuthenticatedExpensesRoute
   '/external-competitions': typeof AuthenticatedExternalCompetitionsRoute
+  '/halaqat': typeof AuthenticatedHalaqatRoute
   '/internal-competitions': typeof AuthenticatedInternalCompetitionsRoute
   '/khatimat': typeof AuthenticatedKhatimatRoute
   '/media': typeof AuthenticatedMediaRoute
@@ -158,6 +165,7 @@ export interface FileRoutesByTo {
   '/donors': typeof AuthenticatedDonorsRoute
   '/expenses': typeof AuthenticatedExpensesRoute
   '/external-competitions': typeof AuthenticatedExternalCompetitionsRoute
+  '/halaqat': typeof AuthenticatedHalaqatRoute
   '/internal-competitions': typeof AuthenticatedInternalCompetitionsRoute
   '/khatimat': typeof AuthenticatedKhatimatRoute
   '/media': typeof AuthenticatedMediaRoute
@@ -180,6 +188,7 @@ export interface FileRoutesById {
   '/_authenticated/donors': typeof AuthenticatedDonorsRoute
   '/_authenticated/expenses': typeof AuthenticatedExpensesRoute
   '/_authenticated/external-competitions': typeof AuthenticatedExternalCompetitionsRoute
+  '/_authenticated/halaqat': typeof AuthenticatedHalaqatRoute
   '/_authenticated/internal-competitions': typeof AuthenticatedInternalCompetitionsRoute
   '/_authenticated/khatimat': typeof AuthenticatedKhatimatRoute
   '/_authenticated/media': typeof AuthenticatedMediaRoute
@@ -203,6 +212,7 @@ export interface FileRouteTypes {
     | '/donors'
     | '/expenses'
     | '/external-competitions'
+    | '/halaqat'
     | '/internal-competitions'
     | '/khatimat'
     | '/media'
@@ -222,6 +232,7 @@ export interface FileRouteTypes {
     | '/donors'
     | '/expenses'
     | '/external-competitions'
+    | '/halaqat'
     | '/internal-competitions'
     | '/khatimat'
     | '/media'
@@ -243,6 +254,7 @@ export interface FileRouteTypes {
     | '/_authenticated/donors'
     | '/_authenticated/expenses'
     | '/_authenticated/external-competitions'
+    | '/_authenticated/halaqat'
     | '/_authenticated/internal-competitions'
     | '/_authenticated/khatimat'
     | '/_authenticated/media'
@@ -340,6 +352,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedExternalCompetitionsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/halaqat': {
+      id: '/_authenticated/halaqat'
+      path: '/halaqat'
+      fullPath: '/halaqat'
+      preLoaderRoute: typeof AuthenticatedHalaqatRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/internal-competitions': {
       id: '/_authenticated/internal-competitions'
       path: '/internal-competitions'
@@ -406,6 +425,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDonorsRoute: typeof AuthenticatedDonorsRoute
   AuthenticatedExpensesRoute: typeof AuthenticatedExpensesRoute
   AuthenticatedExternalCompetitionsRoute: typeof AuthenticatedExternalCompetitionsRoute
+  AuthenticatedHalaqatRoute: typeof AuthenticatedHalaqatRoute
   AuthenticatedInternalCompetitionsRoute: typeof AuthenticatedInternalCompetitionsRoute
   AuthenticatedKhatimatRoute: typeof AuthenticatedKhatimatRoute
   AuthenticatedMediaRoute: typeof AuthenticatedMediaRoute
@@ -425,6 +445,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedExpensesRoute: AuthenticatedExpensesRoute,
   AuthenticatedExternalCompetitionsRoute:
     AuthenticatedExternalCompetitionsRoute,
+  AuthenticatedHalaqatRoute: AuthenticatedHalaqatRoute,
   AuthenticatedInternalCompetitionsRoute:
     AuthenticatedInternalCompetitionsRoute,
   AuthenticatedKhatimatRoute: AuthenticatedKhatimatRoute,
