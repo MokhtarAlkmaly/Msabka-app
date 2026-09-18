@@ -5,6 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -16,10 +18,12 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import logo from "@/assets/logo.png";
 import {
+  AlertTriangle,
   ArrowRight,
   CalendarDays,
   CheckCircle2,
   Columns3,
+  Database,
   Plus,
   RotateCcw,
   Save,
@@ -27,6 +31,7 @@ import {
   Shield,
   Trash2,
   UserCog,
+  UsersRound,
 } from "lucide-react";
 import {
   getActiveYear,
@@ -35,6 +40,10 @@ import {
   saveCustomColumns,
   saveStudentStatuses,
   setActiveYear,
+  loadAllStudentsWithData,
+  deleteFullYearData,
+  deleteStudentsFromYear,
+  deleteEntireDatabase,
 } from "@/utils/storage";
 import { getMyProfile, updateMyDisplayName } from "@/utils/users";
 import { CustomColumnDef, DEFAULT_STATUSES, END_YEAR, START_YEAR } from "@/types/student";
@@ -73,6 +82,13 @@ const Settings = () => {
   const [columns, setColumns] = useState<CustomColumnDef[]>([]);
   const [newColumnName, setNewColumnName] = useState("");
   const [newColumnType, setNewColumnType] = useState<NonNullable<CustomColumnDef["type"]>>("text");
+  const [advancedDeleteOpen, setAdvancedDeleteOpen] = useState(false);
+  const [advancedDeleteMode, setAdvancedDeleteMode] = useState<"year" | "students" | "database">("year");
+  const [advancedDeleteYear, setAdvancedDeleteYear] = useState(String(START_YEAR));
+  const [yearStudents, setYearStudents] = useState<import("@/types/student").Student[]>([]);
+  const [selectedYearStudents, setSelectedYearStudents] = useState<Set<number>>(new Set());
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [deletingAdvanced, setDeletingAdvanced] = useState(false);
 
   const readOnly = !!viewAs;
 
@@ -113,6 +129,20 @@ const Settings = () => {
   useEffect(() => {
     void loadSettings();
   }, [loadSettings]);
+
+  useEffect(() => {
+    if (!advancedDeleteOpen || advancedDeleteMode !== "students") return;
+    let cancelled = false;
+    void loadAllStudentsWithData(advancedDeleteYear).then((students) => {
+      if (!cancelled) {
+        setYearStudents(students);
+        setSelectedYearStudents(new Set());
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [advancedDeleteOpen, advancedDeleteMode, advancedDeleteYear]);
 
   const settingsSummary = useMemo(
     () => [
@@ -255,6 +285,70 @@ const Settings = () => {
     );
   };
 
+  const requiredDeletePhrase = advancedDeleteMode === "database" ? "حذف قاعدة البيانات" : "حذف";
+
+  const toggleSelectedYearStudent = (studentId: number) => {
+    setSelectedYearStudents((previous) => {
+      const next = new Set(previous);
+      if (next.has(studentId)) next.delete(studentId);
+      else next.add(studentId);
+      return next;
+    });
+  };
+
+  const openAdvancedDelete = (mode: "year" | "students" | "database") => {
+    if (readOnly) return;
+    setAdvancedDeleteMode(mode);
+    setDeleteConfirmation("");
+    setSelectedYearStudents(new Set());
+    setAdvancedDeleteOpen(true);
+  };
+
+  const handleAdvancedDelete = async () => {
+    if (readOnly || deleteConfirmation.trim() !== requiredDeletePhrase) return;
+    if (advancedDeleteMode === "students" && selectedYearStudents.size === 0) return;
+
+    const selectedCount = selectedYearStudents.size;
+    setDeletingAdvanced(true);
+    try {
+      if (advancedDeleteMode === "year") {
+        await deleteFullYearData(advancedDeleteYear);
+        toast({
+          title: "تم حذف العام",
+          description: `تم حذف بيانات عام ${advancedDeleteYear}هـ مع إبقاء الطلاب في السجل العام.`,
+          variant: "destructive",
+        });
+      } else if (advancedDeleteMode === "students") {
+        await deleteStudentsFromYear(advancedDeleteYear, Array.from(selectedYearStudents));
+        toast({
+          title: "تم حذف الطلاب من العام",
+          description: `تم فصل ${selectedCount} طالباً عن عام ${advancedDeleteYear}هـ دون حذف سجلاتهم العامة.`,
+          variant: "destructive",
+        });
+      } else {
+        await deleteEntireDatabase();
+        toast({
+          title: "تم حذف قاعدة البيانات",
+          description: "تم حذف جميع بيانات الحساب نهائياً.",
+          variant: "destructive",
+        });
+        setYearStudents([]);
+      }
+      setAdvancedDeleteOpen(false);
+      setDeleteConfirmation("");
+      setSelectedYearStudents(new Set());
+      await loadSettings();
+    } catch (error: unknown) {
+      toast({
+        title: "تعذّر تنفيذ الحذف",
+        description: getErrorMessage(error) || "حاول مرة أخرى بعد التأكد من الاتصال.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingAdvanced(false);
+    }
+  };
+
   return (
     <div
       className="min-h-screen bg-[radial-gradient(circle_at_top_right,hsl(var(--primary)/0.14),transparent_34rem),linear-gradient(180deg,hsl(var(--background)),hsl(var(--secondary)/0.45))]"
@@ -317,7 +411,8 @@ const Settings = () => {
             جارٍ تحميل الإعدادات...
           </div>
         ) : (
-          <div className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
+          <>
+            <div className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
             <div className="space-y-5">
               <Card className="rounded-[1.75rem] border-white/70 bg-card/90 shadow-xl shadow-primary/5">
                 <CardHeader>
@@ -551,8 +646,163 @@ const Settings = () => {
               </Card>
             </div>
           </div>
+
+          <Card className="rounded-[1.75rem] border-destructive/25 bg-destructive/[0.03] shadow-xl shadow-destructive/5">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg text-destructive">
+                <AlertTriangle className="h-5 w-5" /> الحذف المتقدم
+              </CardTitle>
+              <CardDescription>
+                استخدم هذه الأدوات بحذر. حذف عام أو طالب من عام لا يحذف السجل العام للطالب،
+                بينما حذف قاعدة البيانات يحذف كل بيانات الحساب نهائياً.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3 md:grid-cols-3">
+              <Button
+                variant="outline"
+                disabled={readOnly}
+                onClick={() => openAdvancedDelete("year")}
+                className="h-auto min-h-24 flex-col items-start gap-2 rounded-2xl border-destructive/30 p-4 text-right hover:bg-destructive/5"
+              >
+                <CalendarDays className="h-5 w-5 text-destructive" />
+                <span className="font-bold">حذف عام كامل</span>
+                <span className="text-xs font-normal leading-5 text-muted-foreground">
+                  احذف كل بيانات عام محدد، مع إبقاء الطلاب في السجل العام.
+                </span>
+              </Button>
+              <Button
+                variant="outline"
+                disabled={readOnly}
+                onClick={() => openAdvancedDelete("students")}
+                className="h-auto min-h-24 flex-col items-start gap-2 rounded-2xl border-destructive/30 p-4 text-right hover:bg-destructive/5"
+              >
+                <UsersRound className="h-5 w-5 text-destructive" />
+                <span className="font-bold">حذف طلاب من عام</span>
+                <span className="text-xs font-normal leading-5 text-muted-foreground">
+                  اختر عدة طلاب لفصلهم من عام واحد فقط دون حذف سجلاتهم العامة.
+                </span>
+              </Button>
+              <Button
+                variant="outline"
+                disabled={readOnly}
+                onClick={() => openAdvancedDelete("database")}
+                className="h-auto min-h-24 flex-col items-start gap-2 rounded-2xl border-destructive/50 p-4 text-right text-destructive hover:bg-destructive/10 hover:text-destructive"
+              >
+                <Database className="h-5 w-5" />
+                <span className="font-bold">حذف قاعدة البيانات كاملة</span>
+                <span className="text-xs font-normal leading-5 text-muted-foreground">
+                  يحذف جميع بيانات الحساب والملفات المرفوعة نهائياً.
+                </span>
+              </Button>
+            </CardContent>
+          </Card>
+          </>
         )}
       </main>
+
+      <Dialog open={advancedDeleteOpen} onOpenChange={(open) => {
+        if (!deletingAdvanced) setAdvancedDeleteOpen(open);
+        if (!open) {
+          setDeleteConfirmation("");
+          setSelectedYearStudents(new Set());
+        }
+      }}>
+        <DialogContent dir="rtl" className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" /> تأكيد الحذف المتقدم
+            </DialogTitle>
+            <DialogDescription className="leading-6">
+              هذا الإجراء لا يمكن التراجع عنه. اكتب عبارة التأكيد المطلوبة في الحقل قبل التنفيذ.
+            </DialogDescription>
+          </DialogHeader>
+
+          {advancedDeleteMode !== "database" && (
+            <div className="space-y-2">
+              <Label htmlFor="advanced-delete-year">العام المستهدف</Label>
+              <Select value={advancedDeleteYear} onValueChange={setAdvancedDeleteYear}>
+                <SelectTrigger id="advanced-delete-year" className="h-11 rounded-2xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {years.map((year) => (
+                    <SelectItem key={year} value={String(year)}>{year}هـ</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {advancedDeleteMode === "year" && (
+            <div className="rounded-2xl border border-destructive/25 bg-destructive/5 p-3 text-sm leading-6">
+              سيُحذف كل ما يرتبط بعام <strong>{advancedDeleteYear}هـ</strong> من المتابعة والمسابقات
+              والداعمين والجوائز والمصروفات والوسائط، مع بقاء الطلاب وسجلات الأعوام الأخرى.
+            </div>
+          )}
+
+          {advancedDeleteMode === "students" && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <Label>طلاب عام {advancedDeleteYear}هـ</Label>
+                <span className="text-xs text-muted-foreground">المحدد: {selectedYearStudents.size}</span>
+              </div>
+              <div className="max-h-56 space-y-1 overflow-y-auto rounded-2xl border bg-muted/30 p-2">
+                {yearStudents.length === 0 ? (
+                  <p className="p-4 text-center text-sm text-muted-foreground">لا يوجد طلاب مسجلون في هذا العام.</p>
+                ) : (
+                  yearStudents.map((student) => (
+                    <label key={student.id} className="flex cursor-pointer items-center gap-2 rounded-xl p-2 hover:bg-background">
+                      <Checkbox
+                        checked={selectedYearStudents.has(student.id)}
+                        onCheckedChange={() => toggleSelectedYearStudent(student.id)}
+                      />
+                      <span className="text-sm">{student.name || "بدون اسم"}</span>
+                      {student.teacher && <span className="text-xs text-muted-foreground">— {student.teacher}</span>}
+                    </label>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
+          {advancedDeleteMode === "database" && (
+            <div className="rounded-2xl border border-destructive/40 bg-destructive/10 p-3 text-sm leading-6 text-destructive">
+              سيُحذف الطلاب والسجلات الأكاديمية وكل البيانات السنوية والإعدادات والوسائط من الحساب. لا يمكن استعادة هذه البيانات.
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <Label htmlFor="advanced-delete-confirmation">
+              اكتب: <strong className="text-destructive">{requiredDeletePhrase}</strong>
+            </Label>
+            <Input
+              id="advanced-delete-confirmation"
+              value={deleteConfirmation}
+              onChange={(event) => setDeleteConfirmation(event.target.value)}
+              placeholder={requiredDeletePhrase}
+              autoComplete="off"
+              className="h-11 rounded-2xl"
+            />
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" disabled={deletingAdvanced} onClick={() => setAdvancedDeleteOpen(false)}>إلغاء</Button>
+            <Button
+              variant="destructive"
+              disabled={
+                deletingAdvanced ||
+                deleteConfirmation.trim() !== requiredDeletePhrase ||
+                (advancedDeleteMode === "students" && selectedYearStudents.size === 0)
+              }
+              onClick={() => void handleAdvancedDelete()}
+              className="gap-2"
+            >
+              <Trash2 className="h-4 w-4" />
+              {deletingAdvanced ? "جارٍ الحذف..." : "تنفيذ الحذف"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

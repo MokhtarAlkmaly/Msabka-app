@@ -39,6 +39,8 @@ import {
   mergeDuplicateStudents,
   loadTeachers as loadCachedTeachers,
   registerStudentInYear,
+  deleteStudentFromYear,
+  deleteStudentsFromYear,
 } from "@/utils/storage";
 import { getPendingChanges } from "@/utils/localDB";
 import { useToast } from "@/hooks/use-toast";
@@ -279,8 +281,7 @@ const Competition = () => {
 
   const handleDelete = async (id: number) => {
     if (!confirm("هل أنت متأكد من حذف هذا الطالب من المسابقة؟")) return;
-    const { deleteStudent } = await import("@/utils/storage");
-    await deleteStudent(id);
+    await deleteStudentFromYear(dataYearKey, id);
     setDirtyMap((prev) => {
       const next = { ...prev };
       delete next[id];
@@ -289,7 +290,7 @@ const Competition = () => {
     await loadData();
     toast({
       title: "تم الحذف",
-      description: "تم حذف الطالب بنجاح",
+      description: `تم فصل الطالب عن عام ${currentYear}هـ مع إبقائه في السجل العام`,
       variant: "destructive",
     });
   };
@@ -329,10 +330,9 @@ const Competition = () => {
           setDeleting(false);
           return;
         }
-        const { deleteStudents } = await import("@/utils/storage");
-        await deleteStudents(Array.from(selectedToDelete));
+        await deleteStudentsFromYear(dataYearKey, Array.from(selectedToDelete));
         setSelectedToDelete(new Set());
-        toast({ title: "تم الحذف", description: `تم حذف ${selectedToDelete.size} طالب`, variant: "destructive" });
+        toast({ title: "تم الحذف", description: `تم فصل ${selectedToDelete.size} طالب عن عام ${currentYear}هـ مع إبقائهم في السجل العام`, variant: "destructive" });
         await loadData();
       }
     } finally {

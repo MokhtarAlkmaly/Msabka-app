@@ -8,7 +8,12 @@ import {
   Search as SearchIcon, Home, Loader2, Printer, Share2, TrendingUp, TrendingDown, Minus,
 } from "lucide-react";
 import { Student, START_YEAR, END_YEAR, TRACKING_MONTHS, MonthlyRecord, QuranPoint } from "@/types/student";
-import { loadGlobalStudents, loadMonthlyTrackingForStudent } from "@/utils/storage";
+import {
+  loadGlobalStudents,
+  loadMonthlyTrackingForStudent,
+  getActiveYear,
+  setActiveYear,
+} from "@/utils/storage";
 import { getSurahList, calcPagesBetweenAsync } from "@/utils/quranData";
 import { printHtml, esc } from "@/utils/report";
 import logo from "@/assets/logo.png";
@@ -30,11 +35,14 @@ const MonthlyTrackingSearch = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Student | null>(null);
-  const [year, setYear] = useState<string>(START_YEAR.toString());
+  const [year, setYear] = useState<string>("");
   const [rows, setRows] = useState<MonthRow[]>([]);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => { loadGlobalStudents().then(setStudents); }, []);
+  useEffect(() => {
+    void loadGlobalStudents().then(setStudents);
+    void getActiveYear().then(setYear);
+  }, []);
 
   const results = useMemo(() => {
     const q = query.trim().replace(/\s+/g, " ");
@@ -74,6 +82,7 @@ const MonthlyTrackingSearch = () => {
 
   const handleYearChange = (y: string) => {
     setYear(y);
+    void setActiveYear(y);
     if (selected) openStudent(selected, y);
   };
 

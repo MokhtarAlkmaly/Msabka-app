@@ -22,7 +22,7 @@ import { Progress } from "@/components/ui/progress";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import {
-  loadYearData,
+  loadYearDataForStudent,
   saveYearData,
   loadHifzHistory,
   saveHifzHistory,
@@ -182,7 +182,7 @@ export const StudentProfileModal = ({
     try {
       const [
         hMap,
-        currYearData,
+        allYMap,
         mRecs,
         allAwards,
         allCerts,
@@ -191,7 +191,7 @@ export const StudentProfileModal = ({
         cohortList,
       ] = await Promise.all([
         loadHifzHistory(student.id),
-        loadYearData(selectedYear, student.id),
+        loadYearDataForStudent(student.id),
         loadMonthlyTrackingForStudent(selectedYear, student.id),
         loadAwards(selectedYear),
         loadCertificates(selectedYear),
@@ -201,7 +201,7 @@ export const StudentProfileModal = ({
       ]);
 
       setHistory(hMap || {});
-      setYearData(currYearData || emptyYearData());
+      setYearData(allYMap[selectedYear] || emptyYearData());
       setMonthlyRecords(mRecs || {});
 
       const sName = (student.name || "").trim();
@@ -217,11 +217,7 @@ export const StudentProfileModal = ({
       setExternalComps(allExternal || []);
       setCohortStudents(cohortList || []);
 
-      // Load all years for multi-year statistics
-      const allYMap: Record<string, YearData> = {};
-      for (const y of yearsList) {
-        allYMap[y] = await loadYearData(y, student.id);
-      }
+      // كل أعوام الطالب وصلت باستعلام محلي واحد بدلاً من استعلام لكل عام.
       setAllYearsData(allYMap);
     } catch (e) {
       console.error("Error loading student profile data:", e);

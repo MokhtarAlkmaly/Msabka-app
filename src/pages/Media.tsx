@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
@@ -8,7 +8,13 @@ import { ArrowRight, Upload, Trash2, Image, Video, X } from "lucide-react";
 import { Link } from "@/lib/router-compat";
 import { START_YEAR, END_YEAR } from "@/types/student";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { loadMediaMetadata, saveMediaMetadata, deleteMediaMetadataLocal } from "@/utils/storage";
+import {
+  loadMediaMetadata,
+  saveMediaMetadata,
+  deleteMediaMetadataLocal,
+  getActiveYear,
+  setActiveYear,
+} from "@/utils/storage";
 
 const HIJRI_MONTHS = [
   "محرم", "صفر", "ربيع الأول", "ربيع الآخر",
@@ -28,7 +34,7 @@ interface MediaItem {
 }
 
 const Media = () => {
-  const [selectedYear, setSelectedYear] = useState("1447");
+  const [selectedYear, setSelectedYear] = useState("");
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -38,7 +44,7 @@ const Media = () => {
   const { user } = useAuth();
 
   const loadMedia = useCallback(async () => {
-    if (!user) return;
+    if (!user || !selectedYear) return;
     setLoading(true);
     const items = (await loadMediaMetadata(selectedYear)) as MediaItem[];
     setMediaItems(items);
@@ -60,7 +66,11 @@ const Media = () => {
   }, [user, selectedYear]);
 
   useEffect(() => {
-    loadMedia();
+    void getActiveYear().then(setSelectedYear);
+  }, []);
+
+  useEffect(() => {
+    void loadMedia();
   }, [loadMedia]);
 
   const getUrl = (filePath: string) => signedUrls[filePath] || "";
@@ -152,7 +162,13 @@ const Media = () => {
         <div className="flex flex-wrap items-center gap-3 rounded-[1.5rem] border border-white/70 bg-card/90 p-4 shadow-xl shadow-primary/5">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-sm">السنة:</span>
-            <Select value={selectedYear} onValueChange={setSelectedYear}>
+            <Select
+              value={selectedYear}
+              onValueChange={(value) => {
+                setSelectedYear(value);
+                void setActiveYear(value);
+              }}
+            >
               <SelectTrigger className="w-32">
                 <SelectValue />
               </SelectTrigger>

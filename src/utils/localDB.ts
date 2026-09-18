@@ -598,11 +598,54 @@ export const remapPendingStudentId = async (oldId: number, newId: number) => {
   }
 };
 
+/** بيانات عام محدد فقط — لا نحمّل كل صفوف year_data عند فتح صفحة عام واحد. */
+export const getCachedYearDataForYear = async (year: string): Promise<CachedYearData[]> => {
+  const db = await getDB();
+  const res = await db.query(`SELECT * FROM ${STORES.yearData} WHERE year = ? ORDER BY student_id`, [year]);
+  return (res.values ?? []).map((row) => fromRow(TABLES[STORES.yearData], row) as CachedYearData);
+};
+
+/** الطلاب المسجلون في عام محدد فقط، مع استعلام JOIN محلي سريع. */
+export const getCachedStudentsForYear = async (year: string): Promise<CachedStudent[]> => {
+  const db = await getDB();
+  const res = await db.query(
+    `SELECT DISTINCT s.* FROM ${STORES.students} s
+     INNER JOIN ${STORES.yearData} y ON y.student_id = s.id
+     WHERE y.year = ? ORDER BY s.name`,
+    [year],
+  );
+  return (res.values ?? []).map((row) => fromRow(TABLES[STORES.students], row) as CachedStudent);
+};
+
+/** سجل الحفظ للطلاب الظاهرين فقط في العام المختار. */
+export const getCachedHifzHistoryForStudents = async (studentIds: number[]): Promise<CachedHifzRow[]> => {
+  if (studentIds.length === 0) return [];
+  const db = await getDB();
+  const placeholders = studentIds.map(() => "?").join(", ");
+  const res = await db.query(
+    `SELECT * FROM ${STORES.hifzHistory} WHERE student_id IN (${placeholders}) ORDER BY student_id, year_key`,
+    studentIds,
+  );
+  return (res.values ?? []).map((row) => fromRow(TABLES[STORES.hifzHistory], row) as CachedHifzRow);
+};
+
 /** بحث بالاسم مباشرة داخل SQLite */
 export const searchCachedStudentsByName = async (query: string): Promise<CachedStudent[]> => {
   const db = await getDB();
   const res = await db.query(`SELECT * FROM ${STORES.students} WHERE name LIKE ? ORDER BY name`, [`%${query}%`]);
   return (res.values ?? []) as CachedStudent[];
+};
+
+/** بيانات الأعوام لعدة طلاب دفعة واحدة. */
+export const getCachedYearDataForStudents = async (studentIds: number[]): Promise<CachedYearData[]> => {
+  if (studentIds.length === 0) return [];
+  const db = await getDB();
+  const placeholders = studentIds.map(() => "?").join(", ");
+  const res = await db.query(
+    `SELECT * FROM ${STORES.yearData} WHERE student_id IN (${placeholders}) ORDER BY student_id, year`,
+    studentIds,
+  );
+  return (res.values ?? []).map((row) => fromRow(TABLES[STORES.yearData], row) as CachedYearData);
 };
 
 /** بيانات سنة معيّنة لطالب واحد فقط */

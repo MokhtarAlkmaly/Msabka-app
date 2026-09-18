@@ -242,9 +242,9 @@ export const StudentsTable = ({
 
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "سجل الطلاب الرسمي");
+    XLSX.utils.book_append_sheet(wb, ws, `طلاب ${activeYear}هـ`);
 
-    const fileName = `سجل_الطلاب_الرسمي_مركز_إنماء.xlsx`;
+    const fileName = `سجل_الطلاب_الرسمي_${activeYear}هـ_مركز_إنماء.xlsx`;
     if (Capacitor.isNativePlatform()) {
       const base64 = XLSX.write(wb, { type: "base64", bookType: "xlsx" });
       const result = await Filesystem.writeFile({
@@ -256,7 +256,7 @@ export const StudentsTable = ({
     } else {
       XLSX.writeFile(wb, fileName);
     }
-    toast({ title: "تم التصدير", description: "تم تصدير سجل الطلاب إلى ملف Excel بنجاح" });
+    toast({ title: "تم التصدير", description: `تم تصدير طلاب عام ${activeYear}هـ إلى ملف Excel بنجاح` });
   };
 
   // Print Official Table
@@ -308,8 +308,8 @@ export const StudentsTable = ({
         <div class="header">
           <img src="${logo}" alt="الشعار" />
           <h1>مركز إنماء الأهلي الخيري - قسم القرآن الكريم</h1>
-          <h2>كشف سجل الطلاب الرسمي المعتمد (جميع الأعوام)</h2>
-          <div class="sub">إجمالي الطلاب المقيدين: <strong>${filteredStudents.length}</strong> طالب</div>
+          <h2>كشف طلاب العام النشط ${esc(activeYear)}هـ</h2>
+          <div class="sub">إجمالي الطلاب المسجلين في العام: <strong>${filteredStudents.length}</strong> طالب</div>
         </div>
         <table>
           <thead>
@@ -329,7 +329,7 @@ export const StudentsTable = ({
         </div>
       </body></html>`;
 
-    printHtmlDocument(fullHtml, `سجل_الطلاب_الرسمي_مركز_إنماء`);
+    printHtmlDocument(fullHtml, `سجل_طلاب_${activeYear}هـ_مركز_إنماء`);
   };
 
   return (
@@ -346,7 +346,7 @@ export const StudentsTable = ({
                 سجل الطلاب الرسمي المعتمد
               </h2>
               <p className="text-xs text-muted-foreground">
-                السجل الشامل لكل الطلاب عبر جميع الأعوام — قاعدة البيانات المركزية التي تُستدعى منها بيانات الطلاب في كل الصفحات
+                الطلاب المسجلون في العام النشط {activeYear}هـ — ويمكن فتح الملف الشامل لأي طالب عبر زر العرض
               </p>
             </div>
           </div>

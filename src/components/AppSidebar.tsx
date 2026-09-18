@@ -81,6 +81,12 @@ export const AppSidebar = ({ online = true }: SidebarProps) => {
       color: "text-sky-300",
     },
     {
+      to: "/halaqat",
+      label: "إدارة الحلقات",
+      icon: Users,
+      color: "text-cyan-300",
+    },
+    {
       to: "/teachers",
       label: "المعلمات والإكراميات",
       icon: Users,
