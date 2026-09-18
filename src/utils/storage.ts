@@ -24,6 +24,7 @@ import {
   cacheInternalCompetitions, getCachedInternalCompetitions, putCachedInternalCompetition, deleteCachedInternalCompetition,
   cacheExternalCompetitions, getCachedExternalCompetitions, putCachedExternalCompetition, deleteCachedExternalCompetition,
   cacheMedia, getCachedMedia, putCachedMedia, deleteCachedMedia,
+  getCachedYearDataForStudent,
   CachedTeacher, CachedTeacherBonus, CachedDonor, CachedAward,
   CachedCeremonyExpense, CachedCertificate, CachedMedia,
   CachedInternalCompetition, CachedExternalCompetition,
@@ -695,68 +696,201 @@ export const deleteStudent = async (id: number) => {
   queueCloudSync();
 };
 
-export const deleteAllStudents = async () => {
+/**
+ * يفصل الطالبة عن عام واحد فقط مع إبقاء سجلها العام وبقية الأعوام كما هي.
+ * يُستخدم من صفحات المسابقات ومن شاشة الحذف المتقدم في الإعدادات.
+ */
+export const deleteStudentFromYear = async (year: string, studentId: number) => {
   guardWrite();
-  const { clearStore } = await import("./localDB");
+  const { deleteItem } = await import("./localDB");
   const userId = await getUserId();
+  const historyKey = `h${year}`;
+
   if (canUseCloud(userId)) {
-    try {
-      await Promise.all([
-        supabase.from('hifz_history').delete().eq('user_id', userId),
-        supabase.from('year_data').delete().eq('user_id', userId),
-        supabase.from('internal_competitions' as any).delete().eq('user_id', userId),
-        supabase.from('external_competitions' as any).delete().eq('user_id', userId),
-      ]);
-      await supabase.from('students').delete().eq('user_id', userId);
-    } catch (err) {
-      console.error('Cloud wipe failed:', err);
-    }
-  } else {
-    const existing = await getCachedStudents();
-    for (const s of existing) {
-      await markDirty('student', 'delete', { id: s.id });
-    }
+    const requests = [
+      supabase.from('year_data').delete().eq('user_id', userId).eq('student_id', studentId).eq('year', year),
+      supabase.from('hifz_history').delete().eq('user_id', userId).eq('student_id', studentId).eq('year_key', historyKey),
+      supabase.from('internal_competitions' as any).delete().eq('user_id', userId).eq('student_id', studentId).eq('year', year),
+      supabase.from('external_competitions' as any).delete().eq('user_id', userId).eq('student_id', studentId).eq('year', year),
+      supabase.from('monthly_tracking' as any).delete().eq('user_id', userId).eq('student_id', studentId).eq('year', year),
+    ];
+    const results = await Promise.all(requests);
+    results.forEach((result) => {
+      if (result.error) console.error('Cloud year association delete failed:', result.error);
+    });
   }
 
-  await clearStore('students');
-  await clearStore('hifz_history');
-  await clearStore('year_data');
-  await clearStore('internal_competitions');
-  await clearStore('external_competitions');
-  if (canUseCloud(userId)) {
-    const pending = await getPendingChanges();
-    for (const p of pending.filter(item => ['student', 'hifz', 'year', 'internal_competition', 'external_competition'].includes(item.entity))) {
-      await clearPending(p.key);
-    }
+  const yearRow = await getCachedYearDataForStudent(studentId);
+  const localYearRow = yearRow.find((row) => row.year === year);
+  if (localYearRow) {
+    await deleteItem('year_data', [studentId, year]);
+  }
+  await markDirty('year', 'delete', { student_id: studentId, year });
+
+  const history = (await getCachedHifzHistory()).filter(
+    (row) => row.student_id === studentId && row.year_key === historyKey,
+  );
+  for (const row of history) {
+    await deleteItem('hifz_history', [row.student_id, row.year_key]);
+  }
+  await markDirty('hifz', 'delete', { student_id: studentId, year_key: historyKey });
+
+  const internal = (await getCachedInternalCompetitions()).filter(
+    (row) => row.student_id === studentId && row.year === year,
+  );
+  for (const row of internal) {
+    await deleteItem('internal_competitions', row.id);
+    await markDirty('internal_competition', 'delete', { id: row.id });
+  }
+  const external = (await getCachedExternalCompetitions()).filter(
+    (row) => row.student_id === studentId && row.year === year,
+  );
+  for (const row of external) {
+    await deleteItem('external_competitions', row.id);
+    await markDirty('external_competition', 'delete', { id: row.id });
+  }
+
+  queueCloudSync();
+};
+
+/** حذف عدة طالبات من عام واحد دون المساس بالسجل العام. */
+export const deleteStudentsFromYear = async (year: string, ids: number[]) => {
+  guardWrite();
+  for (const id of Array.from(new Set(ids))) {
+    await deleteStudentFromYear(year, id);
   }
 };
 
+/** حذف بيانات العام الدراسي من السجل الأكاديمي فقط (لا يحذف الطالب العام). */
 export const deleteYearData = async (year: string) => {
   guardWrite();
   const { deleteItem } = await import("./localDB");
   const userId = await getUserId();
 
   if (canUseCloud(userId)) {
-    try {
-      await Promise.all([
-        supabase.from('year_data').delete().eq('user_id', userId).eq('year', year),
-        supabase.from('hifz_history').delete().eq('user_id', userId).eq('year_key', `h${year}`),
-      ]);
-    } catch (err) {
-      console.error('Cloud year wipe failed:', err);
-    }
+    const [yearResult, historyResult] = await Promise.all([
+      supabase.from('year_data').delete().eq('user_id', userId).eq('year', year),
+      supabase.from('hifz_history').delete().eq('user_id', userId).eq('year_key', `h${year}`),
+    ]);
+    if (yearResult.error) console.error('Cloud year data delete failed:', yearResult.error);
+    if (historyResult.error) console.error('Cloud hifz history delete failed:', historyResult.error);
   }
 
   const allYearData = await getCachedYearData();
   for (const row of allYearData.filter((r) => r.year === year)) {
     await deleteItem('year_data', [row.student_id, row.year]);
+    await markDirty('year', 'delete', { student_id: row.student_id, year: row.year });
   }
   const allHistory = await getCachedHifzHistory();
   for (const row of allHistory.filter((r) => r.year_key === `h${year}`)) {
     await deleteItem('hifz_history', [row.student_id, row.year_key]);
+    await markDirty('hifz', 'delete', { student_id: row.student_id, year_key: row.year_key });
   }
+  queueCloudSync();
 };
 
+/**
+ * حذف عام كامل: يحذف كل البيانات المرتبطة بالعام من الجداول السنوية، مع
+ * الإبقاء على الطلاب في السجل العام ليستطيع المستخدم تسجيلهم في عام آخر.
+ */
+export const deleteFullYearData = async (year: string) => {
+  guardWrite();
+  await deleteYearData(year);
+  const userId = await getUserId();
+  const cloudTables = [
+    'teachers', 'teacher_bonuses', 'donors', 'awards', 'ceremony_expenses',
+    'certificates', 'internal_competitions', 'external_competitions', 'media',
+    'monthly_tracking',
+  ];
+
+  if (canUseCloud(userId)) {
+    const { data: mediaRows } = await supabase
+      .from('media')
+      .select('file_path')
+      .eq('user_id', userId)
+      .eq('year', year);
+    const mediaPaths = (mediaRows || []).map((row: any) => row.file_path).filter(Boolean);
+    if (mediaPaths.length > 0) {
+      const { error } = await supabase.storage.from('media').remove(mediaPaths);
+      if (error) console.warn('Could not remove year media files:', error);
+    }
+
+    for (const table of cloudTables) {
+      const { error } = await supabase.from(table as any).delete().eq('user_id', userId).eq('year', year);
+      if (error) console.error(`Cloud full year delete failed for ${table}:`, error);
+    }
+  }
+
+  const { deleteItem } = await import("./localDB");
+  const yearStores: Array<{
+    store: string;
+    entity: 'teacher' | 'teacher_bonus' | 'donor' | 'award' | 'expense' | 'certificate' | 'internal_competition' | 'external_competition' | 'media';
+    rows: Array<{ id: string; year: string }>;
+  }> = [
+    { store: 'teachers', entity: 'teacher', rows: await getCachedTeachers() },
+    { store: 'teacher_bonuses', entity: 'teacher_bonus', rows: await getCachedTeacherBonuses() },
+    { store: 'donors', entity: 'donor', rows: await getCachedDonors() },
+    { store: 'awards', entity: 'award', rows: await getCachedAwards() },
+    { store: 'ceremony_expenses', entity: 'expense', rows: await getCachedCeremonyExpenses() },
+    { store: 'certificates', entity: 'certificate', rows: await getCachedCertificates() },
+    { store: 'internal_competitions', entity: 'internal_competition', rows: await getCachedInternalCompetitions() },
+    { store: 'external_competitions', entity: 'external_competition', rows: await getCachedExternalCompetitions() },
+    { store: 'media', entity: 'media', rows: await getCachedMedia() },
+  ];
+
+  for (const group of yearStores) {
+    for (const row of group.rows.filter((item) => item.year === year)) {
+      await deleteItem(group.store, row.id);
+      await markDirty(group.entity, 'delete', { id: row.id });
+    }
+  }
+  queueCloudSync();
+};
+
+/** حذف قاعدة بيانات المستخدم كاملة، بما في ذلك جميع الجداول الخاصة به. */
+export const deleteEntireDatabase = async () => {
+  guardWrite();
+  const userId = await getUserId();
+
+  if (canUseCloud(userId)) {
+    // الملفات نفسها لا تُحذف بحذف سجل media، لذلك نحاول تنظيفها أولاً.
+    const { data: mediaRows, error: mediaQueryError } = await supabase
+      .from('media')
+      .select('file_path')
+      .eq('user_id', userId);
+    if (mediaQueryError) console.warn('Could not list media files before database wipe:', mediaQueryError);
+    const paths = (mediaRows || []).map((row: any) => row.file_path).filter(Boolean);
+    if (paths.length > 0) {
+      const { error } = await supabase.storage.from('media').remove(paths);
+      if (error) console.warn('Could not remove media files during database wipe:', error);
+    }
+
+    // نحذف الجداول الابنة أولاً ثم الطلاب لتفادي أي تعارض مفاتيح خارجية في
+    // المشاريع القديمة التي لم تُفعّل فيها cascade بعد.
+    const childTables = [
+      'monthly_tracking', 'hifz_history', 'year_data', 'internal_competitions',
+      'external_competitions', 'teachers', 'teacher_bonuses', 'donors', 'awards',
+      'ceremony_expenses', 'certificates', 'media',
+    ];
+    for (const table of childTables) {
+      const { error } = await supabase.from(table as any).delete().eq('user_id', userId);
+      if (error) console.error(`Cloud database wipe failed for ${table}:`, error);
+    }
+    const { error: studentsError } = await supabase.from('students').delete().eq('user_id', userId);
+    if (studentsError) console.error('Cloud database wipe failed for students:', studentsError);
+    const { error: settingsError } = await supabase.from('user_settings').delete().eq('user_id', userId);
+    if (settingsError) console.error('Cloud database wipe failed for settings:', settingsError);
+  }
+
+  // يمسح أيضاً الإعدادات المحلية والعمليات المعلقة حتى لا تعود البيانات
+  // القديمة إلى السحابة في مزامنة لاحقة.
+  await clearAllCache();
+};
+
+// التوافق مع الاسم القديم المستخدم في بعض الشاشات.
+export const deleteAllStudents = deleteEntireDatabase;
+
+// حذف الطلاب عالمياً — يُترك للاستخدام الداخلي الصريح فقط.
 export const deleteStudents = async (ids: number[]) => {
   guardWrite();
   for (const id of ids) {
@@ -1512,10 +1646,26 @@ const runSyncToCloud = async (onProgress?: ProgressCb): Promise<boolean> => {
     }
 
     const pendingAfter = await getPendingChanges();
+    const hifzDeletes = pendingAfter.filter(p => p.entity === 'hifz' && p.op === 'delete');
     const hifzPending = pendingAfter.filter(p => p.entity === 'hifz' && p.op === 'upsert');
+    const yearDeletes = pendingAfter.filter(p => p.entity === 'year' && p.op === 'delete');
     const yearPending = pendingAfter.filter(p => p.entity === 'year' && p.op === 'upsert');
 
-    // 3) Hifz upserts
+    // 3) Hifz deletes and upserts
+    for (const p of hifzDeletes) {
+      const { error } = await supabase.from('hifz_history').delete()
+        .eq('user_id', userId)
+        .eq('student_id', p.ref.student_id)
+        .eq('year_key', p.ref.year_key);
+      if (error) {
+        console.error('Hifz delete failed:', error);
+        hadError = true;
+      } else {
+        await clearPending(p.key);
+        tick('حذف سجل الحفظ');
+      }
+    }
+
     if (hifzPending.length > 0) {
       const rows = hifzPending.map(p => {
         const r = allHistory.find(h => h.student_id === p.ref.student_id && h.year_key === p.ref.year_key);
@@ -1532,7 +1682,21 @@ const runSyncToCloud = async (onProgress?: ProgressCb): Promise<boolean> => {
       }
     }
 
-    // 4) Year data upserts
+    // 4) Year data deletes and upserts
+    for (const p of yearDeletes) {
+      const { error } = await supabase.from('year_data').delete()
+        .eq('user_id', userId)
+        .eq('student_id', p.ref.student_id)
+        .eq('year', p.ref.year);
+      if (error) {
+        console.error('Year data delete failed:', error);
+        hadError = true;
+      } else {
+        await clearPending(p.key);
+        tick('حذف بيانات الأعوام');
+      }
+    }
+
     if (yearPending.length > 0) {
       const rows = yearPending.map(p => {
         const r = allYearData.find(y => y.student_id === p.ref.student_id && y.year === p.ref.year);
