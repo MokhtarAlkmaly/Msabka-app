@@ -1,6 +1,6 @@
 {
   "appId": "org.inmaa.msabkarmdan",
-  "appName": "mosabkamarkz",
+  "appName": "مركز إنماء الأهلي الخيري",
   "webDir": ".output/public",
   "plugins": {
     "CapacitorSQLite": {

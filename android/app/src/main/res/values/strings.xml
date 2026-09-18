@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">mosabkamarkz</string>
-    <string name="title_activity_main">mosabkamarkz</string>
+    <string name="app_name">مركز إنماء الأهلي الخيري</string>
+    <string name="title_activity_main">مركز إنماء الأهلي الخيري</string>
     <string name="package_name">org.inmaa.msabkarmdan</string>
     <string name="custom_url_scheme">org.inmaa.msabkarmdan</string>
 </resources>
