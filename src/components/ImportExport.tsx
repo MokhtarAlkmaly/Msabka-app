@@ -75,6 +75,7 @@ export const ImportExport = ({ onDataImported, currentYear, displayYear }: Props
       const yearData = student.yearData || await loadYearData(currentYear, student.id);
       exportData.push({
         'الاسم': student.name,
+        'الجنس': student.gender || '',
         'المعلمة': yearData.teacher || '',
         [yearCols.parts]: yearData.parts || '',
         [yearCols.annual]: yearData.annual || '',
@@ -140,17 +141,24 @@ export const ImportExport = ({ onDataImported, currentYear, displayYear }: Props
           }
           seenInFile.add(nameKey);
 
+          const genderRaw = row['الجنس']?.toString().trim();
+          const gender = genderRaw === 'ذكر' || genderRaw === 'أنثى' ? genderRaw : undefined;
+
           const student = existingStudents.find(s => norm(s.name) === nameKey);
           let studentId: number;
 
           if (!student) {
-            const newId = await saveStudent({ name, teacher: '' });
+            const newId = await saveStudent({ name, teacher: '', gender });
             if (!newId) { setImportProgress({ current: i + 1, total: jsonData.length }); continue; }
             studentId = newId;
-            existingStudents.push({ id: newId, name, teacher: '' });
+            existingStudents.push({ id: newId, name, teacher: '', gender });
             importedCount++;
           } else {
             studentId = student.id;
+            if (gender && gender !== student.gender) {
+              await saveStudent({ ...student, id: student.id, gender });
+              student.gender = gender;
+            }
             updatedCount++;
           }
 
@@ -199,6 +207,7 @@ export const ImportExport = ({ onDataImported, currentYear, displayYear }: Props
   const downloadTemplate = async () => {
     const templateData = [{
       'الاسم': 'مثال: فاطمة أحمد',
+      'الجنس': 'أنثى',
       'المعلمة': '',
       [yearCols.parts]: '5',
       [yearCols.annual]: '18',
@@ -208,7 +217,7 @@ export const ImportExport = ({ onDataImported, currentYear, displayYear }: Props
     const worksheet = XLSX.utils.json_to_sheet(templateData);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, `قالب ${labelYear}`);
-    worksheet['!cols'] = Array(6).fill({ wch: 20 });
+    worksheet['!cols'] = Array(7).fill({ wch: 20 });
     try {
       await saveWorkbook(workbook, `قالب_استيراد_${labelYear}.xlsx`);
       toast({ title: "تم تنزيل القالب", description: `القالب خاص بعام ${labelYear}هـ` });

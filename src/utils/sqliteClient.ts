@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS students (
   name TEXT,
   teacher TEXT,
   user_id TEXT,
+  gender TEXT,
   hijri_join_date TEXT,
   initial_hifz TEXT,
   first_competition_year TEXT,
@@ -228,6 +229,7 @@ CREATE INDEX IF NOT EXISTS idx_media_year_month ON media(year, month);
 `;
 
 const MIGRATE_STUDENTS_COLS = [
+  "ALTER TABLE students ADD COLUMN gender TEXT;",
   "ALTER TABLE students ADD COLUMN hijri_join_date TEXT;",
   "ALTER TABLE students ADD COLUMN initial_hifz TEXT;",
   "ALTER TABLE students ADD COLUMN first_competition_year TEXT;",

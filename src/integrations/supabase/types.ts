@@ -271,6 +271,7 @@ export type Database = {
       students: {
         Row: {
           created_at: string
+          gender: string | null
           id: number
           name: string
           teacher: string
@@ -279,6 +280,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          gender?: string | null
           id?: number
           name?: string
           teacher?: string
@@ -287,6 +289,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          gender?: string | null
           id?: number
           name?: string
           teacher?: string

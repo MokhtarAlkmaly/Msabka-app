@@ -28,6 +28,7 @@ export interface Student {
   id: number;
   name: string;
   teacher: string;
+  gender?: string; // الجنس: ذكر أو أنثى
   hijri_join_date?: string; // تاريخ هجري الالتحاق
   initial_hifz?: string; // مقدار الحفظ قبل الالتحاق
   first_competition_year?: string; // عام أول مسابقة
@@ -75,6 +76,9 @@ export interface ExternalCompetition {
   created_at?: string;
   updated_at?: string;
 }
+
+// خيارات الجنس المتاحة للطالب
+export const GENDER_OPTIONS = ["ذكر", "أنثى"];
 
 export const DEFAULT_STATUSES = [
   "طبيعي",

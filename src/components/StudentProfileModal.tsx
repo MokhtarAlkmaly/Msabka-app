@@ -10,6 +10,7 @@ import {
   InternalCompetition,
   ExternalCompetition,
   CustomColumnDef,
+  GENDER_OPTIONS,
 } from "@/types/student";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -474,6 +475,7 @@ export const StudentProfileModal = ({
 
         <div class="info-grid">
           <div><strong>اسم الطالب:</strong> ${esc(studentData.name)}</div>
+          <div><strong>الجنس:</strong> ${esc(studentData.gender || "-")}</div>
           <div><strong>المعلمة:</strong> ${esc(studentData.teacher || "-")}</div>
           <div><strong>الحالة:</strong> ${esc(studentData.status || "طبيعي")}</div>
           <div><strong>تاريخ الالتحاق:</strong> ${esc(studentData.hijri_join_date || "-")}</div>
@@ -555,6 +557,12 @@ export const StudentProfileModal = ({
                   )}
                 </DialogTitle>
                 <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                  {(studentData?.gender || student.gender) && (
+                    <>
+                      <span>الجنس: <strong className="text-foreground">{studentData?.gender || student.gender}</strong></span>
+                      <span>•</span>
+                    </>
+                  )}
                   <span>المعلمة: <strong className="text-foreground">{studentData?.teacher || student.teacher || "غير محدد"}</strong></span>
                   <span>•</span>
                   <span>الحالة: <Badge variant="outline" className="text-primary font-bold">{studentData?.status || "طبيعي"}</Badge></span>
@@ -596,6 +604,25 @@ export const StudentProfileModal = ({
                     onChange={(e) => setStudentData({ ...studentData, name: e.target.value })}
                     className="h-9 mt-1 rounded-lg"
                   />
+                </div>
+                <div>
+                  <label className="font-bold text-foreground">الجنس</label>
+                  <Select
+                    value={studentData.gender || "__none__"}
+                    onValueChange={(v) =>
+                      setStudentData({ ...studentData, gender: v === "__none__" ? "" : v })
+                    }
+                  >
+                    <SelectTrigger className="h-9 mt-1 rounded-lg">
+                      <SelectValue placeholder="اختر الجنس" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— بدون —</SelectItem>
+                      {GENDER_OPTIONS.map((g) => (
+                        <SelectItem key={g} value={g}>{g}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <label className="font-bold text-foreground">تاريخ هجري الالتحاق</label>
