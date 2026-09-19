@@ -41,6 +41,7 @@ const TABLES: Record<string, TableConfig> = {
       "name",
       "teacher",
       "user_id",
+      "gender",
       "hijri_join_date",
       "initial_hifz",
       "first_competition_year",
@@ -241,6 +242,7 @@ export interface CachedStudent {
   name: string;
   teacher: string;
   user_id: string;
+  gender?: string | null;
   hijri_join_date?: string | null;
   initial_hifz?: string | null;
   first_competition_year?: string | null;

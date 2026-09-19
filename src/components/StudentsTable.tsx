@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Student, CustomColumnDef, DEFAULT_STATUSES } from "@/types/student";
+import { Student, CustomColumnDef, DEFAULT_STATUSES, GENDER_OPTIONS } from "@/types/student";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -70,6 +70,7 @@ export const StudentsTable = ({
   const [selectedTeacher, setSelectedTeacher] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [selectedGrade, setSelectedGrade] = useState<string>("all");
+  const [selectedGender, setSelectedGender] = useState<string>("all");
   const [duplicatesOnly, setDuplicatesOnly] = useState(false);
 
   // Active student for profile modal
@@ -181,6 +182,7 @@ export const StudentsTable = ({
       }
       if (selectedStatus !== "all" && (current.status || "طبيعي") !== selectedStatus) return false;
       if (selectedGrade !== "all" && (current.school_grade || "") !== selectedGrade) return false;
+      if (selectedGender !== "all" && (current.gender || "") !== selectedGender) return false;
 
       if (searchQuery.trim()) {
         const q = searchQuery.trim().toLowerCase();
@@ -190,13 +192,15 @@ export const StudentsTable = ({
         const matchesTeacher = (current.teacher || "").toLowerCase().includes(q);
         const matchesStatus = (current.status || "").toLowerCase().includes(q);
         const matchesGrade = (current.school_grade || "").toLowerCase().includes(q);
+        const matchesGender = (current.gender || "").toLowerCase().includes(q);
         if (
           !matchesName &&
           !matchesGuardianPhone &&
           !matchesStudentPhone &&
           !matchesTeacher &&
           !matchesStatus &&
-          !matchesGrade
+          !matchesGrade &&
+          !matchesGender
         ) {
           return false;
         }
@@ -210,6 +214,7 @@ export const StudentsTable = ({
     selectedTeacher,
     selectedStatus,
     selectedGrade,
+    selectedGender,
     searchQuery,
     duplicatesOnly,
     duplicateNameCounts,
@@ -223,6 +228,7 @@ export const StudentsTable = ({
         "م": i + 1,
         "رقم القيد": current.id,
         "اسم الطالب": current.name,
+        "الجنس": current.gender || "",
         "المعلمة": current.teacher || "",
         "تاريخ هجري الالتحاق": current.hijri_join_date || "",
         "الحفظ قبل الالتحاق": current.initial_hifz || "0",
@@ -273,6 +279,7 @@ export const StudentsTable = ({
         return `<tr>
           <td>${i + 1}</td>
           <td class="name font-bold">${esc(current.name)}</td>
+          <td>${esc(current.gender || "—")}</td>
           <td>${esc(current.teacher || "—")}</td>
           <td>${esc(current.hijri_join_date || "—")}</td>
           <td>${esc(current.initial_hifz || "0")} جزء</td>
@@ -314,7 +321,7 @@ export const StudentsTable = ({
         <table>
           <thead>
             <tr>
-              <th>م</th><th>اسم الطالب</th><th>المعلمة</th><th>تاريخ هجري الالتحاق</th>
+              <th>م</th><th>اسم الطالب</th><th>الجنس</th><th>المعلمة</th><th>تاريخ هجري الالتحاق</th>
               <th>الحفظ قبل الالتحاق</th><th>الحالة</th><th>السنة الدراسية</th>
               <th>رقم ولي الأمر</th><th>رقم الطالب</th>
               ${customHeaders}
@@ -413,7 +420,7 @@ export const StudentsTable = ({
         )}
 
         {/* Filter Bar */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2 pt-2 border-t border-border/60">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-2 pt-2 border-t border-border/60">
           <div className="relative">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -459,6 +466,18 @@ export const StudentsTable = ({
               ))}
             </SelectContent>
           </Select>
+
+          <Select value={selectedGender} onValueChange={setSelectedGender}>
+            <SelectTrigger className="h-10 rounded-xl bg-background/80 text-xs font-bold border-border/80">
+              <SelectValue placeholder="تصفية حسب الجنس" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">كل الأجناس</SelectItem>
+              {GENDER_OPTIONS.map((g) => (
+                <SelectItem key={g} value={g}>{g}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -493,6 +512,9 @@ export const StudentsTable = ({
                 </th>
                 <th className="sticky top-0 right-12 z-40 w-[320px] min-w-[300px] bg-emerald-900 p-2.5 text-right border-b border-l border-emerald-800 shadow-[-8px_0_12px_-10px_rgba(0,0,0,0.5)]">
                   اسم الطالب
+                </th>
+                <th className="sticky top-0 z-30 min-w-[90px] bg-emerald-900 p-2.5 text-center border-b border-l border-emerald-800">
+                  الجنس
                 </th>
                 <th className="sticky top-0 z-30 min-w-[130px] bg-emerald-900 p-2.5 text-center border-b border-l border-emerald-800">
                   المعلمة
@@ -541,7 +563,7 @@ export const StudentsTable = ({
               {filteredStudents.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={11 + customColumns.length}
+                    colSpan={12 + customColumns.length}
                     className="p-12 text-center text-muted-foreground"
                   >
                     لا يوجد طلاب مطابقون لمعايير البحث
@@ -601,6 +623,26 @@ export const StudentsTable = ({
                             <ExternalLink className="h-3 w-3 shrink-0 opacity-60 inline" />
                           </button>
                         </div>
+                      </td>
+
+                      {/* Gender */}
+                      <td className="border-b border-l border-border/70 p-1">
+                        <Select
+                          value={current.gender || "__none__"}
+                          onValueChange={(v) =>
+                            updateStudentField(student, "gender", v === "__none__" ? "" : v)
+                          }
+                        >
+                          <SelectTrigger className="h-9 w-full min-w-[80px] rounded-xl border-0 bg-background/70 text-center text-xs font-bold">
+                            <SelectValue placeholder="الجنس" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">— بدون —</SelectItem>
+                            {GENDER_OPTIONS.map((g) => (
+                              <SelectItem key={g} value={g}>{g}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </td>
 
                       {/* Teacher */}
