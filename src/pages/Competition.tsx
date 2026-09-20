@@ -3,12 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Link } from "@/lib/router-compat";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CompetitionTable } from "@/components/CompetitionTable";
-import { ImportExport } from "@/components/ImportExport";
 import { NotificationSystem } from "@/components/notifications/NotificationSystem";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { RecallStudents } from "@/components/RecallStudents";
 import {
-  Plus,
   Printer,
   Trash2,
   Calendar,
@@ -38,7 +36,6 @@ import {
   syncFromCloud,
   mergeDuplicateStudents,
   loadTeachers as loadCachedTeachers,
-  registerStudentInYear,
   deleteStudentFromYear,
   deleteStudentsFromYear,
 } from "@/utils/storage";
@@ -263,22 +260,6 @@ const Competition = () => {
     });
   };
 
-  const addNewStudent = async () => {
-    if (isDirty) {
-      await handleSaveAll();
-      if (Object.keys(dirtyMap).length > 0) return;
-    }
-    const newId = await saveStudent({ name: "", teacher: "" });
-    if (newId) {
-      await registerStudentInYear(dataYearKey, newId);
-      await loadData();
-      toast({
-        title: "تمت الإضافة",
-        description: "تم إضافة طالب جديد إلى المسابقة",
-      });
-    }
-  };
-
   const handleDelete = async (id: number) => {
     if (!confirm("هل أنت متأكد من حذف هذا الطالب من المسابقة؟")) return;
     await deleteStudentFromYear(dataYearKey, id);
@@ -474,7 +455,6 @@ const Competition = () => {
       <main className="container mx-auto max-w-7xl px-3 py-5 sm:px-4 sm:py-7 print:p-0">
         <div className="print:hidden space-y-4">
           <NotificationSystem students={students} currentYear={currentYear} />
-          <ImportExport onDataImported={loadData} currentYear={dataYearKey} displayYear={`${currentYear}${competitionType === "dhul_hijjah" ? " - ذو الحجة" : ""}`} />
 
           <div className="rounded-[1.75rem] border border-white/70 bg-card/88 p-4 shadow-xl shadow-primary/5 backdrop-blur sm:p-5">
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -521,11 +501,6 @@ const Competition = () => {
             </div>
 
             <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
-              <Button onClick={addNewStudent} className="h-12 gap-2 rounded-2xl lg:col-span-2">
-                <Plus className="h-4 w-4" />
-                إضافة طالب جديد للمسابقة
-              </Button>
-
               <Button
                 onClick={handleSaveAll}
                 disabled={!isDirty || saving}

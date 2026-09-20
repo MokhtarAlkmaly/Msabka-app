@@ -3,6 +3,16 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { StudentsTable } from "@/components/StudentsTable";
+import { ImportExport } from "@/components/ImportExport";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   RefreshCw,
   Wifi,
@@ -14,9 +24,10 @@ import {
   Heart,
   Calendar,
   Sparkles,
+  Plus,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
-import { Student, START_YEAR, END_YEAR, CustomColumnDef, DEFAULT_STATUSES } from "@/types/student";
+import { Student, START_YEAR, END_YEAR, CustomColumnDef, DEFAULT_STATUSES, GENDER_OPTIONS } from "@/types/student";
 import {
   loadStudentsForYear,
   getActiveYear,
@@ -30,6 +41,7 @@ import {
   saveStudentStatuses,
   saveStudent,
   deleteStudent,
+  registerStudentInYear,
 } from "@/utils/storage";
 import { getPendingChanges } from "@/utils/localDB";
 import { useToast } from "@/hooks/use-toast";
@@ -49,6 +61,9 @@ const Index = () => {
   const [customColumns, setCustomColumns] = useState<CustomColumnDef[]>([]);
   const [studentStatuses, setStudentStatuses] = useState<string[]>(DEFAULT_STATUSES);
   const [dirtyMap, setDirtyMap] = useState<Record<number, Student>>({});
+  const [addStudentOpen, setAddStudentOpen] = useState(false);
+  const [addingStudent, setAddingStudent] = useState(false);
+  const [newStudent, setNewStudent] = useState({ name: "", teacher: "", gender: "" });
 
   const { toast } = useToast();
   const { user, signOut } = useAuth();
@@ -110,6 +125,50 @@ const Index = () => {
     },
     [loadData]
   );
+
+  const handleAddStudent = async () => {
+    const name = newStudent.name.trim();
+    if (!name) {
+      toast({
+        title: "اسم الطالب مطلوب",
+        description: "أدخل اسم الطالب قبل الحفظ",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!currentYear) return;
+
+    setAddingStudent(true);
+    try {
+      const teacher = newStudent.teacher.trim();
+      const id = await saveStudent({
+        name,
+        teacher,
+        gender: newStudent.gender || undefined,
+      });
+      if (id === null) {
+        throw new Error("Unable to create student without an authenticated user");
+      }
+
+      await registerStudentInYear(currentYear, id, teacher);
+      await loadData();
+      setNewStudent({ name: "", teacher: "", gender: "" });
+      setAddStudentOpen(false);
+      toast({
+        title: "تمت إضافة الطالب",
+        description: `أُضيف ${name} إلى سجل عام ${currentYear}هـ`,
+      });
+    } catch (error) {
+      console.error("Failed to add student:", error);
+      toast({
+        title: "تعذرت إضافة الطالب",
+        description: "حاول مرة أخرى بعد التحقق من البيانات",
+        variant: "destructive",
+      });
+    } finally {
+      setAddingStudent(false);
+    }
+  };
 
   const handleAddCustomColumn = useCallback(async (column: CustomColumnDef) => {
     const next = [...customColumns, column];
@@ -380,7 +439,16 @@ const Index = () => {
                 </span>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  onClick={() => setAddStudentOpen(true)}
+                  disabled={!currentYear}
+                  size="sm"
+                  className="h-9 gap-1.5 rounded-xl text-xs"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  إضافة طالب جديد
+                </Button>
                 <Button
                   onClick={handleSyncFromCloud}
                   disabled={syncing || !online}
@@ -393,6 +461,10 @@ const Index = () => {
                 </Button>
               </div>
             </div>
+
+            {currentYear && (
+              <ImportExport onDataImported={loadData} currentYear={currentYear} />
+            )}
 
             {syncProgress && (
               <div className="space-y-1">
@@ -426,6 +498,113 @@ const Index = () => {
               />
             )}
           </main>
+
+          <Dialog
+            open={addStudentOpen}
+            onOpenChange={(open) => {
+              if (addingStudent) return;
+              setAddStudentOpen(open);
+              if (!open) setNewStudent({ name: "", teacher: "", gender: "" });
+            }}
+          >
+            <DialogContent dir="rtl" className="max-w-md">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Plus className="h-5 w-5 text-primary" />
+                  إضافة طالب جديد
+                </DialogTitle>
+                <DialogDescription>
+                  سيُضاف الطالب إلى سجل إدارة الطلاب للعام {currentYear}هـ، ويمكن استدعاؤه بعد ذلك إلى المسابقات.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4 py-2">
+                <div className="space-y-1.5">
+                  <label htmlFor="new-student-name" className="text-sm font-bold text-foreground">
+                    اسم الطالب <span className="text-destructive">*</span>
+                  </label>
+                  <Input
+                    id="new-student-name"
+                    value={newStudent.name}
+                    onChange={(event) =>
+                      setNewStudent((current) => ({ ...current, name: event.target.value }))
+                    }
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") void handleAddStudent();
+                    }}
+                    placeholder="أدخل الاسم الكامل"
+                    autoFocus
+                    disabled={addingStudent}
+                    className="rounded-xl"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label htmlFor="new-student-teacher" className="text-sm font-bold text-foreground">
+                    المعلمة / الحلقة
+                  </label>
+                  <Input
+                    id="new-student-teacher"
+                    value={newStudent.teacher}
+                    onChange={(event) =>
+                      setNewStudent((current) => ({ ...current, teacher: event.target.value }))
+                    }
+                    placeholder="اختياري"
+                    list="student-teacher-names"
+                    disabled={addingStudent}
+                    className="rounded-xl"
+                  />
+                  <datalist id="student-teacher-names">
+                    {teacherNames.map((teacher) => (
+                      <option key={teacher} value={teacher} />
+                    ))}
+                  </datalist>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-bold text-foreground">الجنس</label>
+                  <Select
+                    value={newStudent.gender || "unspecified"}
+                    onValueChange={(gender) =>
+                      setNewStudent((current) => ({
+                        ...current,
+                        gender: gender === "unspecified" ? "" : gender,
+                      }))
+                    }
+                    disabled={addingStudent}
+                  >
+                    <SelectTrigger className="rounded-xl">
+                      <SelectValue placeholder="غير محدد" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unspecified">غير محدد</SelectItem>
+                      {GENDER_OPTIONS.map((gender) => (
+                        <SelectItem key={gender} value={gender}>{gender}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <DialogFooter className="gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setAddStudentOpen(false)}
+                  disabled={addingStudent}
+                >
+                  إلغاء
+                </Button>
+                <Button
+                  onClick={() => void handleAddStudent()}
+                  disabled={addingStudent || !newStudent.name.trim()}
+                  className="gap-1.5"
+                >
+                  <Plus className="h-4 w-4" />
+                  {addingStudent ? "جارٍ الإضافة..." : "إضافة الطالب"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           {/* Footer */}
           <footer className="mt-auto px-4 py-6 text-center text-xs text-muted-foreground">
