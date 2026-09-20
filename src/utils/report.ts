@@ -1,6 +1,7 @@
 export const esc = (s: string) =>
-  (s || "").replace(/[&<>"']/g, (c) =>
-    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string)
+  (s || "").replace(
+    /[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] as string,
   );
 
 export const riyal = (n: number) => `${Number(n || 0).toLocaleString()} ريال`;

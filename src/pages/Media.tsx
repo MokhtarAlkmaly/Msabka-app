@@ -1,6 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,9 +23,18 @@ import {
 } from "@/utils/storage";
 
 const HIJRI_MONTHS = [
-  "محرم", "صفر", "ربيع الأول", "ربيع الآخر",
-  "جمادى الأولى", "جمادى الآخرة", "رجب", "شعبان",
-  "رمضان", "شوال", "ذو القعدة", "ذو الحجة"
+  "محرم",
+  "صفر",
+  "ربيع الأول",
+  "ربيع الآخر",
+  "جمادى الأولى",
+  "جمادى الآخرة",
+  "رجب",
+  "شعبان",
+  "رمضان",
+  "شوال",
+  "ذو القعدة",
+  "ذو الحجة",
 ];
 
 interface MediaItem {
@@ -51,9 +66,7 @@ const Media = () => {
     // Generate signed URLs for all cached metadata items.
     if (items.length > 0 && navigator.onLine) {
       const paths = items.map((i) => i.file_path);
-      const { data: signed } = await supabase.storage
-        .from("media")
-        .createSignedUrls(paths, 3600);
+      const { data: signed } = await supabase.storage.from("media").createSignedUrls(paths, 3600);
       const map: Record<string, string> = {};
       signed?.forEach((s, idx) => {
         if (s.signedUrl) map[paths[idx]] = s.signedUrl;
@@ -80,7 +93,7 @@ const Media = () => {
     setUploading(true);
 
     const files = Array.from(e.target.files);
-    
+
     for (const file of files) {
       const isImage = file.type.startsWith("image/");
       const isVideo = file.type.startsWith("video/");
@@ -90,7 +103,9 @@ const Media = () => {
       }
 
       // Get current Hijri month
-      const hijriDate = new Date().toLocaleDateString("ar-SA-u-ca-islamic-umalqura", { month: "numeric" });
+      const hijriDate = new Date().toLocaleDateString("ar-SA-u-ca-islamic-umalqura", {
+        month: "numeric",
+      });
       const currentMonth = parseInt(hijriDate) || 1;
 
       const ext = file.name.split(".").pop();
@@ -144,7 +159,10 @@ const Media = () => {
   });
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,hsl(var(--primary)/0.14),transparent_34rem),linear-gradient(180deg,hsl(var(--background)),hsl(var(--secondary)/0.45))]" dir="rtl">
+    <div
+      className="min-h-screen bg-[radial-gradient(circle_at_top_right,hsl(var(--primary)/0.14),transparent_34rem),linear-gradient(180deg,hsl(var(--background)),hsl(var(--secondary)/0.45))]"
+      dir="rtl"
+    >
       <header className="mx-3 mt-3 rounded-[2rem] bg-gradient-to-br from-primary via-emerald-700 to-teal-950 px-4 py-5 text-primary-foreground shadow-2xl shadow-primary/20">
         <div className="container mx-auto flex max-w-7xl items-center justify-between">
           <h1 className="text-xl font-bold">📸 الصور والفيديوهات</h1>
@@ -173,11 +191,13 @@ const Media = () => {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {Array.from({ length: END_YEAR - START_YEAR + 1 }, (_, i) => START_YEAR + i).map((year) => (
-                  <SelectItem key={year} value={year.toString()}>
-                    {year}هـ
-                  </SelectItem>
-                ))}
+                {Array.from({ length: END_YEAR - START_YEAR + 1 }, (_, i) => START_YEAR + i).map(
+                  (year) => (
+                    <SelectItem key={year} value={year.toString()}>
+                      {year}هـ
+                    </SelectItem>
+                  ),
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -246,7 +266,9 @@ const Media = () => {
                         </div>
                         <div className="p-2">
                           <p className="text-xs truncate text-muted-foreground">{item.title}</p>
-                          <p className="text-xs text-muted-foreground/60">{formatSize(item.file_size)}</p>
+                          <p className="text-xs text-muted-foreground/60">
+                            {formatSize(item.file_size)}
+                          </p>
                         </div>
                         <button
                           onClick={() => handleDelete(item)}
@@ -272,21 +294,16 @@ const Media = () => {
           >
             <X className="h-5 w-5" />
           </button>
-          {previewItem && (
-            previewItem.file_type === "image" ? (
+          {previewItem &&
+            (previewItem.file_type === "image" ? (
               <img
                 src={getUrl(previewItem.file_path)}
                 alt={previewItem.title}
                 className="w-full h-auto max-h-[85vh] object-contain"
               />
             ) : (
-              <video
-                src={getUrl(previewItem.file_path)}
-                controls
-                className="w-full max-h-[85vh]"
-              />
-            )
-          )}
+              <video src={getUrl(previewItem.file_path)} controls className="w-full max-h-[85vh]" />
+            ))}
         </DialogContent>
       </Dialog>
     </div>
@@ -294,4 +311,3 @@ const Media = () => {
 };
 
 export default Media;
-

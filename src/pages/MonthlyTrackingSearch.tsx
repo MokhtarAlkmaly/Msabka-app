@@ -3,11 +3,31 @@ import { Link } from "@/lib/router-compat";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  Search as SearchIcon, Home, Loader2, Printer, Share2, TrendingUp, TrendingDown, Minus,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Search as SearchIcon,
+  Home,
+  Loader2,
+  Printer,
+  Share2,
+  TrendingUp,
+  TrendingDown,
+  Minus,
 } from "lucide-react";
-import { Student, START_YEAR, END_YEAR, TRACKING_MONTHS, MonthlyRecord, QuranPoint } from "@/types/student";
+import {
+  Student,
+  START_YEAR,
+  END_YEAR,
+  TRACKING_MONTHS,
+  MonthlyRecord,
+  QuranPoint,
+} from "@/types/student";
 import {
   loadGlobalStudents,
   loadMonthlyTrackingForStudent,
@@ -22,9 +42,9 @@ interface MonthRow {
   month: number;
   label: string;
   record: MonthlyRecord;
-  memoScore: number;   // من 40
+  memoScore: number; // من 40
   reviewScore: number; // من 40
-  total: number;       // من 100
+  total: number; // من 100
   memoPages: number;
 }
 
@@ -59,20 +79,46 @@ const MonthlyTrackingSearch = () => {
       const built: MonthRow[] = await Promise.all(
         TRACKING_MONTHS.map(async (m) => {
           const record = data[m.value] || {
-            memoFrom: { surah: null, ayah: null }, memoTo: { surah: null, ayah: null },
-            memoHifzScore: "", memoRecitationScore: "",
-            reviewFrom: { surah: null, ayah: null }, reviewTo: { surah: null, ayah: null },
-            reviewHifzScore: "", reviewRecitationScore: "",
-            attendanceScore: "", behaviorScore: "",
+            memoFrom: { surah: null, ayah: null },
+            memoTo: { surah: null, ayah: null },
+            memoHifzScore: "",
+            memoRecitationScore: "",
+            reviewFrom: { surah: null, ayah: null },
+            reviewTo: { surah: null, ayah: null },
+            reviewHifzScore: "",
+            reviewRecitationScore: "",
+            attendanceScore: "",
+            behaviorScore: "",
           };
-          const memoScore = (parseFloat(record.memoHifzScore) || 0) + (parseFloat(record.memoRecitationScore) || 0);
-          const reviewScore = (parseFloat(record.reviewHifzScore) || 0) + (parseFloat(record.reviewRecitationScore) || 0);
-          const total = memoScore + reviewScore + (parseFloat(record.attendanceScore) || 0) + (parseFloat(record.behaviorScore) || 0);
-          const memoPages = record.memoFrom.surah && record.memoTo.surah
-            ? await calcPagesBetweenAsync(record.memoFrom.surah, record.memoFrom.ayah!, record.memoTo.surah, record.memoTo.ayah!)
-            : 0;
-          return { month: m.value, label: m.label, record, memoScore, reviewScore, total, memoPages };
-        })
+          const memoScore =
+            (parseFloat(record.memoHifzScore) || 0) + (parseFloat(record.memoRecitationScore) || 0);
+          const reviewScore =
+            (parseFloat(record.reviewHifzScore) || 0) +
+            (parseFloat(record.reviewRecitationScore) || 0);
+          const total =
+            memoScore +
+            reviewScore +
+            (parseFloat(record.attendanceScore) || 0) +
+            (parseFloat(record.behaviorScore) || 0);
+          const memoPages =
+            record.memoFrom.surah && record.memoTo.surah
+              ? await calcPagesBetweenAsync(
+                  record.memoFrom.surah,
+                  record.memoFrom.ayah!,
+                  record.memoTo.surah,
+                  record.memoTo.ayah!,
+                )
+              : 0;
+          return {
+            month: m.value,
+            label: m.label,
+            record,
+            memoScore,
+            reviewScore,
+            total,
+            memoPages,
+          };
+        }),
       );
       setRows(built);
     } finally {
@@ -93,14 +139,26 @@ const MonthlyTrackingSearch = () => {
   const withDelta = useMemo(() => {
     return activeRows.map((r, i) => {
       const prev = i > 0 ? activeRows[i - 1] : null;
-      const memoDelta = prev && prev.memoScore > 0 ? Math.round(((r.memoScore - prev.memoScore) / prev.memoScore) * 100) : null;
-      const reviewDelta = prev && prev.reviewScore > 0 ? Math.round(((r.reviewScore - prev.reviewScore) / prev.reviewScore) * 100) : null;
+      const memoDelta =
+        prev && prev.memoScore > 0
+          ? Math.round(((r.memoScore - prev.memoScore) / prev.memoScore) * 100)
+          : null;
+      const reviewDelta =
+        prev && prev.reviewScore > 0
+          ? Math.round(((r.reviewScore - prev.reviewScore) / prev.reviewScore) * 100)
+          : null;
       return { ...r, memoDelta, reviewDelta };
     });
   }, [activeRows]);
 
-  const avgMemoPct = activeRows.length ? Math.round((activeRows.reduce((s, r) => s + r.memoScore, 0) / (activeRows.length * 40)) * 100) : 0;
-  const avgReviewPct = activeRows.length ? Math.round((activeRows.reduce((s, r) => s + r.reviewScore, 0) / (activeRows.length * 40)) * 100) : 0;
+  const avgMemoPct = activeRows.length
+    ? Math.round((activeRows.reduce((s, r) => s + r.memoScore, 0) / (activeRows.length * 40)) * 100)
+    : 0;
+  const avgReviewPct = activeRows.length
+    ? Math.round(
+        (activeRows.reduce((s, r) => s + r.reviewScore, 0) / (activeRows.length * 40)) * 100,
+      )
+    : 0;
   const totalPagesAllMonths = activeRows.reduce((s, r) => s + r.memoPages, 0);
 
   const trendIcon = (delta: number | null) => {
@@ -111,7 +169,9 @@ const MonthlyTrackingSearch = () => {
   };
 
   const buildReportBody = () => {
-    const monthRows = withDelta.map((r) => `
+    const monthRows = withDelta
+      .map(
+        (r) => `
       <tr>
         <td>${esc(r.label)}</td>
         <td>${esc(pointLabel(r.record.memoFrom))} ← ${esc(pointLabel(r.record.memoTo))}</td>
@@ -122,7 +182,9 @@ const MonthlyTrackingSearch = () => {
         <td class="num">${r.record.attendanceScore || "-"}/10</td>
         <td class="num">${r.record.behaviorScore || "-"}/10</td>
         <td class="num"><b>${r.total}/100</b></td>
-      </tr>`).join("");
+      </tr>`,
+      )
+      .join("");
 
     return `
       <div class="head">
@@ -177,11 +239,15 @@ const MonthlyTrackingSearch = () => {
             <img src={logo} alt="شعار المركز" className="h-12 w-12 object-contain" />
             <div>
               <h1 className="text-lg font-bold text-primary">بحث المتابعة الشهرية</h1>
-              <p className="text-xs text-muted-foreground">سجل شامل لكل أشهر العام، بمقارنة نسب التقدم بالحفظ والمراجعة</p>
+              <p className="text-xs text-muted-foreground">
+                سجل شامل لكل أشهر العام، بمقارنة نسب التقدم بالحفظ والمراجعة
+              </p>
             </div>
           </div>
           <Link to="/monthly">
-            <Button variant="outline" size="sm" className="gap-1"><Home className="h-4 w-4" /> المتابعة الشهرية</Button>
+            <Button variant="outline" size="sm" className="gap-1">
+              <Home className="h-4 w-4" /> المتابعة الشهرية
+            </Button>
           </Link>
         </Card>
 
@@ -214,9 +280,13 @@ const MonthlyTrackingSearch = () => {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {Array.from({ length: END_YEAR - START_YEAR + 1 }, (_, i) => START_YEAR + i).map((y) => (
-                  <SelectItem key={y} value={y.toString()}>{y}هـ</SelectItem>
-                ))}
+                {Array.from({ length: END_YEAR - START_YEAR + 1 }, (_, i) => START_YEAR + i).map(
+                  (y) => (
+                    <SelectItem key={y} value={y.toString()}>
+                      {y}هـ
+                    </SelectItem>
+                  ),
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -231,7 +301,9 @@ const MonthlyTrackingSearch = () => {
             <Card className="flex flex-wrap items-center justify-between gap-3 border-primary/20 p-4">
               <div>
                 <h2 className="text-lg font-bold">{selected.name}</h2>
-                <p className="text-xs text-muted-foreground">{selected.teacher} — عام {year}هـ</p>
+                <p className="text-xs text-muted-foreground">
+                  {selected.teacher} — عام {year}هـ
+                </p>
               </div>
               <div className="flex gap-2 print:hidden">
                 <Button onClick={handlePrint} size="sm" variant="outline" className="gap-1.5">
@@ -264,7 +336,9 @@ const MonthlyTrackingSearch = () => {
 
             <Card className="overflow-x-auto border-primary/20 p-0">
               {withDelta.length === 0 ? (
-                <div className="p-10 text-center text-muted-foreground">لا توجد بيانات متابعة مسجّلة لهذا العام بعد</div>
+                <div className="p-10 text-center text-muted-foreground">
+                  لا توجد بيانات متابعة مسجّلة لهذا العام بعد
+                </div>
               ) : (
                 <table className="w-full min-w-[820px] border-collapse text-sm">
                   <thead>
@@ -283,25 +357,49 @@ const MonthlyTrackingSearch = () => {
                   <tbody>
                     {withDelta.map((r) => (
                       <tr key={r.month} className="odd:bg-secondary/20">
-                        <td className="border border-border p-2 font-bold text-primary">{r.label}</td>
-                        <td className="border border-border p-2 text-xs">{pointLabel(r.record.memoFrom)} ← {pointLabel(r.record.memoTo)}</td>
-                        <td className="border border-border p-2 text-center">{r.memoPages || "-"}</td>
+                        <td className="border border-border p-2 font-bold text-primary">
+                          {r.label}
+                        </td>
+                        <td className="border border-border p-2 text-xs">
+                          {pointLabel(r.record.memoFrom)} ← {pointLabel(r.record.memoTo)}
+                        </td>
+                        <td className="border border-border p-2 text-center">
+                          {r.memoPages || "-"}
+                        </td>
                         <td className="border border-border p-2">
                           <div className="flex items-center justify-center gap-1">
                             {r.memoScore}/40 {trendIcon(r.memoDelta)}
-                            {r.memoDelta !== null && <span className="text-xs text-muted-foreground">({r.memoDelta > 0 ? "+" : ""}{r.memoDelta}%)</span>}
+                            {r.memoDelta !== null && (
+                              <span className="text-xs text-muted-foreground">
+                                ({r.memoDelta > 0 ? "+" : ""}
+                                {r.memoDelta}%)
+                              </span>
+                            )}
                           </div>
                         </td>
-                        <td className="border border-border p-2 text-xs">{pointLabel(r.record.reviewFrom)} ← {pointLabel(r.record.reviewTo)}</td>
+                        <td className="border border-border p-2 text-xs">
+                          {pointLabel(r.record.reviewFrom)} ← {pointLabel(r.record.reviewTo)}
+                        </td>
                         <td className="border border-border p-2">
                           <div className="flex items-center justify-center gap-1">
                             {r.reviewScore}/40 {trendIcon(r.reviewDelta)}
-                            {r.reviewDelta !== null && <span className="text-xs text-muted-foreground">({r.reviewDelta > 0 ? "+" : ""}{r.reviewDelta}%)</span>}
+                            {r.reviewDelta !== null && (
+                              <span className="text-xs text-muted-foreground">
+                                ({r.reviewDelta > 0 ? "+" : ""}
+                                {r.reviewDelta}%)
+                              </span>
+                            )}
                           </div>
                         </td>
-                        <td className="border border-border p-2 text-center">{r.record.attendanceScore || "-"}/10</td>
-                        <td className="border border-border p-2 text-center">{r.record.behaviorScore || "-"}/10</td>
-                        <td className="border border-border p-2 text-center font-bold text-islamic-green">{r.total}/100</td>
+                        <td className="border border-border p-2 text-center">
+                          {r.record.attendanceScore || "-"}/10
+                        </td>
+                        <td className="border border-border p-2 text-center">
+                          {r.record.behaviorScore || "-"}/10
+                        </td>
+                        <td className="border border-border p-2 text-center font-bold text-islamic-green">
+                          {r.total}/100
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -310,7 +408,9 @@ const MonthlyTrackingSearch = () => {
             </Card>
           </>
         ) : (
-          <Card className="border-primary/20 p-10 text-center text-muted-foreground">ابحث عن طالبة لعرض متابعتها الشهرية</Card>
+          <Card className="border-primary/20 p-10 text-center text-muted-foreground">
+            ابحث عن طالبة لعرض متابعتها الشهرية
+          </Card>
         )}
       </div>
     </div>

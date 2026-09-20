@@ -2,7 +2,13 @@ import { useState, useMemo } from "react";
 import { Student, CustomColumnDef, DEFAULT_STATUSES, GENDER_OPTIONS } from "@/types/student";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -35,14 +41,14 @@ import logo from "@/assets/logo.png";
 interface Props {
   students: Student[];
   onUpdate: () => void;
-  onSaveStudent: (student: Partial<Student> & { id?: number; name: string }) => Promise<any>;
-  onDeleteStudent: (id: number) => Promise<any>;
+  onSaveStudent: (student: Partial<Student> & { id?: number; name: string }) => Promise<unknown>;
+  onDeleteStudent: (id: number) => Promise<unknown>;
   teacherNames: string[];
   customColumns: CustomColumnDef[];
-  onAddCustomColumn: (col: CustomColumnDef) => Promise<any>;
-  onDeleteCustomColumn: (colId: string) => Promise<any>;
+  onAddCustomColumn: (col: CustomColumnDef) => Promise<unknown>;
+  onDeleteCustomColumn: (colId: string) => Promise<unknown>;
   studentStatuses: string[];
-  onAddStatus: (status: string) => Promise<any>;
+  onAddStatus: (status: string) => Promise<unknown>;
   dirtyMap: Record<number, Student>;
   onDirtyChange: (studentId: number, data: Student) => void;
   activeYear?: string;
@@ -92,18 +98,14 @@ export const StudentsTable = ({
   const updateStudentField = (
     student: Student,
     field: keyof Student,
-    value: any
+    value: Student[keyof Student],
   ) => {
     const current = dirtyMap[student.id] || student;
-    const updated = { ...current, [field]: value };
+    const updated = { ...current, [field]: value } as Student;
     onDirtyChange(student.id, updated);
   };
 
-  const updateStudentCustomField = (
-    student: Student,
-    columnId: string,
-    value: string
-  ) => {
+  const updateStudentCustomField = (student: Student, columnId: string, value: string) => {
     const current = dirtyMap[student.id] || student;
     const customFields = { ...(current.custom_fields || {}), [columnId]: value };
     const updated = { ...current, custom_fields: customFields };
@@ -224,16 +226,16 @@ export const StudentsTable = ({
   const handleExportExcel = async () => {
     const data = filteredStudents.map((s, i) => {
       const current = dirtyMap[s.id] || s;
-      const row: Record<string, any> = {
-        "م": i + 1,
+      const row: Record<string, string | number> = {
+        م: i + 1,
         "رقم القيد": current.id,
         "اسم الطالب": current.name,
-        "الجنس": current.gender || "",
-        "المعلمة": current.teacher || "",
+        الجنس: current.gender || "",
+        المعلمة: current.teacher || "",
         "تاريخ هجري الالتحاق": current.hijri_join_date || "",
         "الحفظ قبل الالتحاق": current.initial_hifz || "0",
         "عام أول مسابقة": current.first_competition_year || "",
-        "الحالة": current.status || "طبيعي",
+        الحالة: current.status || "طبيعي",
         "السنة الدراسية وقت الالتحاق": current.school_grade || "",
         "رقم ولي الأمر": current.guardian_phone || "",
         "رقم الطالب": current.student_phone || "",
@@ -262,7 +264,10 @@ export const StudentsTable = ({
     } else {
       XLSX.writeFile(wb, fileName);
     }
-    toast({ title: "تم التصدير", description: `تم تصدير طلاب عام ${activeYear}هـ إلى ملف Excel بنجاح` });
+    toast({
+      title: "تم التصدير",
+      description: `تم تصدير طلاب عام ${activeYear}هـ إلى ملف Excel بنجاح`,
+    });
   };
 
   // Print Official Table
@@ -353,7 +358,8 @@ export const StudentsTable = ({
                 سجل الطلاب الرسمي المعتمد
               </h2>
               <p className="text-xs text-muted-foreground">
-                الطلاب المسجلون في العام النشط {activeYear}هـ — ويمكن فتح الملف الشامل لأي طالب عبر زر العرض
+                الطلاب المسجلون في العام النشط {activeYear}هـ — ويمكن فتح الملف الشامل لأي طالب عبر
+                زر العرض
               </p>
             </div>
           </div>
@@ -438,7 +444,9 @@ export const StudentsTable = ({
             <SelectContent>
               <SelectItem value="all">كل المعلمات</SelectItem>
               {teacherNames.map((t) => (
-                <SelectItem key={t} value={t}>{t}</SelectItem>
+                <SelectItem key={t} value={t}>
+                  {t}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -450,7 +458,9 @@ export const StudentsTable = ({
             <SelectContent>
               <SelectItem value="all">كل الحالات</SelectItem>
               {studentStatuses.map((st) => (
-                <SelectItem key={st} value={st}>{st}</SelectItem>
+                <SelectItem key={st} value={st}>
+                  {st}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -462,7 +472,9 @@ export const StudentsTable = ({
             <SelectContent>
               <SelectItem value="all">كل السنوات الدراسية</SelectItem>
               {gradeOptions.map((g) => (
-                <SelectItem key={g} value={g}>{g}</SelectItem>
+                <SelectItem key={g} value={g}>
+                  {g}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -474,7 +486,9 @@ export const StudentsTable = ({
             <SelectContent>
               <SelectItem value="all">كل الأجناس</SelectItem>
               {GENDER_OPTIONS.map((g) => (
-                <SelectItem key={g} value={g}>{g}</SelectItem>
+                <SelectItem key={g} value={g}>
+                  {g}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -639,7 +653,9 @@ export const StudentsTable = ({
                           <SelectContent>
                             <SelectItem value="__none__">— بدون —</SelectItem>
                             {GENDER_OPTIONS.map((g) => (
-                              <SelectItem key={g} value={g}>{g}</SelectItem>
+                              <SelectItem key={g} value={g}>
+                                {g}
+                              </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
@@ -662,7 +678,9 @@ export const StudentsTable = ({
                               <SelectItem value={current.teacher}>{current.teacher}</SelectItem>
                             )}
                             {teacherNames.map((t) => (
-                              <SelectItem key={t} value={t}>{t}</SelectItem>
+                              <SelectItem key={t} value={t}>
+                                {t}
+                              </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
@@ -728,7 +746,9 @@ export const StudentsTable = ({
                           </SelectTrigger>
                           <SelectContent>
                             {studentStatuses.map((st) => (
-                              <SelectItem key={st} value={st}>{st}</SelectItem>
+                              <SelectItem key={st} value={st}>
+                                {st}
+                              </SelectItem>
                             ))}
                             <SelectItem value="__new_status__" className="text-primary font-bold">
                               + إضافة حالة جديدة...

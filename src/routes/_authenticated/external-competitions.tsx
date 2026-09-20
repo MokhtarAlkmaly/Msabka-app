@@ -2,8 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import ExternalCompetitions from "@/pages/ExternalCompetitions";
 
 const title = "المسابقات الخارجية - مركز إنماء الأهلي الخيري";
-const description =
-  "كشف مشاركات المسابقات القرآنية الخارجية - قسم القرآن الكريم";
+const description = "كشف مشاركات المسابقات القرآنية الخارجية - قسم القرآن الكريم";
 
 export const Route = createFileRoute("/_authenticated/external-competitions")({
   head: () => ({

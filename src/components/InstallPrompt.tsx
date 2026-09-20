@@ -6,7 +6,7 @@ import { useNavigate } from "@/lib/router-compat";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
 export const InstallPrompt = () => {
@@ -16,9 +16,9 @@ export const InstallPrompt = () => {
 
   useEffect(() => {
     // Check if already installed or dismissed
-    const dismissed = localStorage.getItem('installPromptDismissed');
-    const isInstalled = window.matchMedia('(display-mode: standalone)').matches;
-    
+    const dismissed = localStorage.getItem("installPromptDismissed");
+    const isInstalled = window.matchMedia("(display-mode: standalone)").matches;
+
     if (dismissed || isInstalled) {
       return;
     }
@@ -30,37 +30,37 @@ export const InstallPrompt = () => {
       setShowPrompt(true);
     };
 
-    window.addEventListener('beforeinstallprompt', handler);
+    window.addEventListener("beforeinstallprompt", handler);
 
     return () => {
-      window.removeEventListener('beforeinstallprompt', handler);
+      window.removeEventListener("beforeinstallprompt", handler);
     };
   }, []);
 
   const handleInstallClick = async () => {
     if (!deferredPrompt) {
       // If the browser doesn't support the install prompt, go to install page
-      navigate('/install');
+      navigate("/install");
       return;
     }
 
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
-    
-    if (outcome === 'accepted') {
+
+    if (outcome === "accepted") {
       setShowPrompt(false);
     }
-    
+
     setDeferredPrompt(null);
   };
 
   const handleDismiss = () => {
     setShowPrompt(false);
-    localStorage.setItem('installPromptDismissed', 'true');
+    localStorage.setItem("installPromptDismissed", "true");
   };
 
   const handleLearnMore = () => {
-    navigate('/install');
+    navigate("/install");
   };
 
   if (!showPrompt) {
@@ -76,22 +76,14 @@ export const InstallPrompt = () => {
               <Download className="h-5 w-5 text-primary" />
             </div>
             <div className="flex-1">
-              <h3 className="font-semibold text-sm mb-1">
-                ثبت التطبيق على جوالك
-              </h3>
-              <p className="text-xs text-muted-foreground mb-3">
-                للوصول السريع والعمل بدون إنترنت
-              </p>
+              <h3 className="font-semibold text-sm mb-1">ثبت التطبيق على جوالك</h3>
+              <p className="text-xs text-muted-foreground mb-3">للوصول السريع والعمل بدون إنترنت</p>
               <div className="flex gap-2">
-                <Button 
-                  size="sm" 
-                  onClick={handleInstallClick}
-                  className="text-xs h-8"
-                >
+                <Button size="sm" onClick={handleInstallClick} className="text-xs h-8">
                   تثبيت
                 </Button>
-                <Button 
-                  size="sm" 
+                <Button
+                  size="sm"
                   variant="outline"
                   onClick={handleLearnMore}
                   className="text-xs h-8"
@@ -100,12 +92,7 @@ export const InstallPrompt = () => {
                 </Button>
               </div>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleDismiss}
-              className="h-6 w-6 p-0"
-            >
+            <Button variant="ghost" size="sm" onClick={handleDismiss} className="h-6 w-6 p-0">
               <X className="h-4 w-4" />
             </Button>
           </div>

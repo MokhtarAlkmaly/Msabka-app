@@ -14,7 +14,9 @@ const destDir = resolve(projectRoot, "public/assets");
 const dest = resolve(destDir, "sql-wasm.wasm");
 
 if (!existsSync(src)) {
-  console.warn("[copy-sqlite-wasm] لم يتم العثور على sql.js — سيتم تخطي النسخ (شغّل npm install أولاً).");
+  console.warn(
+    "[copy-sqlite-wasm] لم يتم العثور على sql.js — سيتم تخطي النسخ (شغّل npm install أولاً).",
+  );
   process.exit(0);
 }
 

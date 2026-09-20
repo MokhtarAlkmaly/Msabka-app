@@ -2,11 +2,32 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "@/lib/router-compat";
-import { ArrowRight, HeartHandshake, Plus, Pencil, Trash2, Save, Printer, Calendar } from "lucide-react";
+import {
+  ArrowRight,
+  HeartHandshake,
+  Plus,
+  Pencil,
+  Trash2,
+  Save,
+  Printer,
+  Calendar,
+} from "lucide-react";
 import logo from "@/assets/logo.png";
 import { START_YEAR, END_YEAR } from "@/types/student";
 import {
@@ -77,9 +98,9 @@ const Donors = () => {
           pledged: acc.pledged + Number(d.pledged_amount || 0),
           paid: acc.paid + Number(d.paid_amount || 0),
         }),
-        { pledged: 0, paid: 0 }
+        { pledged: 0, paid: 0 },
       ),
-    [donors]
+    [donors],
   );
 
   const openAdd = () => {
@@ -136,17 +157,20 @@ const Donors = () => {
       loadCeremonyExpenses(currentYear),
     ]);
     const awards = ((awardsData as unknown as Record<string, unknown>[]) || []).filter(
-      (a) => (a.funded_by as string) === d.name
+      (a) => (a.funded_by as string) === d.name,
     );
     const expenses = ((expData as unknown as Record<string, unknown>[]) || []).filter(
-      (e) => (e.funded_by as string) === d.name
+      (e) => (e.funded_by as string) === d.name,
     );
     const awardsTotal = awards.reduce((s, a) => s + Number(a.amount || 0), 0);
     const expTotal = expenses.reduce((s, e) => s + Number(e.amount || 0), 0);
 
     const rows = (list: Record<string, unknown>[], cols: string[]) =>
       list
-        .map((r) => `<tr>${cols.map((c) => `<td>${esc(String(r[c] ?? "—") || "—")}</td>`).join("")}</tr>`)
+        .map(
+          (r) =>
+            `<tr>${cols.map((c) => `<td>${esc(String(r[c] ?? "—") || "—")}</td>`).join("")}</tr>`,
+        )
         .join("");
 
     const html = `<h1>تقرير الداعم</h1>
@@ -167,11 +191,11 @@ const Donors = () => {
                   `<tr><td>${esc(String(a.recipient_name))}</td><td>${esc(String(a.recipient_type))}</td><td>${
                     a.award_kind === "cash" ? "نقدية" : "عينية"
                   }</td><td class="num">${riyal(Number(a.amount || 0))}</td><td>${esc(
-                    String(a.item ?? "—") || "—"
-                  )}</td></tr>`
+                    String(a.item ?? "—") || "—",
+                  )}</td></tr>`,
               )
               .join("")}</tbody><tfoot><tr><td colspan="3">المجموع</td><td class="num">${riyal(
-              awardsTotal
+              awardsTotal,
             )}</td><td></td></tr></tfoot></table>`
           : '<div class="empty">لا توجد سجلات</div>'
       }
@@ -180,9 +204,9 @@ const Donors = () => {
         expenses.length
           ? `<table><thead><tr><th>البند</th><th>الوصف</th><th>المبلغ</th><th>التاريخ</th></tr></thead><tbody>${rows(
               expenses,
-              ["category", "description", "amount", "spent_at"]
+              ["category", "description", "amount", "spent_at"],
             )}</tbody><tfoot><tr><td colspan="2">المجموع</td><td class="num">${riyal(
-              expTotal
+              expTotal,
             )}</td><td></td></tr></tfoot></table>`
           : '<div class="empty">لا توجد سجلات</div>'
       }
@@ -191,7 +215,10 @@ const Donors = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,hsl(var(--primary)/0.14),transparent_34rem),linear-gradient(180deg,hsl(var(--background)),hsl(var(--secondary)/0.45))]" dir="rtl">
+    <div
+      className="min-h-screen bg-[radial-gradient(circle_at_top_right,hsl(var(--primary)/0.14),transparent_34rem),linear-gradient(180deg,hsl(var(--background)),hsl(var(--secondary)/0.45))]"
+      dir="rtl"
+    >
       <header className="mx-3 mt-3 rounded-[2rem] bg-gradient-to-br from-primary via-emerald-700 to-teal-950 px-4 py-5 text-primary-foreground shadow-2xl shadow-primary/20">
         <div className="container mx-auto max-w-7xl">
           <div className="flex items-center justify-between mb-4">
@@ -218,11 +245,17 @@ const Donors = () => {
             <Calendar className="h-4 w-4" />
             <span className="text-sm">العام:</span>
             <Select value={currentYear} onValueChange={(v) => void handleYearChange(v)}>
-              <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
-                {Array.from({ length: END_YEAR - START_YEAR + 1 }, (_, i) => START_YEAR + i).map((y) => (
-                  <SelectItem key={y} value={String(y)}>{y}هـ</SelectItem>
-                ))}
+                {Array.from({ length: END_YEAR - START_YEAR + 1 }, (_, i) => START_YEAR + i).map(
+                  (y) => (
+                    <SelectItem key={y} value={String(y)}>
+                      {y}هـ
+                    </SelectItem>
+                  ),
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -234,11 +267,15 @@ const Donors = () => {
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           <div className="rounded-[1.5rem] border border-white/70 bg-card/90 p-4 text-center shadow-lg shadow-primary/5">
             <div className="text-xs text-muted-foreground">إجمالي التعهدات</div>
-            <div className="text-lg font-bold text-primary">{totals.pledged.toLocaleString()} ريال</div>
+            <div className="text-lg font-bold text-primary">
+              {totals.pledged.toLocaleString()} ريال
+            </div>
           </div>
           <div className="rounded-[1.5rem] border border-white/70 bg-card/90 p-4 text-center shadow-lg shadow-primary/5">
             <div className="text-xs text-muted-foreground">إجمالي المستلم</div>
-            <div className="text-lg font-bold text-emerald-600">{totals.paid.toLocaleString()} ريال</div>
+            <div className="text-lg font-bold text-emerald-600">
+              {totals.paid.toLocaleString()} ريال
+            </div>
           </div>
           <div className="rounded-[1.5rem] border border-white/70 bg-card/90 p-4 text-center shadow-lg shadow-primary/5">
             <div className="text-xs text-muted-foreground">المتبقي</div>
@@ -272,16 +309,24 @@ const Donors = () => {
                   <tr key={d.id} className="border-t border-border hover:bg-muted/40">
                     <td className="px-3 py-2">{i + 1}</td>
                     <td className="px-3 py-2 font-medium">{d.name}</td>
-                    <td className="px-3 py-2 text-center">{d.donor_type === "company" ? "جهة/مؤسسة" : "فرد"}</td>
+                    <td className="px-3 py-2 text-center">
+                      {d.donor_type === "company" ? "جهة/مؤسسة" : "فرد"}
+                    </td>
                     <td className="px-3 py-2 text-center">{d.phone || "—"}</td>
-                    <td className="px-3 py-2 text-center">{Number(d.pledged_amount).toLocaleString()}</td>
+                    <td className="px-3 py-2 text-center">
+                      {Number(d.pledged_amount).toLocaleString()}
+                    </td>
                     <td className="px-3 py-2 text-center font-semibold text-primary">
                       {Number(d.paid_amount).toLocaleString()}
                     </td>
                     <td className="px-3 py-2">{d.in_kind || "—"}</td>
                     <td className="px-3 py-2">
                       <div className="flex gap-1 justify-center">
-                        <Button size="sm" variant="outline" onClick={() => void printDonorReport(d)}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => void printDonorReport(d)}
+                        >
                           <Printer className="h-3 w-3" />
                         </Button>
                         <Button size="sm" variant="secondary" onClick={() => openEdit(d)}>
@@ -308,13 +353,21 @@ const Donors = () => {
           <div className="space-y-3">
             <div>
               <label className="text-sm font-medium">الاسم</label>
-              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+              <Input
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+              />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-sm font-medium">النوع</label>
-                <Select value={form.donor_type} onValueChange={(v) => setForm({ ...form, donor_type: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                <Select
+                  value={form.donor_type}
+                  onValueChange={(v) => setForm({ ...form, donor_type: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="person">فرد</SelectItem>
                     <SelectItem value="company">جهة/مؤسسة</SelectItem>
@@ -323,34 +376,54 @@ const Donors = () => {
               </div>
               <div>
                 <label className="text-sm font-medium">الجوال</label>
-                <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+                <Input
+                  value={form.phone}
+                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-sm font-medium">المبلغ المتعهد</label>
-                <Input type="number" value={form.pledged_amount}
-                  onChange={(e) => setForm({ ...form, pledged_amount: e.target.value })} />
+                <Input
+                  type="number"
+                  value={form.pledged_amount}
+                  onChange={(e) => setForm({ ...form, pledged_amount: e.target.value })}
+                />
               </div>
               <div>
                 <label className="text-sm font-medium">المبلغ المستلم</label>
-                <Input type="number" value={form.paid_amount}
-                  onChange={(e) => setForm({ ...form, paid_amount: e.target.value })} />
+                <Input
+                  type="number"
+                  value={form.paid_amount}
+                  onChange={(e) => setForm({ ...form, paid_amount: e.target.value })}
+                />
               </div>
             </div>
             <div>
               <label className="text-sm font-medium">الدعم العيني</label>
-              <Input value={form.in_kind} onChange={(e) => setForm({ ...form, in_kind: e.target.value })}
-                placeholder="مثال: 50 مصحف، هدايا، ضيافة الحفل" />
+              <Input
+                value={form.in_kind}
+                onChange={(e) => setForm({ ...form, in_kind: e.target.value })}
+                placeholder="مثال: 50 مصحف، هدايا، ضيافة الحفل"
+              />
             </div>
             <div>
               <label className="text-sm font-medium">ملاحظات</label>
-              <Textarea rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+              <Textarea
+                rows={2}
+                value={form.notes}
+                onChange={(e) => setForm({ ...form, notes: e.target.value })}
+              />
             </div>
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>إلغاء</Button>
-            <Button onClick={() => void save()} className="gap-1"><Save className="h-4 w-4" /> حفظ</Button>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+              إلغاء
+            </Button>
+            <Button onClick={() => void save()} className="gap-1">
+              <Save className="h-4 w-4" /> حفظ
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
