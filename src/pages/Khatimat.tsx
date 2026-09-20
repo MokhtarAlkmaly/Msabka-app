@@ -44,7 +44,9 @@ const Khatimat = () => {
     <table>
       <thead><tr><th>م</th><th>الاسم</th><th>المعلمة</th><th>عام الختم</th><th>المجموع</th><th>التقدير</th></tr></thead>
       <tbody>
-        ${filtered.map((e, i) => `
+        ${filtered
+          .map(
+            (e, i) => `
           <tr>
             <td class="num">${i + 1}</td>
             <td>${esc(e.name)}</td>
@@ -52,7 +54,9 @@ const Khatimat = () => {
             <td class="num">${esc(e.year)}هـ</td>
             <td class="num">${esc(e.totalScore)}</td>
             <td>${esc(e.grade)}</td>
-          </tr>`).join("")}
+          </tr>`,
+          )
+          .join("")}
       </tbody>
     </table>
     <div class="thanks">بارك الله في الطالبات الخاتمات، وجعل القرآن حجّة لهن لا عليهن</div>
@@ -83,23 +87,34 @@ const Khatimat = () => {
               <h1 className="flex items-center gap-1.5 text-lg font-bold text-primary">
                 <Sparkles className="h-4 w-4 text-amber-500" /> كشف الخاتمات
               </h1>
-              <p className="text-xs text-muted-foreground">يتحدّث تلقائياً كل ما طالبة تختم القرآن الكريم بأي عام</p>
+              <p className="text-xs text-muted-foreground">
+                يتحدّث تلقائياً كل ما طالبة تختم القرآن الكريم بأي عام
+              </p>
             </div>
           </div>
           <Link to="/">
-            <Button variant="outline" size="sm" className="gap-1"><Home className="h-4 w-4" /> الرئيسية</Button>
+            <Button variant="outline" size="sm" className="gap-1">
+              <Home className="h-4 w-4" /> الرئيسية
+            </Button>
           </Link>
         </Card>
 
         {!loading && entries.length > 0 && (
           <Card className="flex flex-wrap items-center justify-between gap-3 border-primary/20 p-4">
             <div className="flex gap-2 print:hidden">
-              <Button onClick={handlePrint} size="sm" variant="outline" className="gap-1.5"><Printer className="h-4 w-4" /> طباعة</Button>
-              <Button onClick={handleShare} size="sm" className="gap-1.5"><Share2 className="h-4 w-4" /> مشاركة</Button>
+              <Button onClick={handlePrint} size="sm" variant="outline" className="gap-1.5">
+                <Printer className="h-4 w-4" /> طباعة
+              </Button>
+              <Button onClick={handleShare} size="sm" className="gap-1.5">
+                <Share2 className="h-4 w-4" /> مشاركة
+              </Button>
             </div>
             <div className="flex flex-wrap gap-2">
               {byYear.map(([y, c]) => (
-                <span key={y} className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800">
+                <span
+                  key={y}
+                  className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800"
+                >
                   {y}هـ: {c}
                 </span>
               ))}
@@ -145,8 +160,12 @@ const Khatimat = () => {
                   <tr key={`${e.studentId}-${e.year}`} className="odd:bg-secondary/20">
                     <td className="border border-border p-2 text-center">{i + 1}</td>
                     <td className="border border-border p-2 font-bold">{e.name}</td>
-                    <td className="border border-border p-2 text-muted-foreground">{e.teacher || "-"}</td>
-                    <td className="border border-border p-2 text-center font-bold text-islamic-green">{e.year}هـ</td>
+                    <td className="border border-border p-2 text-muted-foreground">
+                      {e.teacher || "-"}
+                    </td>
+                    <td className="border border-border p-2 text-center font-bold text-islamic-green">
+                      {e.year}هـ
+                    </td>
                     <td className="border border-border p-2 text-center">{e.totalScore || "-"}</td>
                     <td className="border border-border p-2 text-center">{e.grade || "-"}</td>
                   </tr>

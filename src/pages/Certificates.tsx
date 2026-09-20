@@ -2,11 +2,33 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "@/lib/router-compat";
-import { ArrowRight, ScrollText, Plus, Pencil, Trash2, Save, Printer, Calendar, Wand2 } from "lucide-react";
+import {
+  ArrowRight,
+  ScrollText,
+  Plus,
+  Pencil,
+  Trash2,
+  Save,
+  Printer,
+  Calendar,
+  Wand2,
+} from "lucide-react";
 import logo from "@/assets/logo.png";
 import { START_YEAR, END_YEAR, Student } from "@/types/student";
 import {
@@ -86,7 +108,10 @@ const Certificates = () => {
     setRows((data as Certificate[]) || []);
     const t = new Set<string>();
     (tData || []).forEach((r) => t.add(r.name));
-    list.forEach((s) => { const n = (s.teacher || "").trim(); if (n) t.add(n); });
+    list.forEach((s) => {
+      const n = (s.teacher || "").trim();
+      if (n) t.add(n);
+    });
     setTeachers(Array.from(t).sort((a, b) => a.localeCompare(b, "ar")));
     setDonors((dData || []).map((d) => d.name));
     setLoading(false);
@@ -95,11 +120,17 @@ const Certificates = () => {
   useEffect(() => {
     void (async () => setCurrentYear(await getActiveYear()))();
   }, []);
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const khatimat = useMemo(
-    () => students.filter((s) => parseFloat(s.yearData?.totalHifz || "0") >= 30).map((s) => s.name).filter(Boolean),
-    [students]
+    () =>
+      students
+        .filter((s) => parseFloat(s.yearData?.totalHifz || "0") >= 30)
+        .map((s) => s.name)
+        .filter(Boolean),
+    [students],
   );
 
   const nameOptions = useMemo(() => {
@@ -236,7 +267,10 @@ const Certificates = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,hsl(var(--primary)/0.14),transparent_34rem),linear-gradient(180deg,hsl(var(--background)),hsl(var(--secondary)/0.45))]" dir="rtl">
+    <div
+      className="min-h-screen bg-[radial-gradient(circle_at_top_right,hsl(var(--primary)/0.14),transparent_34rem),linear-gradient(180deg,hsl(var(--background)),hsl(var(--secondary)/0.45))]"
+      dir="rtl"
+    >
       <header className="mx-3 mt-3 rounded-[2rem] bg-gradient-to-br from-primary via-emerald-700 to-teal-950 px-4 py-5 text-primary-foreground shadow-2xl shadow-primary/20">
         <div className="container mx-auto max-w-7xl">
           <div className="flex items-center justify-between mb-4">
@@ -252,7 +286,9 @@ const Certificates = () => {
             <h1 className="text-2xl font-bold flex items-center justify-center gap-2">
               <ScrollText className="h-6 w-6" /> الشهادات
             </h1>
-            <p className="text-sm opacity-90 mt-1">عام {currentYear}هـ — {rows.length} شهادة</p>
+            <p className="text-sm opacity-90 mt-1">
+              عام {currentYear}هـ — {rows.length} شهادة
+            </p>
           </div>
         </div>
       </header>
@@ -262,12 +298,24 @@ const Certificates = () => {
           <div className="flex items-center gap-2">
             <Calendar className="h-4 w-4" />
             <span className="text-sm">العام:</span>
-            <Select value={currentYear} onValueChange={(v) => { setCurrentYear(v); void setActiveYear(v); }}>
-              <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+            <Select
+              value={currentYear}
+              onValueChange={(v) => {
+                setCurrentYear(v);
+                void setActiveYear(v);
+              }}
+            >
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
-                {Array.from({ length: END_YEAR - START_YEAR + 1 }, (_, i) => START_YEAR + i).map((y) => (
-                  <SelectItem key={y} value={String(y)}>{y}هـ</SelectItem>
-                ))}
+                {Array.from({ length: END_YEAR - START_YEAR + 1 }, (_, i) => START_YEAR + i).map(
+                  (y) => (
+                    <SelectItem key={y} value={String(y)}>
+                      {y}هـ
+                    </SelectItem>
+                  ),
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -278,7 +326,9 @@ const Certificates = () => {
             <Button variant="outline" className="gap-1" onClick={() => printCerts(rows)}>
               <Printer className="h-4 w-4" /> طباعة الكل
             </Button>
-            <Button className="gap-1" onClick={openAdd}><Plus className="h-4 w-4" /> إضافة</Button>
+            <Button className="gap-1" onClick={openAdd}>
+              <Plus className="h-4 w-4" /> إضافة
+            </Button>
           </div>
         </div>
 
@@ -304,7 +354,9 @@ const Certificates = () => {
                   <tr key={c.id} className="border-t border-border hover:bg-muted/40">
                     <td className="px-3 py-2">{i + 1}</td>
                     <td className="px-3 py-2 font-medium">{c.recipient_name}</td>
-                    <td className="px-3 py-2 text-center">{RECIPIENTS[c.recipient_type] || c.recipient_type}</td>
+                    <td className="px-3 py-2 text-center">
+                      {RECIPIENTS[c.recipient_type] || c.recipient_type}
+                    </td>
                     <td className="px-3 py-2">{c.title || CERT_TYPES[c.cert_type]}</td>
                     <td className="px-3 py-2 text-center text-xs">{c.issued_at}</td>
                     <td className="px-3 py-2">
@@ -337,20 +389,37 @@ const Certificates = () => {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-sm font-medium">فئة المستفيد</label>
-                <Select value={form.recipient_type}
-                  onValueChange={(v) => setForm({ ...form, recipient_type: v, recipient_name: "" })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                <Select
+                  value={form.recipient_type}
+                  onValueChange={(v) => setForm({ ...form, recipient_type: v, recipient_name: "" })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
-                    {Object.entries(RECIPIENTS).map(([k, v]) => (<SelectItem key={k} value={k}>{v}</SelectItem>))}
+                    {Object.entries(RECIPIENTS).map(([k, v]) => (
+                      <SelectItem key={k} value={k}>
+                        {v}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
               <div>
                 <label className="text-sm font-medium">نوع الشهادة</label>
-                <Select value={form.cert_type} onValueChange={(v) => setForm({ ...form, cert_type: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                <Select
+                  value={form.cert_type}
+                  onValueChange={(v) => setForm({ ...form, cert_type: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
-                    {Object.entries(CERT_TYPES).map(([k, v]) => (<SelectItem key={k} value={k}>{v}</SelectItem>))}
+                    {Object.entries(CERT_TYPES).map(([k, v]) => (
+                      <SelectItem key={k} value={k}>
+                        {v}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -358,35 +427,62 @@ const Certificates = () => {
             <div>
               <label className="text-sm font-medium">الاسم</label>
               {nameOptions.length > 0 ? (
-                <Select value={form.recipient_name} onValueChange={(v) => setForm({ ...form, recipient_name: v })}>
-                  <SelectTrigger><SelectValue placeholder="اختر الاسم" /></SelectTrigger>
+                <Select
+                  value={form.recipient_name}
+                  onValueChange={(v) => setForm({ ...form, recipient_name: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="اختر الاسم" />
+                  </SelectTrigger>
                   <SelectContent>
-                    {nameOptions.map((n) => (<SelectItem key={n} value={n}>{n}</SelectItem>))}
+                    {nameOptions.map((n) => (
+                      <SelectItem key={n} value={n}>
+                        {n}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               ) : (
-                <Input value={form.recipient_name} onChange={(e) => setForm({ ...form, recipient_name: e.target.value })} />
+                <Input
+                  value={form.recipient_name}
+                  onChange={(e) => setForm({ ...form, recipient_name: e.target.value })}
+                />
               )}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-sm font-medium">عنوان الشهادة</label>
-                <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })}
-                  placeholder={CERT_TYPES[form.cert_type]} />
+                <Input
+                  value={form.title}
+                  onChange={(e) => setForm({ ...form, title: e.target.value })}
+                  placeholder={CERT_TYPES[form.cert_type]}
+                />
               </div>
               <div>
                 <label className="text-sm font-medium">التاريخ</label>
-                <Input type="date" value={form.issued_at} onChange={(e) => setForm({ ...form, issued_at: e.target.value })} />
+                <Input
+                  type="date"
+                  value={form.issued_at}
+                  onChange={(e) => setForm({ ...form, issued_at: e.target.value })}
+                />
               </div>
             </div>
             <div>
               <label className="text-sm font-medium">سطر إضافي في الشهادة</label>
-              <Textarea rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+              <Textarea
+                rows={2}
+                value={form.notes}
+                onChange={(e) => setForm({ ...form, notes: e.target.value })}
+              />
             </div>
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>إلغاء</Button>
-            <Button onClick={() => void save()} className="gap-1"><Save className="h-4 w-4" /> حفظ</Button>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+              إلغاء
+            </Button>
+            <Button onClick={() => void save()} className="gap-1">
+              <Save className="h-4 w-4" /> حفظ
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

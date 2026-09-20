@@ -17,7 +17,13 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Card } from "@/components/ui/card";
@@ -172,7 +178,7 @@ export const StudentProfileModal = ({
 
   const yearsList = useMemo(
     () => Array.from({ length: END_YEAR - START_YEAR + 1 }, (_, i) => String(START_YEAR + i)),
-    []
+    [],
   );
 
   const loadStudentFullData = useCallback(async () => {
@@ -181,25 +187,17 @@ export const StudentProfileModal = ({
     setStudentData(student);
 
     try {
-      const [
-        hMap,
-        allYMap,
-        mRecs,
-        allAwards,
-        allCerts,
-        allInternal,
-        allExternal,
-        cohortList,
-      ] = await Promise.all([
-        loadHifzHistory(student.id),
-        loadYearDataForStudent(student.id),
-        loadMonthlyTrackingForStudent(selectedYear, student.id),
-        loadAwards(selectedYear),
-        loadCertificates(selectedYear),
-        loadInternalCompetitions(selectedYear, student.id),
-        loadExternalCompetitions(selectedYear, student.id),
-        loadAllStudentsWithData(selectedYear),
-      ]);
+      const [hMap, allYMap, mRecs, allAwards, allCerts, allInternal, allExternal, cohortList] =
+        await Promise.all([
+          loadHifzHistory(student.id),
+          loadYearDataForStudent(student.id),
+          loadMonthlyTrackingForStudent(selectedYear, student.id),
+          loadAwards(selectedYear),
+          loadCertificates(selectedYear),
+          loadInternalCompetitions(selectedYear, student.id),
+          loadExternalCompetitions(selectedYear, student.id),
+          loadAllStudentsWithData(selectedYear),
+        ]);
 
       setHistory(hMap || {});
       setYearData(allYMap[selectedYear] || emptyYearData());
@@ -208,12 +206,11 @@ export const StudentProfileModal = ({
       const sName = (student.name || "").trim();
       setAwards(
         (allAwards || []).filter(
-          (a) => (a.recipient_name || "").trim() === sName || (a.student_name || "").trim() === sName
-        )
+          (a) =>
+            (a.recipient_name || "").trim() === sName || (a.student_name || "").trim() === sName,
+        ),
       );
-      setCertificates(
-        (allCerts || []).filter((c) => (c.recipient_name || "").trim() === sName)
-      );
+      setCertificates((allCerts || []).filter((c) => (c.recipient_name || "").trim() === sName));
       setInternalComps(allInternal || []);
       setExternalComps(allExternal || []);
       setCohortStudents(cohortList || []);
@@ -264,29 +261,31 @@ export const StudentProfileModal = ({
   const avgMonthlyScore = filledMonths > 0 ? (totalMonthlyScore / filledMonths).toFixed(1) : "0";
 
   // Multi-year stats
-  const multiYearStats = yearsList.map((y) => {
-    const yData = allYearsData[y] || emptyYearData();
-    const yNum = parseInt(y);
-    const bH = resolveBaseHifz(history, yNum, yData.baseHifz);
-    const p = parseFloat(yData.parts) || 0;
-    const totH = Math.min(bH + p, 30);
-    const a = parseFloat(yData.annual) || 0;
-    const r = parseFloat(yData.recitation) || 0;
-    const m = parseFloat(yData.memorization) || 0;
-    const ts = Math.min(a + r + m, 100);
-    const { grade: g } = calculateGrade(ts);
-    const pr = calculatePrize(p, calculateGrade(ts).pricePerPart);
-    return {
-      year: y,
-      baseHifz: bH,
-      parts: p,
-      totalHifz: totH,
-      totalScore: ts,
-      grade: g,
-      prize: pr,
-      hasData: p > 0 || ts > 0 || bH > 0,
-    };
-  }).filter((x) => x.hasData);
+  const multiYearStats = yearsList
+    .map((y) => {
+      const yData = allYearsData[y] || emptyYearData();
+      const yNum = parseInt(y);
+      const bH = resolveBaseHifz(history, yNum, yData.baseHifz);
+      const p = parseFloat(yData.parts) || 0;
+      const totH = Math.min(bH + p, 30);
+      const a = parseFloat(yData.annual) || 0;
+      const r = parseFloat(yData.recitation) || 0;
+      const m = parseFloat(yData.memorization) || 0;
+      const ts = Math.min(a + r + m, 100);
+      const { grade: g } = calculateGrade(ts);
+      const pr = calculatePrize(p, calculateGrade(ts).pricePerPart);
+      return {
+        year: y,
+        baseHifz: bH,
+        parts: p,
+        totalHifz: totH,
+        totalScore: ts,
+        grade: g,
+        prize: pr,
+        hasData: p > 0 || ts > 0 || bH > 0,
+      };
+    })
+    .filter((x) => x.hasData);
 
   // Peer comparison stats for selected year
   const cohortWithScores = cohortStudents.map((s) => {
@@ -306,7 +305,7 @@ export const StudentProfileModal = ({
 
   const cohortActive = cohortWithScores.filter((s) => s.parts > 0 || s.totalScore > 0);
   const classStudents = cohortActive.filter(
-    (s) => s.teacher && s.teacher === (studentData?.teacher || student.teacher)
+    (s) => s.teacher && s.teacher === (studentData?.teacher || student.teacher),
   );
 
   const cohortAvgScore =
@@ -319,9 +318,8 @@ export const StudentProfileModal = ({
       : "0";
 
   const cohortRank =
-    cohortActive
-      .sort((a, b) => b.totalScore - a.totalScore)
-      .findIndex((s) => s.id === student.id) + 1;
+    cohortActive.sort((a, b) => b.totalScore - a.totalScore).findIndex((s) => s.id === student.id) +
+    1;
 
   const classRank =
     classStudents
@@ -350,8 +348,8 @@ export const StudentProfileModal = ({
       recipient_type: "student",
       recipient_name: studentData.name,
       student_name: studentData.name,
-      award_type: awardForm.award_type as any,
-      award_kind: awardForm.award_kind as any,
+      award_type: awardForm.award_type,
+      award_kind: awardForm.award_kind,
       amount: parseFloat(awardForm.amount) || 0,
       item: awardForm.item.trim() || null,
       notes: awardForm.notes.trim() || null,
@@ -510,10 +508,14 @@ export const StudentProfileModal = ({
             <tr><th>العام</th><th>حفظ سابق</th><th>حفظ جديد</th><th>إجمالي الحفظ</th><th>الدرجة الكلية</th><th>التقدير</th><th>المكافأة</th></tr>
           </thead>
           <tbody>
-            ${multiYearStats.map((x) => `<tr>
+            ${multiYearStats
+              .map(
+                (x) => `<tr>
               <td>${x.year}هـ</td><td>${x.baseHifz}</td><td>${x.parts}</td><td>${x.totalHifz >= 30 ? "خاتم ✨" : x.totalHifz}</td>
               <td>${x.totalScore}</td><td>${x.grade || "-"}</td><td>${x.prize.toLocaleString()} ريال</td>
-            </tr>`).join("")}
+            </tr>`,
+              )
+              .join("")}
           </tbody>
         </table>
 
@@ -521,12 +523,26 @@ export const StudentProfileModal = ({
         <table>
           <thead><tr><th>النوع</th><th>البيان / المسابقة</th><th>المركز / الترتيب</th><th>المكافأة / الجائزة</th></tr></thead>
           <tbody>
-            ${[
-              ...awards.map((a) => `<tr><td>جائزة ${a.award_kind === "in_kind" ? "عينية" : "نقدية"}</td><td>${esc(a.item || a.award_type)}</td><td>—</td><td>${a.amount ? `${a.amount.toLocaleString()} ريال` : "—"}</td></tr>`),
-              ...certificates.map((c) => `<tr><td>شهادة تقدير</td><td>${esc(c.title || c.cert_type)}</td><td>—</td><td>—</td></tr>`),
-              ...internalComps.map((ic) => `<tr><td>مسابقة داخلية</td><td>${esc(ic.competition_name)} (${esc(ic.category)})</td><td>${esc(ic.rank)}</td><td>${esc(ic.prize)}</td></tr>`),
-              ...externalComps.map((ec) => `<tr><td>مسابقة خارجية</td><td>${esc(ec.competition_name)} (${esc(ec.organizer)})</td><td>${esc(ec.rank)}</td><td>${esc(ec.prize)}</td></tr>`),
-            ].join("") || '<tr><td colspan="4">لا توجد سجلات لهذا العام</td></tr>'}
+            ${
+              [
+                ...awards.map(
+                  (a) =>
+                    `<tr><td>جائزة ${a.award_kind === "in_kind" ? "عينية" : "نقدية"}</td><td>${esc(a.item || a.award_type)}</td><td>—</td><td>${a.amount ? `${a.amount.toLocaleString()} ريال` : "—"}</td></tr>`,
+                ),
+                ...certificates.map(
+                  (c) =>
+                    `<tr><td>شهادة تقدير</td><td>${esc(c.title || c.cert_type)}</td><td>—</td><td>—</td></tr>`,
+                ),
+                ...internalComps.map(
+                  (ic) =>
+                    `<tr><td>مسابقة داخلية</td><td>${esc(ic.competition_name)} (${esc(ic.category)})</td><td>${esc(ic.rank)}</td><td>${esc(ic.prize)}</td></tr>`,
+                ),
+                ...externalComps.map(
+                  (ec) =>
+                    `<tr><td>مسابقة خارجية</td><td>${esc(ec.competition_name)} (${esc(ec.organizer)})</td><td>${esc(ec.rank)}</td><td>${esc(ec.prize)}</td></tr>`,
+                ),
+              ].join("") || '<tr><td colspan="4">لا توجد سجلات لهذا العام</td></tr>'
+            }
           </tbody>
         </table>
 
@@ -559,15 +575,32 @@ export const StudentProfileModal = ({
                 <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mt-0.5">
                   {(studentData?.gender || student.gender) && (
                     <>
-                      <span>الجنس: <strong className="text-foreground">{studentData?.gender || student.gender}</strong></span>
+                      <span>
+                        الجنس:{" "}
+                        <strong className="text-foreground">
+                          {studentData?.gender || student.gender}
+                        </strong>
+                      </span>
                       <span>•</span>
                     </>
                   )}
-                  <span>المعلمة: <strong className="text-foreground">{studentData?.teacher || student.teacher || "غير محدد"}</strong></span>
+                  <span>
+                    المعلمة:{" "}
+                    <strong className="text-foreground">
+                      {studentData?.teacher || student.teacher || "غير محدد"}
+                    </strong>
+                  </span>
                   <span>•</span>
-                  <span>الحالة: <Badge variant="outline" className="text-primary font-bold">{studentData?.status || "طبيعي"}</Badge></span>
+                  <span>
+                    الحالة:{" "}
+                    <Badge variant="outline" className="text-primary font-bold">
+                      {studentData?.status || "طبيعي"}
+                    </Badge>
+                  </span>
                   <span>•</span>
-                  <span>رقم القيد: <strong>#{student.id}</strong></span>
+                  <span>
+                    رقم القيد: <strong>#{student.id}</strong>
+                  </span>
                 </div>
               </div>
             </div>
@@ -619,7 +652,9 @@ export const StudentProfileModal = ({
                     <SelectContent>
                       <SelectItem value="__none__">— بدون —</SelectItem>
                       {GENDER_OPTIONS.map((g) => (
-                        <SelectItem key={g} value={g}>{g}</SelectItem>
+                        <SelectItem key={g} value={g}>
+                          {g}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -628,7 +663,9 @@ export const StudentProfileModal = ({
                   <label className="font-bold text-foreground">تاريخ هجري الالتحاق</label>
                   <Input
                     value={studentData.hijri_join_date || ""}
-                    onChange={(e) => setStudentData({ ...studentData, hijri_join_date: e.target.value })}
+                    onChange={(e) =>
+                      setStudentData({ ...studentData, hijri_join_date: e.target.value })
+                    }
                     placeholder="مثال: 1443/05/10هـ"
                     className="h-9 mt-1 rounded-lg"
                   />
@@ -638,7 +675,9 @@ export const StudentProfileModal = ({
                   <Input
                     type="number"
                     value={studentData.initial_hifz || ""}
-                    onChange={(e) => setStudentData({ ...studentData, initial_hifz: e.target.value })}
+                    onChange={(e) =>
+                      setStudentData({ ...studentData, initial_hifz: e.target.value })
+                    }
                     placeholder="عدد الأجزاء (مثال: 5)"
                     className="h-9 mt-1 rounded-lg"
                   />
@@ -647,7 +686,9 @@ export const StudentProfileModal = ({
                   <label className="font-bold text-foreground">السنة الدراسية وقت الالتحاق</label>
                   <Input
                     value={studentData.school_grade || ""}
-                    onChange={(e) => setStudentData({ ...studentData, school_grade: e.target.value })}
+                    onChange={(e) =>
+                      setStudentData({ ...studentData, school_grade: e.target.value })
+                    }
                     placeholder="مثال: الصف الخامس الابتدائي"
                     className="h-9 mt-1 rounded-lg"
                   />
@@ -665,7 +706,9 @@ export const StudentProfileModal = ({
                   <label className="font-bold text-foreground">رقم ولي الأمر</label>
                   <Input
                     value={studentData.guardian_phone || ""}
-                    onChange={(e) => setStudentData({ ...studentData, guardian_phone: e.target.value })}
+                    onChange={(e) =>
+                      setStudentData({ ...studentData, guardian_phone: e.target.value })
+                    }
                     placeholder="770000000"
                     className="h-9 mt-1 rounded-lg"
                     dir="ltr"
@@ -675,7 +718,9 @@ export const StudentProfileModal = ({
                   <label className="font-bold text-foreground">رقم الطالب الشخصي</label>
                   <Input
                     value={studentData.student_phone || ""}
-                    onChange={(e) => setStudentData({ ...studentData, student_phone: e.target.value })}
+                    onChange={(e) =>
+                      setStudentData({ ...studentData, student_phone: e.target.value })
+                    }
                     placeholder="770000000"
                     className="h-9 mt-1 rounded-lg"
                     dir="ltr"
@@ -729,7 +774,9 @@ export const StudentProfileModal = ({
               {studentData?.guardian_phone && (
                 <div className="flex items-center gap-1 text-emerald-700">
                   <Phone className="h-3.5 w-3.5" />
-                  <span>ولي الأمر: <strong dir="ltr">{studentData.guardian_phone}</strong></span>
+                  <span>
+                    ولي الأمر: <strong dir="ltr">{studentData.guardian_phone}</strong>
+                  </span>
                   <a
                     href={`https://wa.me/${studentData.guardian_phone.replace(/[^0-9]/g, "")}`}
                     target="_blank"
@@ -743,7 +790,9 @@ export const StudentProfileModal = ({
               {studentData?.student_phone && (
                 <div className="flex items-center gap-1 text-primary">
                   <Phone className="h-3.5 w-3.5" />
-                  <span>هاتف الطالب: <strong dir="ltr">{studentData.student_phone}</strong></span>
+                  <span>
+                    هاتف الطالب: <strong dir="ltr">{studentData.student_phone}</strong>
+                  </span>
                 </div>
               )}
               {studentData?.hijri_join_date && (
@@ -835,14 +884,18 @@ export const StudentProfileModal = ({
                 <Card className="p-3 bg-emerald-500/10 border-emerald-500/20 flex items-center justify-between">
                   <div>
                     <div className="text-xs text-muted-foreground">متوسط التقييم الشهري</div>
-                    <div className="text-2xl font-black text-emerald-700">{avgMonthlyScore} / 100</div>
+                    <div className="text-2xl font-black text-emerald-700">
+                      {avgMonthlyScore} / 100
+                    </div>
                   </div>
                   <Trophy className="h-8 w-8 text-emerald-600/40" />
                 </Card>
                 <Card className="p-3 bg-amber-500/10 border-amber-500/20 flex items-center justify-between">
                   <div>
                     <div className="text-xs text-muted-foreground">الحفظ التراكمي المحسوب</div>
-                    <div className="text-2xl font-black text-amber-700">{yearData.parts || "0"} جزء</div>
+                    <div className="text-2xl font-black text-amber-700">
+                      {yearData.parts || "0"} جزء
+                    </div>
                   </div>
                   <Sparkles className="h-8 w-8 text-amber-600/40" />
                 </Card>
@@ -868,7 +921,8 @@ export const StudentProfileModal = ({
                     {TRACKING_MONTHS.map((m) => {
                       const rec = monthlyRecords[m.value];
                       const sList = getSurahList();
-                      const surahName = (n: number | null) => sList.find((s) => s.number === n)?.name || "";
+                      const surahName = (n: number | null) =>
+                        sList.find((s) => s.number === n)?.name || "";
                       const pointStr = (p?: { surah: number | null; ayah: number | null }) =>
                         p?.surah ? `${surahName(p.surah)} (${p.ayah || "1"})` : "—";
 
@@ -881,7 +935,10 @@ export const StudentProfileModal = ({
                         (parseFloat(rec?.behaviorScore || "0") || 0);
 
                       return (
-                        <tr key={m.value} className="hover:bg-muted/30 odd:bg-card even:bg-muted/10">
+                        <tr
+                          key={m.value}
+                          className="hover:bg-muted/30 odd:bg-card even:bg-muted/10"
+                        >
                           <td className="p-2 border border-border font-bold text-foreground">
                             {m.label}
                           </td>
@@ -889,13 +946,21 @@ export const StudentProfileModal = ({
                             {rec ? `${pointStr(rec.memoFrom)} ➔ ${pointStr(rec.memoTo)}` : "—"}
                           </td>
                           <td className="p-2 border border-border">{rec?.memoHifzScore || "—"}</td>
-                          <td className="p-2 border border-border">{rec?.memoRecitationScore || "—"}</td>
+                          <td className="p-2 border border-border">
+                            {rec?.memoRecitationScore || "—"}
+                          </td>
                           <td className="p-2 border border-border">
                             {rec ? `${pointStr(rec.reviewFrom)} ➔ ${pointStr(rec.reviewTo)}` : "—"}
                           </td>
-                          <td className="p-2 border border-border">{rec?.reviewHifzScore || "—"}</td>
-                          <td className="p-2 border border-border">{rec?.reviewRecitationScore || "—"}</td>
-                          <td className="p-2 border border-border">{rec?.attendanceScore || "—"}</td>
+                          <td className="p-2 border border-border">
+                            {rec?.reviewHifzScore || "—"}
+                          </td>
+                          <td className="p-2 border border-border">
+                            {rec?.reviewRecitationScore || "—"}
+                          </td>
+                          <td className="p-2 border border-border">
+                            {rec?.attendanceScore || "—"}
+                          </td>
                           <td className="p-2 border border-border">{rec?.behaviorScore || "—"}</td>
                           <td className="p-2 border border-border font-black text-primary">
                             {rec ? `${mScore.toFixed(1)}` : "—"}
@@ -981,7 +1046,9 @@ export const StudentProfileModal = ({
                   </div>
                   <div className="rounded-xl bg-emerald-500/10 p-3 border border-emerald-500/20">
                     <div className="text-xs text-muted-foreground">مكافأة الحفظ</div>
-                    <div className="text-2xl font-black text-emerald-600">{prize.toLocaleString()} ريال</div>
+                    <div className="text-2xl font-black text-emerald-600">
+                      {prize.toLocaleString()} ريال
+                    </div>
                   </div>
                   <div className="rounded-xl bg-emerald-500/10 p-3 border border-emerald-500/20">
                     <div className="text-xs text-muted-foreground">مكافأة الحالة</div>
@@ -1006,8 +1073,14 @@ export const StudentProfileModal = ({
             {/* TAB 3: الإكراميات */}
             <TabsContent value="bonuses" className="mt-4 space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-foreground">سجل الإكراميات والمكافآت الخاصة ({selectedYear}هـ)</h3>
-                <Button size="sm" onClick={() => setAddAwardOpen(true)} className="gap-1 rounded-xl">
+                <h3 className="text-sm font-bold text-foreground">
+                  سجل الإكراميات والمكافآت الخاصة ({selectedYear}هـ)
+                </h3>
+                <Button
+                  size="sm"
+                  onClick={() => setAddAwardOpen(true)}
+                  className="gap-1 rounded-xl"
+                >
                   <Plus className="h-3.5 w-3.5" /> إضافة إكرامية
                 </Button>
               </div>
@@ -1019,15 +1092,28 @@ export const StudentProfileModal = ({
               ) : (
                 <div className="grid gap-2 sm:grid-cols-2">
                   {awards.map((a) => (
-                    <Card key={a.id} className="p-3 flex items-center justify-between border-border">
+                    <Card
+                      key={a.id}
+                      className="p-3 flex items-center justify-between border-border"
+                    >
                       <div>
-                        <div className="font-bold text-sm text-foreground">{a.item || a.award_type}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {a.awarded_at} • {a.award_kind === "cash" ? `${a.amount.toLocaleString()} ريال` : "عينية"}
+                        <div className="font-bold text-sm text-foreground">
+                          {a.item || a.award_type}
                         </div>
-                        {a.notes && <div className="text-xs text-muted-foreground mt-1">{a.notes}</div>}
+                        <div className="text-xs text-muted-foreground">
+                          {a.awarded_at} •{" "}
+                          {a.award_kind === "cash" ? `${a.amount.toLocaleString()} ريال` : "عينية"}
+                        </div>
+                        {a.notes && (
+                          <div className="text-xs text-muted-foreground mt-1">{a.notes}</div>
+                        )}
                       </div>
-                      <Button size="sm" variant="ghost" onClick={() => handleDeleteAward(a.id)} className="text-rose-500 hover:text-rose-600">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleDeleteAward(a.id)}
+                        className="text-rose-500 hover:text-rose-600"
+                      >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </Card>
@@ -1039,7 +1125,9 @@ export const StudentProfileModal = ({
             {/* TAB 4: الشهائد */}
             <TabsContent value="certificates" className="mt-4 space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-foreground">شهادات التقدير والتكريم ({selectedYear}هـ)</h3>
+                <h3 className="text-sm font-bold text-foreground">
+                  شهادات التقدير والتكريم ({selectedYear}هـ)
+                </h3>
                 <Button size="sm" onClick={() => setAddCertOpen(true)} className="gap-1 rounded-xl">
                   <Plus className="h-3.5 w-3.5" /> إصدار شهادة جديدة
                 </Button>
@@ -1052,11 +1140,18 @@ export const StudentProfileModal = ({
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2">
                   {certificates.map((c) => (
-                    <Card key={c.id} className="p-4 border-emerald-500/20 bg-emerald-500/5 flex flex-col justify-between">
+                    <Card
+                      key={c.id}
+                      className="p-4 border-emerald-500/20 bg-emerald-500/5 flex flex-col justify-between"
+                    >
                       <div>
                         <div className="flex items-center justify-between">
-                          <span className="font-bold text-base text-emerald-800">{c.title || c.cert_type}</span>
-                          <Badge variant="secondary" className="text-xs">{c.issued_at}</Badge>
+                          <span className="font-bold text-base text-emerald-800">
+                            {c.title || c.cert_type}
+                          </span>
+                          <Badge variant="secondary" className="text-xs">
+                            {c.issued_at}
+                          </Badge>
                         </div>
                         {c.notes && <p className="text-xs text-muted-foreground mt-2">{c.notes}</p>}
                       </div>
@@ -1079,8 +1174,14 @@ export const StudentProfileModal = ({
             {/* TAB 5: الجوائز */}
             <TabsContent value="awards" className="mt-4 space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-foreground">الجوائز النقدية والعينية ({selectedYear}هـ)</h3>
-                <Button size="sm" onClick={() => setAddAwardOpen(true)} className="gap-1 rounded-xl">
+                <h3 className="text-sm font-bold text-foreground">
+                  الجوائز النقدية والعينية ({selectedYear}هـ)
+                </h3>
+                <Button
+                  size="sm"
+                  onClick={() => setAddAwardOpen(true)}
+                  className="gap-1 rounded-xl"
+                >
                   <Plus className="h-3.5 w-3.5" /> إضافة جائزة
                 </Button>
               </div>
@@ -1105,11 +1206,20 @@ export const StudentProfileModal = ({
                       {awards.map((a) => (
                         <tr key={a.id} className="border-t border-border">
                           <td className="p-2.5 font-bold">{a.item || a.award_type}</td>
-                          <td className="p-2.5 text-center">{a.award_kind === "cash" ? "نقدية" : "عينية"}</td>
-                          <td className="p-2.5 text-center font-bold text-primary">{a.amount ? `${a.amount.toLocaleString()} ريال` : "—"}</td>
+                          <td className="p-2.5 text-center">
+                            {a.award_kind === "cash" ? "نقدية" : "عينية"}
+                          </td>
+                          <td className="p-2.5 text-center font-bold text-primary">
+                            {a.amount ? `${a.amount.toLocaleString()} ريال` : "—"}
+                          </td>
                           <td className="p-2.5 text-center">{a.awarded_at}</td>
                           <td className="p-2.5 text-center">
-                            <Button size="sm" variant="ghost" onClick={() => handleDeleteAward(a.id)} className="h-7 w-7 p-0 text-rose-500">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleDeleteAward(a.id)}
+                              className="h-7 w-7 p-0 text-rose-500"
+                            >
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                           </td>
@@ -1124,8 +1234,14 @@ export const StudentProfileModal = ({
             {/* TAB 6: المسابقات الداخلية */}
             <TabsContent value="internal_comp" className="mt-4 space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-foreground">المسابقات الداخلية بالمركز ({selectedYear}هـ)</h3>
-                <Button size="sm" onClick={() => setAddInternalOpen(true)} className="gap-1 rounded-xl">
+                <h3 className="text-sm font-bold text-foreground">
+                  المسابقات الداخلية بالمركز ({selectedYear}هـ)
+                </h3>
+                <Button
+                  size="sm"
+                  onClick={() => setAddInternalOpen(true)}
+                  className="gap-1 rounded-xl"
+                >
                   <Plus className="h-3.5 w-3.5" /> تسجيل مشاركة بمسابقة داخلية
                 </Button>
               </div>
@@ -1137,18 +1253,34 @@ export const StudentProfileModal = ({
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2">
                   {internalComps.map((ic) => (
-                    <Card key={ic.id} className="p-3.5 border-amber-500/20 bg-amber-500/5 space-y-2">
+                    <Card
+                      key={ic.id}
+                      className="p-3.5 border-amber-500/20 bg-amber-500/5 space-y-2"
+                    >
                       <div className="flex items-start justify-between">
                         <div>
-                          <h4 className="font-bold text-sm text-foreground">{ic.competition_name}</h4>
-                          <Badge variant="secondary" className="mt-1 text-xs">{ic.category}</Badge>
+                          <h4 className="font-bold text-sm text-foreground">
+                            {ic.competition_name}
+                          </h4>
+                          <Badge variant="secondary" className="mt-1 text-xs">
+                            {ic.category}
+                          </Badge>
                         </div>
                         <Badge className="bg-amber-600 text-white text-xs">{ic.rank}</Badge>
                       </div>
                       <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border/50">
-                        <span>الدرجة: <strong>{ic.score}</strong></span>
-                        <span>الجائزة: <strong>{ic.prize || "—"}</strong></span>
-                        <Button size="sm" variant="ghost" onClick={() => handleDeleteInternal(ic.id)} className="h-6 w-6 p-0 text-rose-500">
+                        <span>
+                          الدرجة: <strong>{ic.score}</strong>
+                        </span>
+                        <span>
+                          الجائزة: <strong>{ic.prize || "—"}</strong>
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDeleteInternal(ic.id)}
+                          className="h-6 w-6 p-0 text-rose-500"
+                        >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
@@ -1161,8 +1293,14 @@ export const StudentProfileModal = ({
             {/* TAB 7: المسابقات الخارجية */}
             <TabsContent value="external_comp" className="mt-4 space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-foreground">المسابقات الخارجية والتمثيل ({selectedYear}هـ)</h3>
-                <Button size="sm" onClick={() => setAddExternalOpen(true)} className="gap-1 rounded-xl">
+                <h3 className="text-sm font-bold text-foreground">
+                  المسابقات الخارجية والتمثيل ({selectedYear}هـ)
+                </h3>
+                <Button
+                  size="sm"
+                  onClick={() => setAddExternalOpen(true)}
+                  className="gap-1 rounded-xl"
+                >
                   <Plus className="h-3.5 w-3.5" /> تسجيل مشاركة بمسابقة خارجية
                 </Button>
               </div>
@@ -1177,15 +1315,28 @@ export const StudentProfileModal = ({
                     <Card key={ec.id} className="p-3.5 border-cyan-500/20 bg-cyan-500/5 space-y-2">
                       <div className="flex items-start justify-between">
                         <div>
-                          <h4 className="font-bold text-sm text-foreground">{ec.competition_name}</h4>
-                          <p className="text-xs text-muted-foreground">{ec.organizer} • {ec.category}</p>
+                          <h4 className="font-bold text-sm text-foreground">
+                            {ec.competition_name}
+                          </h4>
+                          <p className="text-xs text-muted-foreground">
+                            {ec.organizer} • {ec.category}
+                          </p>
                         </div>
                         <Badge className="bg-cyan-600 text-white text-xs">{ec.rank}</Badge>
                       </div>
                       <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border/50">
-                        <span>الدرجة: <strong>{ec.score}</strong></span>
-                        <span>الجائزة: <strong>{ec.prize || "—"}</strong></span>
-                        <Button size="sm" variant="ghost" onClick={() => handleDeleteExternal(ec.id)} className="h-6 w-6 p-0 text-rose-500">
+                        <span>
+                          الدرجة: <strong>{ec.score}</strong>
+                        </span>
+                        <span>
+                          الجائزة: <strong>{ec.prize || "—"}</strong>
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDeleteExternal(ec.id)}
+                          className="h-6 w-6 p-0 text-rose-500"
+                        >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
@@ -1205,7 +1356,9 @@ export const StudentProfileModal = ({
                 </h3>
 
                 {multiYearStats.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">لا توجد بيانات سابقة كافية للمقارنة</p>
+                  <p className="text-xs text-muted-foreground">
+                    لا توجد بيانات سابقة كافية للمقارنة
+                  </p>
                 ) : (
                   <div className="overflow-x-auto rounded-xl border border-border">
                     <table className="w-full text-xs text-center">
@@ -1227,12 +1380,18 @@ export const StudentProfileModal = ({
                               st.year === selectedYear ? "bg-primary/10 font-bold" : ""
                             }`}
                           >
-                            <td className="p-2 border border-border font-black text-primary">{st.year}هـ</td>
-                            <td className="p-2 border border-border">{st.totalHifz >= 30 ? "خاتم ✨" : `${st.totalHifz} جزء`}</td>
+                            <td className="p-2 border border-border font-black text-primary">
+                              {st.year}هـ
+                            </td>
+                            <td className="p-2 border border-border">
+                              {st.totalHifz >= 30 ? "خاتم ✨" : `${st.totalHifz} جزء`}
+                            </td>
                             <td className="p-2 border border-border">{st.parts} جزء</td>
                             <td className="p-2 border border-border font-bold">{st.totalScore}%</td>
                             <td className="p-2 border border-border">{st.grade || "-"}</td>
-                            <td className="p-2 border border-border">{st.prize.toLocaleString()} ريال</td>
+                            <td className="p-2 border border-border">
+                              {st.prize.toLocaleString()} ريال
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -1298,8 +1457,13 @@ export const StudentProfileModal = ({
             <div className="space-y-3 text-xs">
               <div>
                 <label className="font-bold">نوع الجائزة</label>
-                <Select value={awardForm.award_kind} onValueChange={(v) => setAwardForm({ ...awardForm, award_kind: v })}>
-                  <SelectTrigger className="h-9 mt-1"><SelectValue /></SelectTrigger>
+                <Select
+                  value={awardForm.award_kind}
+                  onValueChange={(v) => setAwardForm({ ...awardForm, award_kind: v })}
+                >
+                  <SelectTrigger className="h-9 mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="cash">مكافأة نقدية</SelectItem>
                     <SelectItem value="in_kind">جائزة عينية</SelectItem>
@@ -1336,7 +1500,9 @@ export const StudentProfileModal = ({
               </div>
             </div>
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => setAddAwardOpen(false)}>إلغاء</Button>
+              <Button variant="outline" onClick={() => setAddAwardOpen(false)}>
+                إلغاء
+              </Button>
               <Button onClick={handleAddAward}>حفظ الجائزة</Button>
             </div>
           </DialogContent>
@@ -1360,8 +1526,13 @@ export const StudentProfileModal = ({
               </div>
               <div>
                 <label className="font-bold">نوع الشهادة</label>
-                <Select value={certForm.cert_type} onValueChange={(v) => setCertForm({ ...certForm, cert_type: v })}>
-                  <SelectTrigger className="h-9 mt-1"><SelectValue /></SelectTrigger>
+                <Select
+                  value={certForm.cert_type}
+                  onValueChange={(v) => setCertForm({ ...certForm, cert_type: v })}
+                >
+                  <SelectTrigger className="h-9 mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="excellence">شهادة تميّز</SelectItem>
                     <SelectItem value="khatm">شهادة ختم القرآن الكريم</SelectItem>
@@ -1381,7 +1552,9 @@ export const StudentProfileModal = ({
               </div>
             </div>
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => setAddCertOpen(false)}>إلغاء</Button>
+              <Button variant="outline" onClick={() => setAddCertOpen(false)}>
+                إلغاء
+              </Button>
               <Button onClick={handleAddCert}>إصدار وحفظ</Button>
             </div>
           </DialogContent>
@@ -1398,7 +1571,9 @@ export const StudentProfileModal = ({
                 <label className="font-bold">اسم المسابقة</label>
                 <Input
                   value={internalForm.competition_name}
-                  onChange={(e) => setInternalForm({ ...internalForm, competition_name: e.target.value })}
+                  onChange={(e) =>
+                    setInternalForm({ ...internalForm, competition_name: e.target.value })
+                  }
                   placeholder="مثال: مسابقة الماهر بالقرآن السنوية"
                   className="h-9 mt-1"
                 />
@@ -1442,7 +1617,9 @@ export const StudentProfileModal = ({
               </div>
             </div>
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => setAddInternalOpen(false)}>إلغاء</Button>
+              <Button variant="outline" onClick={() => setAddInternalOpen(false)}>
+                إلغاء
+              </Button>
               <Button onClick={handleAddInternal}>حفظ المسابقة</Button>
             </div>
           </DialogContent>
@@ -1459,7 +1636,9 @@ export const StudentProfileModal = ({
                 <label className="font-bold">اسم المسابقة الخارجية</label>
                 <Input
                   value={externalForm.competition_name}
-                  onChange={(e) => setExternalForm({ ...externalForm, competition_name: e.target.value })}
+                  onChange={(e) =>
+                    setExternalForm({ ...externalForm, competition_name: e.target.value })
+                  }
                   placeholder="مثال: مسابقة الجمهورية للقرآن الكريم"
                   className="h-9 mt-1"
                 />
@@ -1512,7 +1691,9 @@ export const StudentProfileModal = ({
               </div>
             </div>
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => setAddExternalOpen(false)}>إلغاء</Button>
+              <Button variant="outline" onClick={() => setAddExternalOpen(false)}>
+                إلغاء
+              </Button>
               <Button onClick={handleAddExternal}>حفظ المسابقة</Button>
             </div>
           </DialogContent>

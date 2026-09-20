@@ -4,15 +4,21 @@
 
 DROP TABLE IF EXISTS public.year_data CASCADE;
 DROP TABLE IF EXISTS public.hifz_history CASCADE;
+DROP TABLE IF EXISTS public.monthly_tracking CASCADE;
 DROP TABLE IF EXISTS public.teacher_bonuses CASCADE;
 DROP TABLE IF EXISTS public.certificates CASCADE;
 DROP TABLE IF EXISTS public.ceremony_expenses CASCADE;
 DROP TABLE IF EXISTS public.donors CASCADE;
 DROP TABLE IF EXISTS public.awards CASCADE;
+DROP TABLE IF EXISTS public.internal_competitions CASCADE;
+DROP TABLE IF EXISTS public.external_competitions CASCADE;
 DROP TABLE IF EXISTS public.media CASCADE;
 DROP TABLE IF EXISTS public.teachers CASCADE;
 DROP TABLE IF EXISTS public.students CASCADE;
 DROP TABLE IF EXISTS public.user_settings CASCADE;
+DROP TABLE IF EXISTS public.data_access_grants CASCADE;
+DROP TABLE IF EXISTS public.user_roles CASCADE;
+DROP TABLE IF EXISTS public.profiles CASCADE;
 
 -- في حال بقي أي جدول آخر في public، هذا السطر يحذف الباقي أيضاً:
 DO $$

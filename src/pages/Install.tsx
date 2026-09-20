@@ -6,7 +6,7 @@ import { useNavigate } from "@/lib/router-compat";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
 const Install = () => {
@@ -16,7 +16,7 @@ const Install = () => {
 
   useEffect(() => {
     // Check if already installed
-    if (window.matchMedia('(display-mode: standalone)').matches) {
+    if (window.matchMedia("(display-mode: standalone)").matches) {
       setIsInstalled(true);
     }
 
@@ -26,10 +26,10 @@ const Install = () => {
       setDeferredPrompt(e as BeforeInstallPromptEvent);
     };
 
-    window.addEventListener('beforeinstallprompt', handler);
+    window.addEventListener("beforeinstallprompt", handler);
 
     return () => {
-      window.removeEventListener('beforeinstallprompt', handler);
+      window.removeEventListener("beforeinstallprompt", handler);
     };
   }, []);
 
@@ -40,11 +40,11 @@ const Install = () => {
 
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
-    
-    if (outcome === 'accepted') {
+
+    if (outcome === "accepted") {
       setIsInstalled(true);
     }
-    
+
     setDeferredPrompt(null);
   };
 
@@ -59,9 +59,7 @@ const Install = () => {
                   <Smartphone className="h-12 w-12 text-primary" />
                 </div>
               </div>
-              <CardTitle className="text-3xl mb-2">
-                ثبت التطبيق على جوالك
-              </CardTitle>
+              <CardTitle className="text-3xl mb-2">ثبت التطبيق على جوالك</CardTitle>
               <CardDescription className="text-lg">
                 استخدم التطبيق بدون إنترنت وبسرعة أكبر
               </CardDescription>
@@ -73,13 +71,11 @@ const Install = () => {
                   <div className="flex justify-center">
                     <CheckCircle2 className="h-16 w-16 text-success" />
                   </div>
-                  <h3 className="text-xl font-semibold text-success">
-                    تم التثبيت بنجاح!
-                  </h3>
+                  <h3 className="text-xl font-semibold text-success">تم التثبيت بنجاح!</h3>
                   <p className="text-muted-foreground">
                     يمكنك الآن استخدام التطبيق من الشاشة الرئيسية لجوالك
                   </p>
-                  <Button onClick={() => navigate('/')} size="lg" className="w-full">
+                  <Button onClick={() => navigate("/")} size="lg" className="w-full">
                     العودة للتطبيق
                   </Button>
                 </div>
@@ -108,11 +104,7 @@ const Install = () => {
                   </div>
 
                   {deferredPrompt ? (
-                    <Button 
-                      onClick={handleInstallClick} 
-                      size="lg" 
-                      className="w-full gap-2"
-                    >
+                    <Button onClick={handleInstallClick} size="lg" className="w-full gap-2">
                       <Download className="h-5 w-5" />
                       ثبت التطبيق الآن
                     </Button>
@@ -142,11 +134,11 @@ const Install = () => {
                           </div>
                         </div>
                       </div>
-                      
-                      <Button 
-                        onClick={() => navigate('/')} 
+
+                      <Button
+                        onClick={() => navigate("/")}
                         variant="outline"
-                        size="lg" 
+                        size="lg"
                         className="w-full"
                       >
                         تخطي والمتابعة للتطبيق

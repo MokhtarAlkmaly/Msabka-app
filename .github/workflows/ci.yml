@@ -1,0 +1,39 @@
+name: فحص جودة الكود (lint + أنواع + بناء الويب)
+
+# يفحص كل دفع/طلب سحب: ESLint، فحص أنواع TypeScript، وبناء الويب الكامل.
+# قيم Supabase هنا قيم وهمية فقط لأن الغرض التحقق من البناء والتعريفات
+# (check-env.mjs يتحقق من وجود المتغيرات لا من صحتها).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: سحب المشروع
+        uses: actions/checkout@v7
+
+      - name: تثبيت Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: تثبيت حزم المشروع
+        run: npm ci
+
+      - name: فحص ESLint
+        run: npm run lint
+
+      - name: فحص أنواع TypeScript
+        run: npx tsc --noEmit
+
+      - name: بناء الويب
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: https://placeholder.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: placeholder-key
+          VITE_SUPABASE_PROJECT_ID: placeholder

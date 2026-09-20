@@ -1,6 +1,12 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { StudentsTable } from "@/components/StudentsTable";
 import { ImportExport } from "@/components/ImportExport";
@@ -27,7 +33,14 @@ import {
   Plus,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
-import { Student, START_YEAR, END_YEAR, CustomColumnDef, DEFAULT_STATUSES, GENDER_OPTIONS } from "@/types/student";
+import {
+  Student,
+  START_YEAR,
+  END_YEAR,
+  CustomColumnDef,
+  DEFAULT_STATUSES,
+  GENDER_OPTIONS,
+} from "@/types/student";
 import {
   loadStudentsForYear,
   getActiveYear,
@@ -53,10 +66,12 @@ const Index = () => {
   const [currentYear, setCurrentYear] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-  const [syncProgress, setSyncProgress] = useState<{ current: number; total: number; label?: string } | null>(null);
-  const [online, setOnline] = useState(
-    typeof navigator !== "undefined" ? navigator.onLine : true
-  );
+  const [syncProgress, setSyncProgress] = useState<{
+    current: number;
+    total: number;
+    label?: string;
+  } | null>(null);
+  const [online, setOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
   const [teacherNames, setTeacherNames] = useState<string[]>([]);
   const [customColumns, setCustomColumns] = useState<CustomColumnDef[]>([]);
   const [studentStatuses, setStudentStatuses] = useState<string[]>(DEFAULT_STATUSES);
@@ -110,7 +125,7 @@ const Index = () => {
       });
       return id;
     },
-    []
+    [],
   );
 
   const handleDeleteStudent = useCallback(
@@ -123,7 +138,7 @@ const Index = () => {
       });
       await loadData();
     },
-    [loadData]
+    [loadData],
   );
 
   const handleAddStudent = async () => {
@@ -170,24 +185,33 @@ const Index = () => {
     }
   };
 
-  const handleAddCustomColumn = useCallback(async (column: CustomColumnDef) => {
-    const next = [...customColumns, column];
-    await saveCustomColumns(next);
-    setCustomColumns(next);
-  }, [customColumns]);
+  const handleAddCustomColumn = useCallback(
+    async (column: CustomColumnDef) => {
+      const next = [...customColumns, column];
+      await saveCustomColumns(next);
+      setCustomColumns(next);
+    },
+    [customColumns],
+  );
 
-  const handleDeleteCustomColumn = useCallback(async (columnId: string) => {
-    const next = customColumns.filter((column) => column.id !== columnId);
-    await saveCustomColumns(next);
-    setCustomColumns(next);
-  }, [customColumns]);
+  const handleDeleteCustomColumn = useCallback(
+    async (columnId: string) => {
+      const next = customColumns.filter((column) => column.id !== columnId);
+      await saveCustomColumns(next);
+      setCustomColumns(next);
+    },
+    [customColumns],
+  );
 
-  const handleAddStatus = useCallback(async (status: string) => {
-    if (studentStatuses.includes(status)) return;
-    const next = [...studentStatuses, status];
-    await saveStudentStatuses(next);
-    setStudentStatuses(next);
-  }, [studentStatuses]);
+  const handleAddStatus = useCallback(
+    async (status: string) => {
+      if (studentStatuses.includes(status)) return;
+      const next = [...studentStatuses, status];
+      await saveStudentStatuses(next);
+      setStudentStatuses(next);
+    },
+    [studentStatuses],
+  );
 
   const handleDirtyChange = useCallback((studentId: number, data: Student) => {
     setDirtyMap((current) => ({ ...current, [studentId]: data }));
@@ -198,7 +222,7 @@ const Index = () => {
     void saveStudent(data)
       .then(() => {
         setStudents((current) =>
-          current.map((student) => (student.id === studentId ? data : student))
+          current.map((student) => (student.id === studentId ? data : student)),
         );
         setDirtyMap((current) => {
           if (current[studentId] !== data) return current;
@@ -220,7 +244,7 @@ const Index = () => {
       if (pending.length === 0) return;
       setSyncProgress({ current: 0, total: pending.length + 1, label: "مزامنة العمليات المعلقة" });
       const ok = await syncToCloud((current, total, label) =>
-        setSyncProgress({ current, total, label })
+        setSyncProgress({ current, total, label }),
       );
       setSyncProgress(null);
       if (ok) {
@@ -274,7 +298,11 @@ const Index = () => {
 
   const handleSyncFromCloud = async () => {
     if (!online) {
-      toast({ title: "لا يوجد اتصال", description: "يرجى الاتصال بالإنترنت أولاً", variant: "destructive" });
+      toast({
+        title: "لا يوجد اتصال",
+        description: "يرجى الاتصال بالإنترنت أولاً",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -282,7 +310,7 @@ const Index = () => {
     setSyncProgress({ current: 0, total: 13, label: "بدء التنزيل" });
     try {
       const success = await syncFromCloud((current, total, label) =>
-        setSyncProgress({ current, total, label })
+        setSyncProgress({ current, total, label }),
       );
       if (success) {
         await loadData();
@@ -310,7 +338,7 @@ const Index = () => {
   // Calculate stats
   const totalStudents = students.length;
   const orphansOrSpecialCount = students.filter(
-    (s) => s.status && s.status !== "مستمر" && s.status !== "منتظم"
+    (s) => s.status && s.status !== "مستمر" && s.status !== "منتظم",
   ).length;
   const distinctTeachers = useMemo(() => {
     const set = new Set(students.map((s) => s.teacher?.trim()).filter(Boolean));
@@ -352,7 +380,8 @@ const Index = () => {
                       مركز إنماء الاهلي الخيري - قسم القرآن الكريم
                     </h1>
                     <p className="mt-1 text-xs text-white/80 sm:text-sm">
-                      السجل الرسمي الموحد لجميع طلاب الحلقات والمسابقات القرآنية · الإشراف - شرعب الرونة
+                      السجل الرسمي الموحد لجميع طلاب الحلقات والمسابقات القرآنية · الإشراف - شرعب
+                      الرونة
                     </p>
                   </div>
                 </div>
@@ -362,12 +391,14 @@ const Index = () => {
                     <span className="font-semibold">{dayName}</span>
                     <span
                       className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
-                        online
-                          ? "bg-emerald-300/20 text-emerald-50"
-                          : "bg-red-300/20 text-red-50"
+                        online ? "bg-emerald-300/20 text-emerald-50" : "bg-red-300/20 text-red-50"
                       }`}
                     >
-                      {online ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
+                      {online ? (
+                        <Wifi className="h-3.5 w-3.5" />
+                      ) : (
+                        <WifiOff className="h-3.5 w-3.5" />
+                      )}
                       {online ? "متصل" : "غير متصل"}
                     </span>
                   </div>
@@ -381,8 +412,13 @@ const Index = () => {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {Array.from({ length: END_YEAR - START_YEAR + 1 }, (_, i) => START_YEAR + i).map((y) => (
-                            <SelectItem key={y} value={String(y)}>{y}هـ</SelectItem>
+                          {Array.from(
+                            { length: END_YEAR - START_YEAR + 1 },
+                            (_, i) => START_YEAR + i,
+                          ).map((y) => (
+                            <SelectItem key={y} value={String(y)}>
+                              {y}هـ
+                            </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -431,7 +467,7 @@ const Index = () => {
             {/* Action Bar */}
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/60 bg-card/85 p-3 shadow-md backdrop-blur">
               <div className="flex items-center gap-2">
-                  <h2 className="text-base font-bold text-foreground sm:text-lg">
+                <h2 className="text-base font-bold text-foreground sm:text-lg">
                   جدول طلاب العام {currentYear}هـ
                 </h2>
                 <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
@@ -462,15 +498,17 @@ const Index = () => {
               </div>
             </div>
 
-            {currentYear && (
-              <ImportExport onDataImported={loadData} currentYear={currentYear} />
-            )}
+            {currentYear && <ImportExport onDataImported={loadData} currentYear={currentYear} />}
 
             {syncProgress && (
               <div className="space-y-1">
-                <Progress value={(syncProgress.current / Math.max(syncProgress.total, 1)) * 100} className="h-2" />
+                <Progress
+                  value={(syncProgress.current / Math.max(syncProgress.total, 1)) * 100}
+                  className="h-2"
+                />
                 <p className="text-xs text-center text-muted-foreground">
-                  {syncProgress.label || "جارٍ المزامنة"}: {syncProgress.current} / {syncProgress.total}
+                  {syncProgress.label || "جارٍ المزامنة"}: {syncProgress.current} /{" "}
+                  {syncProgress.total}
                 </p>
               </div>
             )}
@@ -514,7 +552,8 @@ const Index = () => {
                   إضافة طالب جديد
                 </DialogTitle>
                 <DialogDescription>
-                  سيُضاف الطالب إلى سجل إدارة الطلاب للعام {currentYear}هـ، ويمكن استدعاؤه بعد ذلك إلى المسابقات.
+                  سيُضاف الطالب إلى سجل إدارة الطلاب للعام {currentYear}هـ، ويمكن استدعاؤه بعد ذلك
+                  إلى المسابقات.
                 </DialogDescription>
               </DialogHeader>
 
@@ -540,7 +579,10 @@ const Index = () => {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label htmlFor="new-student-teacher" className="text-sm font-bold text-foreground">
+                  <label
+                    htmlFor="new-student-teacher"
+                    className="text-sm font-bold text-foreground"
+                  >
                     المعلمة / الحلقة
                   </label>
                   <Input
@@ -579,7 +621,9 @@ const Index = () => {
                     <SelectContent>
                       <SelectItem value="unspecified">غير محدد</SelectItem>
                       {GENDER_OPTIONS.map((gender) => (
-                        <SelectItem key={gender} value={gender}>{gender}</SelectItem>
+                        <SelectItem key={gender} value={gender}>
+                          {gender}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -612,8 +656,6 @@ const Index = () => {
           </footer>
         </div>
       </div>
-
-
     </div>
   );
 };

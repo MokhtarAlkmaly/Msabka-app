@@ -118,14 +118,14 @@ export interface MonthlyRecord {
   // قسم الحفظ الجديد
   memoFrom: QuranPoint;
   memoTo: QuranPoint;
-  memoHifzScore: string;       // تسميع الحفظ الجديد، من 25
+  memoHifzScore: string; // تسميع الحفظ الجديد، من 25
   memoRecitationScore: string; // تلاوة الحفظ الجديد، من 15
   // قسم المراجعة
   reviewFrom: QuranPoint;
   reviewTo: QuranPoint;
-  reviewHifzScore: string;       // تسميع المراجعة، من 25
+  reviewHifzScore: string; // تسميع المراجعة، من 25
   reviewRecitationScore: string; // تلاوة المراجعة، من 15
   // المواظبة والسلوك (كما كانت)
   attendanceScore: string; // من 10
-  behaviorScore: string;   // من 10
+  behaviorScore: string; // من 10
 }

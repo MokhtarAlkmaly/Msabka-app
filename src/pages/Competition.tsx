@@ -1,7 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/lib/router-compat";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { CompetitionTable } from "@/components/CompetitionTable";
 import { NotificationSystem } from "@/components/notifications/NotificationSystem";
 import { InstallPrompt } from "@/components/InstallPrompt";
@@ -43,7 +49,13 @@ import { getPendingChanges } from "@/utils/localDB";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { Progress } from "@/components/ui/progress";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -67,12 +79,16 @@ const Competition = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [currentYear, setCurrentYear] = useState<string>("1447");
   const [competitionType, setCompetitionType] = useState<"ramadan" | "dhul_hijjah">(
-    () => (localStorage.getItem("competitionType") as "ramadan" | "dhul_hijjah") || "ramadan"
+    () => (localStorage.getItem("competitionType") as "ramadan" | "dhul_hijjah") || "ramadan",
   );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const [syncProgress, setSyncProgress] = useState<{ current: number; total: number; label?: string } | null>(null);
+  const [syncProgress, setSyncProgress] = useState<{
+    current: number;
+    total: number;
+    label?: string;
+  } | null>(null);
   const [online, setOnline] = useState(navigator.onLine);
   const [dirtyMap, setDirtyMap] = useState<Record<number, DirtyData>>({});
   const [teacherNames, setTeacherNames] = useState<string[]>([]);
@@ -81,7 +97,8 @@ const Competition = () => {
 
   const isDirty = Object.keys(dirtyMap).length > 0;
   const dataYearKey = competitionType === "dhul_hijjah" ? `${currentYear}D` : currentYear;
-  const competitionLabel = competitionType === "dhul_hijjah" ? "مسابقة عشر ذي الحجة" : "المسابقة الرمضانية";
+  const competitionLabel =
+    competitionType === "dhul_hijjah" ? "مسابقة عشر ذي الحجة" : "المسابقة الرمضانية";
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -120,7 +137,7 @@ const Competition = () => {
       if (pending.length === 0) return;
       setSyncProgress({ current: 0, total: pending.length + 1, label: "مزامنة العمليات المعلقة" });
       const ok = await syncToCloud((current, total, label) =>
-        setSyncProgress({ current, total, label })
+        setSyncProgress({ current, total, label }),
       );
       setSyncProgress(null);
       if (ok) {
@@ -190,7 +207,9 @@ const Competition = () => {
       if (!key) continue;
       (counts[key] = counts[key] || []).push(id);
     }
-    const dupNames = Object.entries(counts).filter(([, ids]) => ids.length > 1).map(([k]) => k);
+    const dupNames = Object.entries(counts)
+      .filter(([, ids]) => ids.length > 1)
+      .map(([k]) => k);
     if (dupNames.length > 0) {
       toast({
         title: "أسماء مكررة",
@@ -209,13 +228,13 @@ const Competition = () => {
           await saveStudent({ id, name: data.name, teacher: data.teacher });
           await saveHifzHistory(id, data.history);
           await saveYearData(dataYearKey, id, data.yearData);
-        })
+        }),
       );
 
       setDirtyMap({});
       setSyncProgress({ current: 0, total: 1, label: "بدء الرفع" });
       const synced = await syncToCloud((current, total, label) =>
-        setSyncProgress({ current, total, label })
+        setSyncProgress({ current, total, label }),
       );
       setSyncProgress(null);
       await loadData();
@@ -256,7 +275,10 @@ const Competition = () => {
     localStorage.setItem("competitionType", type);
     toast({
       title: "تم التبديل",
-      description: type === "dhul_hijjah" ? "تم التبديل إلى مسابقة عشر ذي الحجة" : "تم التبديل إلى المسابقة الرمضانية",
+      description:
+        type === "dhul_hijjah"
+          ? "تم التبديل إلى مسابقة عشر ذي الحجة"
+          : "تم التبديل إلى المسابقة الرمضانية",
     });
   };
 
@@ -277,7 +299,10 @@ const Competition = () => {
   };
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [duplicateWarning, setDuplicateWarning] = useState<{ name: string; years: string[] } | null>(null);
+  const [duplicateWarning, setDuplicateWarning] = useState<{
+    name: string;
+    years: string[];
+  } | null>(null);
   const [deleteMode, setDeleteMode] = useState<"all" | "year" | "selected">("year");
   const [selectedToDelete, setSelectedToDelete] = useState<Set<number>>(new Set());
   const [deleting, setDeleting] = useState(false);
@@ -304,7 +329,11 @@ const Competition = () => {
         const { deleteYearData } = await import("@/utils/storage");
         await deleteYearData(dataYearKey);
         setDirtyMap({});
-        toast({ title: "تم الحذف", description: `تم حذف بيانات عام ${currentYear}هـ فقط`, variant: "destructive" });
+        toast({
+          title: "تم الحذف",
+          description: `تم حذف بيانات عام ${currentYear}هـ فقط`,
+          variant: "destructive",
+        });
         await loadData();
       } else {
         if (selectedToDelete.size === 0) {
@@ -313,7 +342,11 @@ const Competition = () => {
         }
         await deleteStudentsFromYear(dataYearKey, Array.from(selectedToDelete));
         setSelectedToDelete(new Set());
-        toast({ title: "تم الحذف", description: `تم فصل ${selectedToDelete.size} طالب عن عام ${currentYear}هـ مع إبقائهم في السجل العام`, variant: "destructive" });
+        toast({
+          title: "تم الحذف",
+          description: `تم فصل ${selectedToDelete.size} طالب عن عام ${currentYear}هـ مع إبقائهم في السجل العام`,
+          variant: "destructive",
+        });
         await loadData();
       }
     } finally {
@@ -329,13 +362,17 @@ const Competition = () => {
 
   const handleSyncFromCloud = async () => {
     if (!online) {
-      toast({ title: "لا يوجد اتصال", description: "يرجى الاتصال بالإنترنت أولاً", variant: "destructive" });
+      toast({
+        title: "لا يوجد اتصال",
+        description: "يرجى الاتصال بالإنترنت أولاً",
+        variant: "destructive",
+      });
       return;
     }
     setSyncing(true);
     setSyncProgress({ current: 0, total: 4, label: "بدء التنزيل" });
     const success = await syncFromCloud((current, total, label) =>
-      setSyncProgress({ current, total, label })
+      setSyncProgress({ current, total, label }),
     );
     setSyncProgress(null);
     if (success) {
@@ -365,15 +402,21 @@ const Competition = () => {
     if (changed) {
       setStudents((prev) => [...prev]);
     }
-  }, [students.length, dataYearKey]);
+  }, [students, dataYearKey]);
 
   const activeStudents = students.filter((s) => {
     const parts = parseFloat(s.yearData?.parts || "0");
     const total = parseFloat(s.yearData?.total || "0");
     return parts > 0 || total > 0;
   }).length;
-  const totalParts = students.reduce((sum, s) => sum + (parseFloat(s.yearData?.parts || "0") || 0), 0);
-  const totalPrizes = students.reduce((sum, s) => sum + (parseFloat(s.yearData?.prize || "0") || 0), 0);
+  const totalParts = students.reduce(
+    (sum, s) => sum + (parseFloat(s.yearData?.parts || "0") || 0),
+    0,
+  );
+  const totalPrizes = students.reduce(
+    (sum, s) => sum + (parseFloat(s.yearData?.prize || "0") || 0),
+    0,
+  );
   const dirtyCount = Object.keys(dirtyMap).length;
 
   return (
@@ -391,17 +434,29 @@ const Competition = () => {
           <div className="flex flex-col gap-5 py-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex items-center gap-3">
               <div className="rounded-3xl bg-white/95 p-2 shadow-xl shadow-black/10 ring-1 ring-white/40">
-                <img src={logo} alt="مركز إنماء الأهلي الخيري" className="h-16 w-16 object-contain sm:h-20 sm:w-20" />
+                <img
+                  src={logo}
+                  alt="مركز إنماء الأهلي الخيري"
+                  className="h-16 w-16 object-contain sm:h-20 sm:w-20"
+                />
               </div>
               <div>
                 <div className="flex items-center gap-2">
                   <Link to="/">
-                    <Button variant="ghost" size="sm" className="h-7 text-xs text-white/90 gap-1 rounded-full bg-white/10 hover:bg-white/20">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs text-white/90 gap-1 rounded-full bg-white/10 hover:bg-white/20"
+                    >
                       <GraduationCap className="h-3.5 w-3.5" /> سجل الطلاب الرسمي
                     </Button>
                   </Link>
                   <Link to="/">
-                    <Button variant="ghost" size="sm" className="h-7 text-xs text-white/90 gap-1 rounded-full bg-white/10 hover:bg-white/20">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs text-white/90 gap-1 rounded-full bg-white/10 hover:bg-white/20"
+                    >
                       <ArrowRight className="h-3.5 w-3.5" /> رجوع
                     </Button>
                   </Link>
@@ -418,7 +473,9 @@ const Competition = () => {
             <div className="flex flex-col gap-2 rounded-3xl bg-white/10 p-3 text-sm text-white/85 ring-1 ring-white/15 backdrop-blur sm:min-w-52">
               <div className="flex items-center justify-between gap-4">
                 <span className="font-semibold">العام: {currentYear}هـ</span>
-                <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs ${online ? "bg-emerald-300/20 text-emerald-50" : "bg-red-300/20 text-red-50"}`}>
+                <span
+                  className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs ${online ? "bg-emerald-300/20 text-emerald-50" : "bg-red-300/20 text-red-50"}`}
+                >
                   {online ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
                   {online ? "متصل" : "غير متصل"}
                 </span>
@@ -459,8 +516,12 @@ const Competition = () => {
           <div className="rounded-[1.75rem] border border-white/70 bg-card/88 p-4 shadow-xl shadow-primary/5 backdrop-blur sm:p-5">
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-lg font-black text-foreground sm:text-xl">لوحة تحكم المسابقة</h2>
-                <p className="text-sm text-muted-foreground">إدارة كشوفات عام {currentYear}هـ · {competitionLabel}</p>
+                <h2 className="text-lg font-black text-foreground sm:text-xl">
+                  لوحة تحكم المسابقة
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  إدارة كشوفات عام {currentYear}هـ · {competitionLabel}
+                </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <div className="flex items-center gap-1 rounded-2xl bg-secondary p-1 ring-1 ring-primary/10">
@@ -489,7 +550,10 @@ const Competition = () => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {Array.from({ length: END_YEAR - START_YEAR + 1 }, (_, i) => START_YEAR + i).map((year) => (
+                      {Array.from(
+                        { length: END_YEAR - START_YEAR + 1 },
+                        (_, i) => START_YEAR + i,
+                      ).map((year) => (
                         <SelectItem key={year} value={year.toString()}>
                           {year}هـ
                         </SelectItem>
@@ -508,7 +572,9 @@ const Competition = () => {
               >
                 <Save className="h-4 w-4" />
                 {saving ? "جارٍ الحفظ..." : "حفظ التغييرات"}
-                {isDirty && <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs">{dirtyCount}</span>}
+                {isDirty && (
+                  <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs">{dirtyCount}</span>
+                )}
               </Button>
 
               <RecallStudents currentYear={currentYear} onRecalled={loadData} />
@@ -544,9 +610,13 @@ const Competition = () => {
 
             {syncProgress && (
               <div className="mt-2 space-y-1">
-                <Progress value={(syncProgress.current / Math.max(syncProgress.total, 1)) * 100} className="h-2" />
+                <Progress
+                  value={(syncProgress.current / Math.max(syncProgress.total, 1)) * 100}
+                  className="h-2"
+                />
                 <p className="text-xs text-center text-muted-foreground">
-                  {syncProgress.label || "جارٍ المزامنة"}: {syncProgress.current} / {syncProgress.total}
+                  {syncProgress.label || "جارٍ المزامنة"}: {syncProgress.current} /{" "}
+                  {syncProgress.total}
                 </p>
               </div>
             )}
@@ -580,12 +650,20 @@ const Competition = () => {
             <DialogTitle className="text-destructive">حذف بيانات المسابقة</DialogTitle>
           </DialogHeader>
 
-          <RadioGroup value={deleteMode} onValueChange={(v) => setDeleteMode(v as typeof deleteMode)} className="space-y-3">
+          <RadioGroup
+            value={deleteMode}
+            onValueChange={(v) => setDeleteMode(v as typeof deleteMode)}
+            className="space-y-3"
+          >
             <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-border p-3 hover:bg-secondary/50">
               <RadioGroupItem value="year" id="mode-year" className="mt-1" />
               <div>
-                <div className="font-bold">حذف بيانات {competitionLabel} لعام {currentYear}هـ فقط</div>
-                <div className="text-xs text-muted-foreground">تُحذف الدرجات والحفظ لهذا العام فقط، وتبقى بيانات الطلاب وسجلاتهم كما هي</div>
+                <div className="font-bold">
+                  حذف بيانات {competitionLabel} لعام {currentYear}هـ فقط
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  تُحذف الدرجات والحفظ لهذا العام فقط، وتبقى بيانات الطلاب وسجلاتهم كما هي
+                </div>
               </div>
             </label>
 
@@ -600,12 +678,18 @@ const Competition = () => {
                       <p className="p-2 text-xs text-muted-foreground">لا يوجد طلاب بهذا العام</p>
                     ) : (
                       students.map((s) => (
-                        <label key={s.id} className="flex cursor-pointer items-center gap-2 rounded-lg p-1.5 hover:bg-background">
+                        <label
+                          key={s.id}
+                          className="flex cursor-pointer items-center gap-2 rounded-lg p-1.5 hover:bg-background"
+                        >
                           <Checkbox
                             checked={selectedToDelete.has(s.id)}
                             onCheckedChange={() => toggleSelectedToDelete(s.id)}
                           />
-                          <span className="text-sm">{s.name || "بدون اسم"} <span className="text-xs text-muted-foreground">— {s.teacher}</span></span>
+                          <span className="text-sm">
+                            {s.name || "بدون اسم"}{" "}
+                            <span className="text-xs text-muted-foreground">— {s.teacher}</span>
+                          </span>
                         </label>
                       ))
                     )}
@@ -624,7 +708,9 @@ const Competition = () => {
           </RadioGroup>
 
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>إلغاء</Button>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+              إلغاء
+            </Button>
             <Button
               variant="destructive"
               disabled={deleting || (deleteMode === "selected" && selectedToDelete.size === 0)}

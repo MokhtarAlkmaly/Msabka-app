@@ -3,7 +3,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { History, Loader2, Users } from "lucide-react";
 import { listRecallCandidates, recallStudentsToYear, RecallCandidate } from "@/utils/storage";
@@ -46,7 +52,11 @@ export const RecallStudents = ({ currentYear, onRecalled }: Props) => {
   const toggleAll = () => {
     const ids = filtered.map((c) => c.id);
     const allSelected = ids.every((id) => selected.includes(id));
-    setSelected(allSelected ? selected.filter((id) => !ids.includes(id)) : Array.from(new Set([...selected, ...ids])));
+    setSelected(
+      allSelected
+        ? selected.filter((id) => !ids.includes(id))
+        : Array.from(new Set([...selected, ...ids])),
+    );
   };
 
   const handleRecall = async () => {
@@ -79,7 +89,8 @@ export const RecallStudents = ({ currentYear, onRecalled }: Props) => {
         <DialogHeader>
           <DialogTitle>استدعاء طالبات إلى عام {currentYear}هـ</DialogTitle>
           <DialogDescription>
-            اختر الطالبات من الأعوام السابقة، وسيتم تسجيلهن في العام المختار مع نقل الإجمالي التراكمي كـ«حفظ سابق».
+            اختر الطالبات من الأعوام السابقة، وسيتم تسجيلهن في العام المختار مع نقل الإجمالي
+            التراكمي كـ«حفظ سابق».
           </DialogDescription>
         </DialogHeader>
 
@@ -101,7 +112,11 @@ export const RecallStudents = ({ currentYear, onRecalled }: Props) => {
         ) : (
           <>
             <div className="flex items-center justify-between text-sm">
-              <button type="button" onClick={toggleAll} className="font-semibold text-primary hover:underline">
+              <button
+                type="button"
+                onClick={toggleAll}
+                className="font-semibold text-primary hover:underline"
+              >
                 تحديد / إلغاء الكل ({filtered.length})
               </button>
               <span className="inline-flex items-center gap-1 text-muted-foreground">
@@ -114,10 +129,15 @@ export const RecallStudents = ({ currentYear, onRecalled }: Props) => {
                   key={c.id}
                   className="flex cursor-pointer items-center gap-3 rounded-lg p-2 text-sm hover:bg-secondary/50"
                 >
-                  <Checkbox checked={selected.includes(c.id)} onCheckedChange={() => toggle(c.id)} />
+                  <Checkbox
+                    checked={selected.includes(c.id)}
+                    onCheckedChange={() => toggle(c.id)}
+                  />
                   <span className="flex-1 font-semibold">{c.name || "بدون اسم"}</span>
                   <span className="text-xs text-muted-foreground">{c.teacher || "—"}</span>
-                  <span className="rounded-full bg-secondary px-2 py-0.5 text-xs">آخر عام: {c.lastYear}هـ</span>
+                  <span className="rounded-full bg-secondary px-2 py-0.5 text-xs">
+                    آخر عام: {c.lastYear}هـ
+                  </span>
                   <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-bold text-primary">
                     حفظ سابق: {c.baseHifz}
                   </span>
@@ -128,8 +148,16 @@ export const RecallStudents = ({ currentYear, onRecalled }: Props) => {
         )}
 
         <DialogFooter>
-          <Button onClick={handleRecall} disabled={selected.length === 0 || saving} className="gap-2">
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <History className="h-4 w-4" />}
+          <Button
+            onClick={handleRecall}
+            disabled={selected.length === 0 || saving}
+            className="gap-2"
+          >
+            {saving ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <History className="h-4 w-4" />
+            )}
             استدعاء المحدد
           </Button>
         </DialogFooter>

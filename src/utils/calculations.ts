@@ -3,7 +3,7 @@ import { HifzHistory } from "@/types/student";
 // حساب الحفظ السابق: مجموع جميع الأعوام السابقة
 export const calculateBaseHifz = (history: HifzHistory, currentYear: number): number => {
   let total = 0;
-  
+
   // نجمع كل الأعوام التي تسبق العام الحالي
   for (let year = 1441; year < currentYear; year++) {
     const key = `h${year}`;
@@ -24,7 +24,7 @@ export const resolveBaseHifz = (
   storedBaseHifz?: string | number | null,
 ): number => {
   const derived = calculateBaseHifz(history || {}, currentYear);
-  const stored = parseFloat(String(storedBaseHifz ?? '')) || 0;
+  const stored = parseFloat(String(storedBaseHifz ?? "")) || 0;
   return Math.min(Math.max(derived, stored), 30);
 };
 
