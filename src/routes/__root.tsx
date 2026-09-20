@@ -27,9 +27,7 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">
-          تعذر تحميل الصفحة
-        </h1>
+        <h1 className="text-xl font-semibold tracking-tight text-foreground">تعذر تحميل الصفحة</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           حدث خطأ غير متوقع. يمكنك المحاولة مرة أخرى أو العودة إلى الصفحة الرئيسية.
         </p>
@@ -66,8 +64,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "نظام المسابقة الرمضانية - مركز إنماء" },
       {
         name: "description",
-        content:
-          "نظام إدارة المسابقة الرمضانية لحفظ القرآن الكريم - مركز إنماء الأهلي الخيري",
+        content: "نظام إدارة المسابقة الرمضانية لحفظ القرآن الكريم - مركز إنماء الأهلي الخيري",
       },
       { name: "author", content: "مختار الكمالي" },
       { name: "keywords", content: "مسابقة رمضانية, حفظ القرآن, مركز إنماء, تحفيظ القرآن" },
@@ -79,10 +76,24 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:card", content: "summary_large_image" },
       { property: "og:title", content: "نظام المسابقة الرمضانية - مركز إنماء" },
       { name: "twitter:title", content: "نظام المسابقة الرمضانية - مركز إنماء" },
-      { property: "og:description", content: "نظام إدارة المسابقة الرمضانية لحفظ القرآن الكريم - مركز إنماء الأهلي الخيري" },
-      { name: "twitter:description", content: "نظام إدارة المسابقة الرمضانية لحفظ القرآن الكريم - مركز إنماء الأهلي الخيري" },
-      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/mWFry8G8Buho2HzXpjnpDi65haL2/social-images/social-1786984559832-social-image.webp" },
-      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/mWFry8G8Buho2HzXpjnpDi65haL2/social-images/social-1786984559832-social-image.webp" },
+      {
+        property: "og:description",
+        content: "نظام إدارة المسابقة الرمضانية لحفظ القرآن الكريم - مركز إنماء الأهلي الخيري",
+      },
+      {
+        name: "twitter:description",
+        content: "نظام إدارة المسابقة الرمضانية لحفظ القرآن الكريم - مركز إنماء الأهلي الخيري",
+      },
+      {
+        property: "og:image",
+        content:
+          "https://storage.googleapis.com/gpt-engineer-file-uploads/mWFry8G8Buho2HzXpjnpDi65haL2/social-images/social-1786984559832-social-image.webp",
+      },
+      {
+        name: "twitter:image",
+        content:
+          "https://storage.googleapis.com/gpt-engineer-file-uploads/mWFry8G8Buho2HzXpjnpDi65haL2/social-images/social-1786984559832-social-image.webp",
+      },
     ],
     links: [
       { rel: "stylesheet", href: appCss },

@@ -2,13 +2,35 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "@/lib/router-compat";
-import { ArrowRight, Globe2, Plus, Pencil, Trash2, Save, Printer, Calendar, Search } from "lucide-react";
+import {
+  ArrowRight,
+  Globe2,
+  Plus,
+  Pencil,
+  Trash2,
+  Save,
+  Printer,
+  Calendar,
+  Search,
+} from "lucide-react";
 import logo from "@/assets/logo.png";
 import { Student, START_YEAR, END_YEAR, ExternalCompetition } from "@/types/student";
 import {
@@ -150,7 +172,7 @@ const ExternalCompetitions = () => {
         r.competition_name.toLowerCase().includes(q) ||
         r.organizer.toLowerCase().includes(q) ||
         r.category.toLowerCase().includes(q) ||
-        r.rank.toLowerCase().includes(q)
+        r.rank.toLowerCase().includes(q),
     );
   }, [rows, searchQuery]);
 
@@ -169,7 +191,7 @@ const ExternalCompetitions = () => {
         <td><b>${esc(r.rank)}</b></td>
         <td>${esc(r.prize || "—")}</td>
         <td>${esc(r.date || "—")}</td>
-      </tr>`
+      </tr>`,
       )
       .join("");
 
@@ -227,7 +249,8 @@ const ExternalCompetitions = () => {
               المسابقات القرآنية الخارجية
             </h1>
             <p className="text-sm opacity-90 mt-1">
-              توثيق مشاركات طلاب مركز إنماء الأهلي الخيري في المسابقات المحلية والمحافظة والجمهورية والدولية - عام {currentYear}هـ
+              توثيق مشاركات طلاب مركز إنماء الأهلي الخيري في المسابقات المحلية والمحافظة والجمهورية
+              والدولية - عام {currentYear}هـ
             </p>
           </div>
         </div>
@@ -239,11 +262,17 @@ const ExternalCompetitions = () => {
             <Calendar className="h-4 w-4" />
             <span className="text-sm">العام:</span>
             <Select value={currentYear} onValueChange={(v) => void handleYearChange(v)}>
-              <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
-                {Array.from({ length: END_YEAR - START_YEAR + 1 }, (_, i) => START_YEAR + i).map((y) => (
-                  <SelectItem key={y} value={String(y)}>{y}هـ</SelectItem>
-                ))}
+                {Array.from({ length: END_YEAR - START_YEAR + 1 }, (_, i) => START_YEAR + i).map(
+                  (y) => (
+                    <SelectItem key={y} value={String(y)}>
+                      {y}هـ
+                    </SelectItem>
+                  ),
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -307,7 +336,9 @@ const ExternalCompetitions = () => {
                       <Badge className="bg-sky-600 text-white">{item.rank}</Badge>
                     </td>
                     <td className="px-3 py-2 text-right">{item.prize || "—"}</td>
-                    <td className="px-3 py-2 text-center text-xs text-muted-foreground">{item.date}</td>
+                    <td className="px-3 py-2 text-center text-xs text-muted-foreground">
+                      {item.date}
+                    </td>
                     <td className="px-3 py-2 text-center">
                       <div className="flex gap-1 justify-center">
                         <Button size="sm" variant="secondary" onClick={() => openEdit(item)}>
@@ -330,7 +361,9 @@ const ExternalCompetitions = () => {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent dir="rtl" className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editingId ? "تعديل المشاركة الخارجية" : "تسجيل مشاركة بمسابقة خارجية"}</DialogTitle>
+            <DialogTitle>
+              {editingId ? "تعديل المشاركة الخارجية" : "تسجيل مشاركة بمسابقة خارجية"}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 text-xs">
             <div>
@@ -346,10 +379,14 @@ const ExternalCompetitions = () => {
                   });
                 }}
               >
-                <SelectTrigger className="h-9 mt-1"><SelectValue placeholder="اختر الطالب من السجل" /></SelectTrigger>
+                <SelectTrigger className="h-9 mt-1">
+                  <SelectValue placeholder="اختر الطالب من السجل" />
+                </SelectTrigger>
                 <SelectContent className="max-h-64">
                   {students.map((s) => (
-                    <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
+                    <SelectItem key={s.id} value={String(s.id)}>
+                      {s.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -389,10 +426,17 @@ const ExternalCompetitions = () => {
               <div>
                 <label className="font-bold">العام</label>
                 <Select value={form.year} onValueChange={(v) => setForm({ ...form, year: v })}>
-                  <SelectTrigger className="h-9 mt-1"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-9 mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
-                    {Array.from({ length: END_YEAR - START_YEAR + 1 }, (_, i) => START_YEAR + i).map((y) => (
-                      <SelectItem key={y} value={String(y)}>{y}هـ</SelectItem>
+                    {Array.from(
+                      { length: END_YEAR - START_YEAR + 1 },
+                      (_, i) => START_YEAR + i,
+                    ).map((y) => (
+                      <SelectItem key={y} value={String(y)}>
+                        {y}هـ
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -452,8 +496,12 @@ const ExternalCompetitions = () => {
             </div>
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>إلغاء</Button>
-            <Button onClick={save} className="gap-1"><Save className="h-4 w-4" /> حفظ</Button>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+              إلغاء
+            </Button>
+            <Button onClick={save} className="gap-1">
+              <Save className="h-4 w-4" /> حفظ
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -5,7 +5,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
@@ -83,7 +90,9 @@ const Settings = () => {
   const [newColumnName, setNewColumnName] = useState("");
   const [newColumnType, setNewColumnType] = useState<NonNullable<CustomColumnDef["type"]>>("text");
   const [advancedDeleteOpen, setAdvancedDeleteOpen] = useState(false);
-  const [advancedDeleteMode, setAdvancedDeleteMode] = useState<"year" | "students" | "database">("year");
+  const [advancedDeleteMode, setAdvancedDeleteMode] = useState<"year" | "students" | "database">(
+    "year",
+  );
   const [advancedDeleteYear, setAdvancedDeleteYear] = useState(String(START_YEAR));
   const [yearStudents, setYearStudents] = useState<import("@/types/student").Student[]>([]);
   const [selectedYearStudents, setSelectedYearStudents] = useState<Set<number>>(new Set());
@@ -413,300 +422,303 @@ const Settings = () => {
         ) : (
           <>
             <div className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
-            <div className="space-y-5">
-              <Card className="rounded-[1.75rem] border-white/70 bg-card/90 shadow-xl shadow-primary/5">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <UserCog className="h-5 w-5 text-primary" /> الملف الشخصي
-                  </CardTitle>
-                  <CardDescription>
-                    عدّل الاسم الظاهر لحسابك، وسيظهر في إدارة المستخدمين.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="profile-name">الاسم الظاهر</Label>
-                    <Input
-                      id="profile-name"
-                      value={profileName}
-                      onChange={(event) => setProfileName(event.target.value)}
-                      placeholder="اسم المستخدم"
-                      className="h-11 rounded-2xl"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="profile-email">البريد الإلكتروني</Label>
-                    <Input
-                      id="profile-email"
-                      value={profileEmail}
-                      readOnly
-                      dir="ltr"
-                      className="h-11 rounded-2xl bg-muted/70 text-muted-foreground"
-                    />
-                  </div>
-                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-muted/60 p-3">
-                    <div className="flex items-center gap-2 text-sm">
-                      <Shield className="h-4 w-4 text-primary" />
-                      <span>صلاحية الحساب</span>
+              <div className="space-y-5">
+                <Card className="rounded-[1.75rem] border-white/70 bg-card/90 shadow-xl shadow-primary/5">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <UserCog className="h-5 w-5 text-primary" /> الملف الشخصي
+                    </CardTitle>
+                    <CardDescription>
+                      عدّل الاسم الظاهر لحسابك، وسيظهر في إدارة المستخدمين.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="profile-name">الاسم الظاهر</Label>
+                      <Input
+                        id="profile-name"
+                        value={profileName}
+                        onChange={(event) => setProfileName(event.target.value)}
+                        placeholder="اسم المستخدم"
+                        className="h-11 rounded-2xl"
+                      />
                     </div>
-                    <Badge variant={isAdmin ? "default" : "secondary"}>
-                      {isAdmin ? "مسؤول" : "مستخدم"}
-                    </Badge>
-                  </div>
-                  <Button
-                    onClick={() => void saveProfile()}
-                    disabled={savingProfile}
-                    className="w-full gap-2 rounded-2xl"
-                  >
-                    <Save className="h-4 w-4" />
-                    {savingProfile ? "جارٍ الحفظ..." : "حفظ الملف الشخصي"}
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card className="rounded-[1.75rem] border-white/70 bg-card/90 shadow-xl shadow-primary/5">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <CalendarDays className="h-5 w-5 text-primary" /> العام النشط
-                  </CardTitle>
-                  <CardDescription>
-                    اختر السنة الهجرية التي تُفتح افتراضياً في صفحات النظام.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <Select
-                    value={currentYear}
-                    onValueChange={(value) => void saveYear(value)}
-                    disabled={savingYear}
-                  >
-                    <SelectTrigger className="h-11 rounded-2xl">
-                      <SelectValue placeholder="اختر العام" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {years.map((year) => (
-                        <SelectItem key={year} value={String(year)}>
-                          {year}هـ
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs leading-6 text-muted-foreground">
-                    تغيير العام هنا يؤثر على الصفحات التي تعتمد العام النشط مثل السجل والمسابقات
-                    والمصروفات.
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="space-y-5">
-              <Card className="rounded-[1.75rem] border-white/70 bg-card/90 shadow-xl shadow-primary/5">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <CheckCircle2 className="h-5 w-5 text-primary" /> حالات الطلاب
-                  </CardTitle>
-                  <CardDescription>
-                    أضف الحالات التي تريد ظهورها في خانة حالة الطالب.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex flex-col gap-2 sm:flex-row">
-                    <Input
-                      value={newStatus}
-                      onChange={(event) => setNewStatus(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          event.preventDefault();
-                          void addStatus();
-                        }
-                      }}
-                      placeholder="مثال: مكفول، متفوق، منقطع"
-                      disabled={readOnly}
-                      className="h-11 rounded-2xl"
-                    />
+                    <div className="space-y-2">
+                      <Label htmlFor="profile-email">البريد الإلكتروني</Label>
+                      <Input
+                        id="profile-email"
+                        value={profileEmail}
+                        readOnly
+                        dir="ltr"
+                        className="h-11 rounded-2xl bg-muted/70 text-muted-foreground"
+                      />
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-muted/60 p-3">
+                      <div className="flex items-center gap-2 text-sm">
+                        <Shield className="h-4 w-4 text-primary" />
+                        <span>صلاحية الحساب</span>
+                      </div>
+                      <Badge variant={isAdmin ? "default" : "secondary"}>
+                        {isAdmin ? "مسؤول" : "مستخدم"}
+                      </Badge>
+                    </div>
                     <Button
-                      onClick={() => void addStatus()}
-                      disabled={readOnly || !newStatus.trim()}
-                      className="gap-2 rounded-2xl"
+                      onClick={() => void saveProfile()}
+                      disabled={savingProfile}
+                      className="w-full gap-2 rounded-2xl"
                     >
-                      <Plus className="h-4 w-4" /> إضافة
+                      <Save className="h-4 w-4" />
+                      {savingProfile ? "جارٍ الحفظ..." : "حفظ الملف الشخصي"}
                     </Button>
-                  </div>
+                  </CardContent>
+                </Card>
 
-                  <div className="flex flex-wrap gap-2">
-                    {statuses.map((status) => (
-                      <span
-                        key={status}
-                        className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary"
-                      >
-                        {status}
-                        <button
-                          type="button"
-                          onClick={() => void deleteStatus(status)}
-                          disabled={readOnly || statuses.length <= 1}
-                          className="rounded-full p-0.5 text-primary/70 hover:bg-primary/15 hover:text-primary disabled:pointer-events-none disabled:opacity-40"
-                          aria-label={`حذف ${status}`}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-
-                  <Button
-                    variant="outline"
-                    onClick={() => void resetStatuses()}
-                    disabled={readOnly}
-                    className="w-full gap-2 rounded-2xl"
-                  >
-                    <RotateCcw className="h-4 w-4" /> استعادة الحالات الافتراضية
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card className="rounded-[1.75rem] border-white/70 bg-card/90 shadow-xl shadow-primary/5">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <Columns3 className="h-5 w-5 text-primary" /> الأعمدة المخصصة
-                  </CardTitle>
-                  <CardDescription>أضف أعمدة إضافية تظهر داخل سجل الطلاب الرسمي.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid gap-2 sm:grid-cols-[1fr_9rem_auto]">
-                    <Input
-                      value={newColumnName}
-                      onChange={(event) => setNewColumnName(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          event.preventDefault();
-                          void addColumn();
-                        }
-                      }}
-                      placeholder="اسم العمود"
-                      disabled={readOnly}
-                      className="h-11 rounded-2xl"
-                    />
+                <Card className="rounded-[1.75rem] border-white/70 bg-card/90 shadow-xl shadow-primary/5">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <CalendarDays className="h-5 w-5 text-primary" /> العام النشط
+                    </CardTitle>
+                    <CardDescription>
+                      اختر السنة الهجرية التي تُفتح افتراضياً في صفحات النظام.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
                     <Select
-                      value={newColumnType}
-                      onValueChange={(value) =>
-                        setNewColumnType(value as NonNullable<CustomColumnDef["type"]>)
-                      }
-                      disabled={readOnly}
+                      value={currentYear}
+                      onValueChange={(value) => void saveYear(value)}
+                      disabled={savingYear}
                     >
                       <SelectTrigger className="h-11 rounded-2xl">
-                        <SelectValue />
+                        <SelectValue placeholder="اختر العام" />
                       </SelectTrigger>
                       <SelectContent>
-                        {Object.entries(columnTypeLabels).map(([value, label]) => (
-                          <SelectItem key={value} value={value}>
-                            {label}
+                        {years.map((year) => (
+                          <SelectItem key={year} value={String(year)}>
+                            {year}هـ
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    <Button
-                      onClick={() => void addColumn()}
-                      disabled={readOnly || !newColumnName.trim()}
-                      className="gap-2 rounded-2xl"
-                    >
-                      <Plus className="h-4 w-4" /> إضافة
-                    </Button>
-                  </div>
+                    <p className="text-xs leading-6 text-muted-foreground">
+                      تغيير العام هنا يؤثر على الصفحات التي تعتمد العام النشط مثل السجل والمسابقات
+                      والمصروفات.
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
 
-                  {columns.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed bg-muted/40 p-5 text-center text-sm text-muted-foreground">
-                      لا توجد أعمدة مخصصة بعد.
+              <div className="space-y-5">
+                <Card className="rounded-[1.75rem] border-white/70 bg-card/90 shadow-xl shadow-primary/5">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <CheckCircle2 className="h-5 w-5 text-primary" /> حالات الطلاب
+                    </CardTitle>
+                    <CardDescription>
+                      أضف الحالات التي تريد ظهورها في خانة حالة الطالب.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <Input
+                        value={newStatus}
+                        onChange={(event) => setNewStatus(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            void addStatus();
+                          }
+                        }}
+                        placeholder="مثال: مكفول، متفوق، منقطع"
+                        disabled={readOnly}
+                        className="h-11 rounded-2xl"
+                      />
+                      <Button
+                        onClick={() => void addStatus()}
+                        disabled={readOnly || !newStatus.trim()}
+                        className="gap-2 rounded-2xl"
+                      >
+                        <Plus className="h-4 w-4" /> إضافة
+                      </Button>
                     </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {columns.map((column) => (
-                        <div
-                          key={column.id}
-                          className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border/70 bg-background/70 px-3 py-2"
+
+                    <div className="flex flex-wrap gap-2">
+                      {statuses.map((status) => (
+                        <span
+                          key={status}
+                          className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary"
                         >
-                          <div>
-                            <div className="font-semibold">{column.name}</div>
-                            <div className="text-xs text-muted-foreground">
-                              النوع: {columnTypeLabels[column.type || "text"]}
-                            </div>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => void deleteColumn(column.id)}
-                            disabled={readOnly}
-                            className="gap-1 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          {status}
+                          <button
+                            type="button"
+                            onClick={() => void deleteStatus(status)}
+                            disabled={readOnly || statuses.length <= 1}
+                            className="rounded-full p-0.5 text-primary/70 hover:bg-primary/15 hover:text-primary disabled:pointer-events-none disabled:opacity-40"
+                            aria-label={`حذف ${status}`}
                           >
-                            <Trash2 className="h-4 w-4" /> حذف
-                          </Button>
-                        </div>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </span>
                       ))}
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          </div>
 
-          <Card className="rounded-[1.75rem] border-destructive/25 bg-destructive/[0.03] shadow-xl shadow-destructive/5">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg text-destructive">
-                <AlertTriangle className="h-5 w-5" /> الحذف المتقدم
-              </CardTitle>
-              <CardDescription>
-                استخدم هذه الأدوات بحذر. حذف عام أو طالب من عام لا يحذف السجل العام للطالب،
-                بينما حذف قاعدة البيانات يحذف كل بيانات الحساب نهائياً.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-3 md:grid-cols-3">
-              <Button
-                variant="outline"
-                disabled={readOnly}
-                onClick={() => openAdvancedDelete("year")}
-                className="h-auto min-h-24 flex-col items-start gap-2 rounded-2xl border-destructive/30 p-4 text-right hover:bg-destructive/5"
-              >
-                <CalendarDays className="h-5 w-5 text-destructive" />
-                <span className="font-bold">حذف عام كامل</span>
-                <span className="text-xs font-normal leading-5 text-muted-foreground">
-                  احذف كل بيانات عام محدد، مع إبقاء الطلاب في السجل العام.
-                </span>
-              </Button>
-              <Button
-                variant="outline"
-                disabled={readOnly}
-                onClick={() => openAdvancedDelete("students")}
-                className="h-auto min-h-24 flex-col items-start gap-2 rounded-2xl border-destructive/30 p-4 text-right hover:bg-destructive/5"
-              >
-                <UsersRound className="h-5 w-5 text-destructive" />
-                <span className="font-bold">حذف طلاب من عام</span>
-                <span className="text-xs font-normal leading-5 text-muted-foreground">
-                  اختر عدة طلاب لفصلهم من عام واحد فقط دون حذف سجلاتهم العامة.
-                </span>
-              </Button>
-              <Button
-                variant="outline"
-                disabled={readOnly}
-                onClick={() => openAdvancedDelete("database")}
-                className="h-auto min-h-24 flex-col items-start gap-2 rounded-2xl border-destructive/50 p-4 text-right text-destructive hover:bg-destructive/10 hover:text-destructive"
-              >
-                <Database className="h-5 w-5" />
-                <span className="font-bold">حذف قاعدة البيانات كاملة</span>
-                <span className="text-xs font-normal leading-5 text-muted-foreground">
-                  يحذف جميع بيانات الحساب والملفات المرفوعة نهائياً.
-                </span>
-              </Button>
-            </CardContent>
-          </Card>
+                    <Button
+                      variant="outline"
+                      onClick={() => void resetStatuses()}
+                      disabled={readOnly}
+                      className="w-full gap-2 rounded-2xl"
+                    >
+                      <RotateCcw className="h-4 w-4" /> استعادة الحالات الافتراضية
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                <Card className="rounded-[1.75rem] border-white/70 bg-card/90 shadow-xl shadow-primary/5">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <Columns3 className="h-5 w-5 text-primary" /> الأعمدة المخصصة
+                    </CardTitle>
+                    <CardDescription>أضف أعمدة إضافية تظهر داخل سجل الطلاب الرسمي.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid gap-2 sm:grid-cols-[1fr_9rem_auto]">
+                      <Input
+                        value={newColumnName}
+                        onChange={(event) => setNewColumnName(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            void addColumn();
+                          }
+                        }}
+                        placeholder="اسم العمود"
+                        disabled={readOnly}
+                        className="h-11 rounded-2xl"
+                      />
+                      <Select
+                        value={newColumnType}
+                        onValueChange={(value) =>
+                          setNewColumnType(value as NonNullable<CustomColumnDef["type"]>)
+                        }
+                        disabled={readOnly}
+                      >
+                        <SelectTrigger className="h-11 rounded-2xl">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(columnTypeLabels).map(([value, label]) => (
+                            <SelectItem key={value} value={value}>
+                              {label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        onClick={() => void addColumn()}
+                        disabled={readOnly || !newColumnName.trim()}
+                        className="gap-2 rounded-2xl"
+                      >
+                        <Plus className="h-4 w-4" /> إضافة
+                      </Button>
+                    </div>
+
+                    {columns.length === 0 ? (
+                      <div className="rounded-2xl border border-dashed bg-muted/40 p-5 text-center text-sm text-muted-foreground">
+                        لا توجد أعمدة مخصصة بعد.
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {columns.map((column) => (
+                          <div
+                            key={column.id}
+                            className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border/70 bg-background/70 px-3 py-2"
+                          >
+                            <div>
+                              <div className="font-semibold">{column.name}</div>
+                              <div className="text-xs text-muted-foreground">
+                                النوع: {columnTypeLabels[column.type || "text"]}
+                              </div>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => void deleteColumn(column.id)}
+                              disabled={readOnly}
+                              className="gap-1 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4" /> حذف
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+
+            <Card className="rounded-[1.75rem] border-destructive/25 bg-destructive/[0.03] shadow-xl shadow-destructive/5">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg text-destructive">
+                  <AlertTriangle className="h-5 w-5" /> الحذف المتقدم
+                </CardTitle>
+                <CardDescription>
+                  استخدم هذه الأدوات بحذر. حذف عام أو طالب من عام لا يحذف السجل العام للطالب، بينما
+                  حذف قاعدة البيانات يحذف كل بيانات الحساب نهائياً.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-3 md:grid-cols-3">
+                <Button
+                  variant="outline"
+                  disabled={readOnly}
+                  onClick={() => openAdvancedDelete("year")}
+                  className="h-auto min-h-24 flex-col items-start gap-2 rounded-2xl border-destructive/30 p-4 text-right hover:bg-destructive/5"
+                >
+                  <CalendarDays className="h-5 w-5 text-destructive" />
+                  <span className="font-bold">حذف عام كامل</span>
+                  <span className="text-xs font-normal leading-5 text-muted-foreground">
+                    احذف كل بيانات عام محدد، مع إبقاء الطلاب في السجل العام.
+                  </span>
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={readOnly}
+                  onClick={() => openAdvancedDelete("students")}
+                  className="h-auto min-h-24 flex-col items-start gap-2 rounded-2xl border-destructive/30 p-4 text-right hover:bg-destructive/5"
+                >
+                  <UsersRound className="h-5 w-5 text-destructive" />
+                  <span className="font-bold">حذف طلاب من عام</span>
+                  <span className="text-xs font-normal leading-5 text-muted-foreground">
+                    اختر عدة طلاب لفصلهم من عام واحد فقط دون حذف سجلاتهم العامة.
+                  </span>
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={readOnly}
+                  onClick={() => openAdvancedDelete("database")}
+                  className="h-auto min-h-24 flex-col items-start gap-2 rounded-2xl border-destructive/50 p-4 text-right text-destructive hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <Database className="h-5 w-5" />
+                  <span className="font-bold">حذف قاعدة البيانات كاملة</span>
+                  <span className="text-xs font-normal leading-5 text-muted-foreground">
+                    يحذف جميع بيانات الحساب والملفات المرفوعة نهائياً.
+                  </span>
+                </Button>
+              </CardContent>
+            </Card>
           </>
         )}
       </main>
 
-      <Dialog open={advancedDeleteOpen} onOpenChange={(open) => {
-        if (!deletingAdvanced) setAdvancedDeleteOpen(open);
-        if (!open) {
-          setDeleteConfirmation("");
-          setSelectedYearStudents(new Set());
-        }
-      }}>
+      <Dialog
+        open={advancedDeleteOpen}
+        onOpenChange={(open) => {
+          if (!deletingAdvanced) setAdvancedDeleteOpen(open);
+          if (!open) {
+            setDeleteConfirmation("");
+            setSelectedYearStudents(new Set());
+          }
+        }}
+      >
         <DialogContent dir="rtl" className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-destructive">
@@ -726,7 +738,9 @@ const Settings = () => {
                 </SelectTrigger>
                 <SelectContent>
                   {years.map((year) => (
-                    <SelectItem key={year} value={String(year)}>{year}هـ</SelectItem>
+                    <SelectItem key={year} value={String(year)}>
+                      {year}هـ
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -744,20 +758,29 @@ const Settings = () => {
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <Label>طلاب عام {advancedDeleteYear}هـ</Label>
-                <span className="text-xs text-muted-foreground">المحدد: {selectedYearStudents.size}</span>
+                <span className="text-xs text-muted-foreground">
+                  المحدد: {selectedYearStudents.size}
+                </span>
               </div>
               <div className="max-h-56 space-y-1 overflow-y-auto rounded-2xl border bg-muted/30 p-2">
                 {yearStudents.length === 0 ? (
-                  <p className="p-4 text-center text-sm text-muted-foreground">لا يوجد طلاب مسجلون في هذا العام.</p>
+                  <p className="p-4 text-center text-sm text-muted-foreground">
+                    لا يوجد طلاب مسجلون في هذا العام.
+                  </p>
                 ) : (
                   yearStudents.map((student) => (
-                    <label key={student.id} className="flex cursor-pointer items-center gap-2 rounded-xl p-2 hover:bg-background">
+                    <label
+                      key={student.id}
+                      className="flex cursor-pointer items-center gap-2 rounded-xl p-2 hover:bg-background"
+                    >
                       <Checkbox
                         checked={selectedYearStudents.has(student.id)}
                         onCheckedChange={() => toggleSelectedYearStudent(student.id)}
                       />
                       <span className="text-sm">{student.name || "بدون اسم"}</span>
-                      {student.teacher && <span className="text-xs text-muted-foreground">— {student.teacher}</span>}
+                      {student.teacher && (
+                        <span className="text-xs text-muted-foreground">— {student.teacher}</span>
+                      )}
                     </label>
                   ))
                 )}
@@ -767,7 +790,8 @@ const Settings = () => {
 
           {advancedDeleteMode === "database" && (
             <div className="rounded-2xl border border-destructive/40 bg-destructive/10 p-3 text-sm leading-6 text-destructive">
-              سيُحذف الطلاب والسجلات الأكاديمية وكل البيانات السنوية والإعدادات والوسائط من الحساب. لا يمكن استعادة هذه البيانات.
+              سيُحذف الطلاب والسجلات الأكاديمية وكل البيانات السنوية والإعدادات والوسائط من الحساب.
+              لا يمكن استعادة هذه البيانات.
             </div>
           )}
 
@@ -786,7 +810,13 @@ const Settings = () => {
           </div>
 
           <DialogFooter className="gap-2">
-            <Button variant="outline" disabled={deletingAdvanced} onClick={() => setAdvancedDeleteOpen(false)}>إلغاء</Button>
+            <Button
+              variant="outline"
+              disabled={deletingAdvanced}
+              onClick={() => setAdvancedDeleteOpen(false)}
+            >
+              إلغاء
+            </Button>
             <Button
               variant="destructive"
               disabled={

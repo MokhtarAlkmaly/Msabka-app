@@ -5,14 +5,14 @@ import { analyzeStudents, getAlertStats } from "@/utils/notifications";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { 
-  Bell, 
-  Award, 
-  AlertTriangle, 
-  UserX, 
-  TrendingUp, 
-  ChevronDown, 
-  ChevronUp 
+import {
+  Bell,
+  Award,
+  AlertTriangle,
+  UserX,
+  TrendingUp,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -30,7 +30,7 @@ export const NotificationSystem = ({ students, currentYear }: Props) => {
 
   const filteredAlerts = useMemo(() => {
     if (selectedType === "all") return alerts;
-    return alerts.filter(a => a.type === selectedType);
+    return alerts.filter((a) => a.type === selectedType);
   }, [alerts, selectedType]);
 
   if (alerts.length === 0) {
@@ -70,7 +70,7 @@ export const NotificationSystem = ({ students, currentYear }: Props) => {
   return (
     <div className="bg-card rounded-lg border border-border shadow-sm overflow-hidden print:hidden">
       {/* Header */}
-      <div 
+      <div
         className="flex items-center justify-between p-4 cursor-pointer hover:bg-accent/50 transition-colors"
         onClick={() => setIsExpanded(!isExpanded)}
       >
@@ -101,7 +101,7 @@ export const NotificationSystem = ({ students, currentYear }: Props) => {
               {stats.inactive} غير نشطة
             </Badge>
           )}
-          
+
           {isExpanded ? (
             <ChevronUp className="h-5 w-5 text-muted-foreground" />
           ) : (
@@ -127,9 +127,7 @@ export const NotificationSystem = ({ students, currentYear }: Props) => {
                 size="sm"
                 variant={selectedType === "excellent" ? "default" : "outline"}
                 onClick={() => setSelectedType("excellent")}
-                className={cn(
-                  selectedType === "excellent" && "bg-green-600 hover:bg-green-700"
-                )}
+                className={cn(selectedType === "excellent" && "bg-green-600 hover:bg-green-700")}
               >
                 <Award className="h-3 w-3 ml-1" />
                 متميزات ({stats.excellent})
@@ -140,9 +138,7 @@ export const NotificationSystem = ({ students, currentYear }: Props) => {
                 size="sm"
                 variant={selectedType === "good" ? "default" : "outline"}
                 onClick={() => setSelectedType("good")}
-                className={cn(
-                  selectedType === "good" && "bg-blue-600 hover:bg-blue-700"
-                )}
+                className={cn(selectedType === "good" && "bg-blue-600 hover:bg-blue-700")}
               >
                 <TrendingUp className="h-3 w-3 ml-1" />
                 جيدات ({stats.good})
@@ -154,7 +150,7 @@ export const NotificationSystem = ({ students, currentYear }: Props) => {
                 variant={selectedType === "needs-attention" ? "default" : "outline"}
                 onClick={() => setSelectedType("needs-attention")}
                 className={cn(
-                  selectedType === "needs-attention" && "bg-amber-600 hover:bg-amber-700"
+                  selectedType === "needs-attention" && "bg-amber-600 hover:bg-amber-700",
                 )}
               >
                 <AlertTriangle className="h-3 w-3 ml-1" />
@@ -166,9 +162,7 @@ export const NotificationSystem = ({ students, currentYear }: Props) => {
                 size="sm"
                 variant={selectedType === "inactive" ? "default" : "outline"}
                 onClick={() => setSelectedType("inactive")}
-                className={cn(
-                  selectedType === "inactive" && "bg-gray-600 hover:bg-gray-700"
-                )}
+                className={cn(selectedType === "inactive" && "bg-gray-600 hover:bg-gray-700")}
               >
                 <UserX className="h-3 w-3 ml-1" />
                 غير نشطات ({stats.inactive})

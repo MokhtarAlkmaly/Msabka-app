@@ -5,8 +5,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 
-const SANDBOX =
-  process.env.LOVABLE_SANDBOX === "1" || !!process.env.DEV_SERVER__PROJECT_PATH;
+const SANDBOX = process.env.LOVABLE_SANDBOX === "1" || !!process.env.DEV_SERVER__PROJECT_PATH;
 if (SANDBOX) {
   console.log("[env-check] داخل بيئة Lovable — تخطي الفحص.");
   process.exit(0);
@@ -39,11 +38,7 @@ function loadEnvFile(filePath) {
 const fileEnv = loadEnvFile(resolve(process.cwd(), ".env"));
 const env = { ...fileEnv, ...process.env };
 
-const required = [
-  "VITE_SUPABASE_URL",
-  "VITE_SUPABASE_PUBLISHABLE_KEY",
-  "VITE_SUPABASE_PROJECT_ID",
-];
+const required = ["VITE_SUPABASE_URL", "VITE_SUPABASE_PUBLISHABLE_KEY", "VITE_SUPABASE_PROJECT_ID"];
 
 const missing = required.filter((key) => !env[key]);
 
@@ -54,10 +49,10 @@ if (missing.length > 0) {
   console.error("\n   الحل:");
   console.error("   • محليًا: أضفها إلى ملف .env (راجع .env.example).");
   console.error(
-    "   • على Vercel: Project Settings → Environment Variables، أضف المتغيرات الناقصة ثم أعِد النشر."
+    "   • على Vercel: Project Settings → Environment Variables، أضف المتغيرات الناقصة ثم أعِد النشر.",
   );
   console.error(
-    "   • أو عيّنها مؤقتًا: VITE_SUPABASE_URL=... VITE_SUPABASE_PUBLISHABLE_KEY=... npm run build\n"
+    "   • أو عيّنها مؤقتًا: VITE_SUPABASE_URL=... VITE_SUPABASE_PUBLISHABLE_KEY=... npm run build\n",
   );
   process.exit(1);
 }

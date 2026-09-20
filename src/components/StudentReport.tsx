@@ -1,6 +1,12 @@
 import { useState, useRef } from "react";
 import { Student, START_YEAR, END_YEAR, HifzHistory } from "@/types/student";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FileText, Printer } from "lucide-react";
@@ -33,11 +39,14 @@ export const StudentReport = ({ student }: Props) => {
   const [reports, setReports] = useState<YearReport[]>([]);
   const reportRef = useRef<HTMLDivElement>(null);
 
-  const availableYears = Array.from({ length: END_YEAR - START_YEAR + 1 }, (_, i) => START_YEAR + i);
+  const availableYears = Array.from(
+    { length: END_YEAR - START_YEAR + 1 },
+    (_, i) => START_YEAR + i,
+  );
 
   const toggleYear = (year: number) => {
-    setSelectedYears(prev =>
-      prev.includes(year) ? prev.filter(y => y !== year) : [...prev, year].sort()
+    setSelectedYears((prev) =>
+      prev.includes(year) ? prev.filter((y) => y !== year) : [...prev, year].sort(),
     );
   };
 
@@ -48,7 +57,7 @@ export const StudentReport = ({ student }: Props) => {
   const generateReport = async (): Promise<YearReport[]> => {
     const history = await loadHifzHistory(student.id);
     const results: YearReport[] = [];
-    
+
     for (const year of selectedYears) {
       const yearData = await loadYearData(year.toString(), student.id);
       const baseHifz = resolveBaseHifz(history, year, yearData.baseHifz);
@@ -61,11 +70,21 @@ export const StudentReport = ({ student }: Props) => {
       const { grade, pricePerPart } = calculateGrade(totalScore);
       const prize = calculatePrize(parts, pricePerPart);
       const isActive = parts > 0 || totalScore > 0;
-      const statusPrize = parseFloat(yearData.statusPrize || '0');
+      const statusPrize = parseFloat(yearData.statusPrize || "0");
 
       results.push({
-        year, baseHifz, parts, totalHifz, annual, recitation, memorization,
-        totalScore, grade, prize, statusPrize, isActive,
+        year,
+        baseHifz,
+        parts,
+        totalHifz,
+        annual,
+        recitation,
+        memorization,
+        totalScore,
+        grade,
+        prize,
+        statusPrize,
+        isActive,
       });
     }
     return results;
@@ -81,21 +100,25 @@ export const StudentReport = ({ student }: Props) => {
     const calcTotalStatusPrize = data.reduce((sum, r) => sum + r.statusPrize, 0);
 
     const esc = (s: unknown) =>
-      String(s ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
+      String(s ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
 
-    const rows = data.map(r => `<tr>
-      <td>${r.year}هـ</td><td>${r.baseHifz || '-'}</td><td>${r.parts || '-'}</td>
-      <td>${r.totalHifz >= 30 ? 'خاتم ✨' : r.totalHifz || '-'}</td>
-      <td>${esc(r.annual || '-')}</td><td>${esc(r.recitation || '-')}</td><td>${esc(r.memorization || '-')}</td>
-      <td>${r.totalScore || '-'}</td><td>${esc(r.grade || '-')}</td>
-      <td class="${r.isActive ? 'active' : 'inactive'}">${r.isActive ? 'نشط' : 'منقطع'}</td>
+    const rows = data
+      .map(
+        (r) => `<tr>
+      <td>${r.year}هـ</td><td>${r.baseHifz || "-"}</td><td>${r.parts || "-"}</td>
+      <td>${r.totalHifz >= 30 ? "خاتم ✨" : r.totalHifz || "-"}</td>
+      <td>${esc(r.annual || "-")}</td><td>${esc(r.recitation || "-")}</td><td>${esc(r.memorization || "-")}</td>
+      <td>${r.totalScore || "-"}</td><td>${esc(r.grade || "-")}</td>
+      <td class="${r.isActive ? "active" : "inactive"}">${r.isActive ? "نشط" : "منقطع"}</td>
       <td>${r.prize.toLocaleString()}</td><td>${r.statusPrize.toLocaleString()}</td>
-    </tr>`).join('');
+    </tr>`,
+      )
+      .join("");
 
     const fullHtml = `
       <html dir="rtl"><head><title>تقرير ${esc(student.name)}</title>
@@ -145,7 +168,7 @@ export const StudentReport = ({ student }: Props) => {
           </tbody>
         </table>
         <div class="footer">
-          تصميم أ/ مختار الكمالي - ${new Date().toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' })}
+          تصميم أ/ مختار الكمالي - ${new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" })}
         </div>
       </body></html>
     `;
@@ -156,7 +179,14 @@ export const StudentReport = ({ student }: Props) => {
   const totalStatusPrize = reports.reduce((sum, r) => sum + r.statusPrize, 0);
 
   return (
-    <Dialog onOpenChange={(open) => { if (!open) { setShowReport(false); setReports([]); } }}>
+    <Dialog
+      onOpenChange={(open) => {
+        if (!open) {
+          setShowReport(false);
+          setReports([]);
+        }
+      }}
+    >
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" className="h-7 w-7 p-0" title="تقرير الطالبة">
           <FileText className="h-4 w-4" />
@@ -170,11 +200,14 @@ export const StudentReport = ({ student }: Props) => {
         <div className="space-y-4">
           <div className="flex items-center gap-2 flex-wrap">
             <Button variant="outline" size="sm" onClick={selectAll}>
-              {selectedYears.length === availableYears.length ? 'إلغاء الكل' : 'تحديد الكل'}
+              {selectedYears.length === availableYears.length ? "إلغاء الكل" : "تحديد الكل"}
             </Button>
-            {availableYears.map(year => (
+            {availableYears.map((year) => (
               <label key={year} className="flex items-center gap-1 text-sm cursor-pointer">
-                <Checkbox checked={selectedYears.includes(year)} onCheckedChange={() => toggleYear(year)} />
+                <Checkbox
+                  checked={selectedYears.includes(year)}
+                  onCheckedChange={() => toggleYear(year)}
+                />
                 {year}هـ
               </label>
             ))}
@@ -193,24 +226,47 @@ export const StudentReport = ({ student }: Props) => {
                 <h2>تقرير المسابقة الرمضانية - {student.name}</h2>
               </div>
               <div className="student-info">
-                <div><strong>الطالبة:</strong> {student.name}</div>
-                <div><strong>المعلمة:</strong> {student.teacher}</div>
+                <div>
+                  <strong>الطالبة:</strong> {student.name}
+                </div>
+                <div>
+                  <strong>المعلمة:</strong> {student.teacher}
+                </div>
               </div>
               <table>
-                <thead><tr>
-                  <th>العام</th><th>الحفظ السابق</th><th>حفظ جديد</th><th>الإجمالي</th>
-                  <th>سنة</th><th>تلاوة</th><th>حفظ</th><th>المجموع</th>
-                  <th>التقدير</th><th>الحالة</th><th>المكافأة</th><th>المكافأة حسب الحالة</th>
-                </tr></thead>
+                <thead>
+                  <tr>
+                    <th>العام</th>
+                    <th>الحفظ السابق</th>
+                    <th>حفظ جديد</th>
+                    <th>الإجمالي</th>
+                    <th>سنة</th>
+                    <th>تلاوة</th>
+                    <th>حفظ</th>
+                    <th>المجموع</th>
+                    <th>التقدير</th>
+                    <th>الحالة</th>
+                    <th>المكافأة</th>
+                    <th>المكافأة حسب الحالة</th>
+                  </tr>
+                </thead>
                 <tbody>
-                  {reports.map(r => (
+                  {reports.map((r) => (
                     <tr key={r.year}>
-                      <td>{r.year}هـ</td><td>{r.baseHifz || '-'}</td><td>{r.parts || '-'}</td>
-                      <td>{r.totalHifz >= 30 ? 'خاتم ✨' : r.totalHifz || '-'}</td>
-                      <td>{r.annual || '-'}</td><td>{r.recitation || '-'}</td><td>{r.memorization || '-'}</td>
-                      <td>{r.totalScore || '-'}</td><td>{r.grade || '-'}</td>
-                      <td className={r.isActive ? 'active' : 'inactive'}>{r.isActive ? 'نشط' : 'منقطع'}</td>
-                      <td>{r.prize.toLocaleString()}</td><td>{r.statusPrize.toLocaleString()}</td>
+                      <td>{r.year}هـ</td>
+                      <td>{r.baseHifz || "-"}</td>
+                      <td>{r.parts || "-"}</td>
+                      <td>{r.totalHifz >= 30 ? "خاتم ✨" : r.totalHifz || "-"}</td>
+                      <td>{r.annual || "-"}</td>
+                      <td>{r.recitation || "-"}</td>
+                      <td>{r.memorization || "-"}</td>
+                      <td>{r.totalScore || "-"}</td>
+                      <td>{r.grade || "-"}</td>
+                      <td className={r.isActive ? "active" : "inactive"}>
+                        {r.isActive ? "نشط" : "منقطع"}
+                      </td>
+                      <td>{r.prize.toLocaleString()}</td>
+                      <td>{r.statusPrize.toLocaleString()}</td>
                     </tr>
                   ))}
                   <tr className="total-row">
@@ -221,7 +277,12 @@ export const StudentReport = ({ student }: Props) => {
                 </tbody>
               </table>
               <div className="footer">
-                تصميم أ/ مختار الكمالي - {new Date().toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' })}
+                تصميم أ/ مختار الكمالي -{" "}
+                {new Date().toLocaleDateString("ar-EG", {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                })}
               </div>
             </div>
           )}

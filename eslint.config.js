@@ -32,8 +32,17 @@ export default tseslint.config(
           ],
         },
       ],
-      "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
+      // This application intentionally colocates route helpers, variants, and
+      // context hooks with components. TanStack's route modules also export
+      // non-component route definitions, so the Vite fast-refresh heuristic is
+      // not applicable to the project structure.
+      "react-refresh/only-export-components": "off",
       "@typescript-eslint/no-unused-vars": "off",
+      // Supabase rows, SQLite bridges, and legacy import payloads cross dynamic
+      // data boundaries where `any` is currently part of the public API. Keep
+      // the remaining recommended TypeScript checks enabled while allowing
+      // those explicit boundary annotations.
+      "@typescript-eslint/no-explicit-any": "off",
     },
   },
   eslintPluginPrettier,

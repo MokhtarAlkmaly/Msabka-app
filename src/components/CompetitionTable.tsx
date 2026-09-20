@@ -27,16 +27,33 @@ interface Props {
   teacherNames?: string[];
 }
 
-export const CompetitionTable = ({ students, currentYear, competitionLabel = "المسابقة الرمضانية", onUpdate, onDelete, dirtyMap, onDirtyChange, teacherNames = [] }: Props) => {
+export const CompetitionTable = ({
+  students,
+  currentYear,
+  competitionLabel = "المسابقة الرمضانية",
+  onUpdate,
+  onDelete,
+  dirtyMap,
+  onDirtyChange,
+  teacherNames = [],
+}: Props) => {
   const STORAGE_KEY = "competitionTable.filters";
   type Persisted = {
-    selectedTeacher: string; nameFilter: string; statusFilter: string;
-    gradeFilter: string; partsFilter: string;
-    sortField: SortField | null; sortDirection: SortDirection;
+    selectedTeacher: string;
+    nameFilter: string;
+    statusFilter: string;
+    gradeFilter: string;
+    partsFilter: string;
+    sortField: SortField | null;
+    sortDirection: SortDirection;
     updatedAt?: number;
   };
   const loadPersisted = (): Partial<Persisted> => {
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); } catch { return {}; }
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+    } catch {
+      return {};
+    }
   };
   const saved = loadPersisted();
   const [selectedTeacher, setSelectedTeacher] = useState<string>(saved.selectedTeacher ?? "all");
@@ -57,7 +74,12 @@ export const CompetitionTable = ({ students, currentYear, competitionLabel = "ا
         const localUpdated = saved.updatedAt ?? 0;
         const remoteUpdated = remote.updatedAt ?? 0;
         // Only override local state if cloud copy is strictly newer
-        if (!cancelled && remote && Object.keys(remote).length > 0 && remoteUpdated > localUpdated) {
+        if (
+          !cancelled &&
+          remote &&
+          Object.keys(remote).length > 0 &&
+          remoteUpdated > localUpdated
+        ) {
           if (remote.selectedTeacher !== undefined) setSelectedTeacher(remote.selectedTeacher);
           if (remote.nameFilter !== undefined) setNameFilter(remote.nameFilter);
           if (remote.statusFilter !== undefined) setStatusFilter(remote.statusFilter);
@@ -66,64 +88,114 @@ export const CompetitionTable = ({ students, currentYear, competitionLabel = "ا
           if (remote.sortField !== undefined) setSortField(remote.sortField);
           if (remote.sortDirection !== undefined) setSortDirection(remote.sortDirection);
         }
-      } catch (e) { /* offline ok */ }
-      finally { if (!cancelled) setCloudLoaded(true); }
+      } catch (e) {
+        /* offline ok */
+      } finally {
+        if (!cancelled) setCloudLoaded(true);
+      }
     })();
-    return () => { cancelled = true; };
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [saved.updatedAt]);
 
   useEffect(() => {
     const data: Persisted = {
-      selectedTeacher, nameFilter, statusFilter, gradeFilter, partsFilter,
-      sortField, sortDirection, updatedAt: Date.now(),
+      selectedTeacher,
+      nameFilter,
+      statusFilter,
+      gradeFilter,
+      partsFilter,
+      sortField,
+      sortDirection,
+      updatedAt: Date.now(),
     };
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch { /* ignore */ }
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    } catch {
+      /* ignore */
+    }
     if (!cloudLoaded) return;
     if (!navigator.onLine) return;
     const pushToCloud = async () => {
       try {
         await setTableFilters(data as any);
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     };
     const handle = setTimeout(pushToCloud, 800);
     // Flush immediately if user closes/hides the tab before debounce fires
-    const flush = () => { clearTimeout(handle); pushToCloud(); };
-    const onVis = () => { if (document.visibilityState === 'hidden') flush(); };
-    window.addEventListener('pagehide', flush);
-    document.addEventListener('visibilitychange', onVis);
+    const flush = () => {
+      clearTimeout(handle);
+      pushToCloud();
+    };
+    const onVis = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onVis);
     return () => {
       clearTimeout(handle);
-      window.removeEventListener('pagehide', flush);
-      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", onVis);
     };
-  }, [selectedTeacher, nameFilter, statusFilter, gradeFilter, partsFilter, sortField, sortDirection, cloudLoaded]);
+  }, [
+    selectedTeacher,
+    nameFilter,
+    statusFilter,
+    gradeFilter,
+    partsFilter,
+    sortField,
+    sortDirection,
+    cloudLoaded,
+  ]);
 
-  const savePersistedSettings = useCallback((overrides: Partial<Persisted> = {}) => {
-    const data: Persisted = {
-      selectedTeacher, nameFilter, statusFilter, gradeFilter, partsFilter,
-      sortField, sortDirection, updatedAt: Date.now(),
-      ...overrides,
-    };
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch { /* ignore */ }
-  }, [selectedTeacher, nameFilter, statusFilter, gradeFilter, partsFilter, sortField, sortDirection]);
+  const savePersistedSettings = useCallback(
+    (overrides: Partial<Persisted> = {}) => {
+      const data: Persisted = {
+        selectedTeacher,
+        nameFilter,
+        statusFilter,
+        gradeFilter,
+        partsFilter,
+        sortField,
+        sortDirection,
+        updatedAt: Date.now(),
+        ...overrides,
+      };
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      } catch {
+        /* ignore */
+      }
+    },
+    [selectedTeacher, nameFilter, statusFilter, gradeFilter, partsFilter, sortField, sortDirection],
+  );
 
-  const handleSort = useCallback((field: SortField) => {
-    let nextSortField: SortField | null = field;
-    let nextSortDirection: SortDirection = 'asc';
+  const handleSort = useCallback(
+    (field: SortField) => {
+      let nextSortField: SortField | null = field;
+      let nextSortDirection: SortDirection = "asc";
 
-    if (sortField === field) {
-      if (sortDirection === 'asc') nextSortDirection = 'desc';
-      else if (sortDirection === 'desc') { nextSortField = null; nextSortDirection = null; }
-    }
+      if (sortField === field) {
+        if (sortDirection === "asc") nextSortDirection = "desc";
+        else if (sortDirection === "desc") {
+          nextSortField = null;
+          nextSortDirection = null;
+        }
+      }
 
-    savePersistedSettings({ sortField: nextSortField, sortDirection: nextSortDirection });
-    setSortField(nextSortField);
-    setSortDirection(nextSortDirection);
-  }, [sortField, sortDirection, savePersistedSettings]);
+      savePersistedSettings({ sortField: nextSortField, sortDirection: nextSortDirection });
+      setSortField(nextSortField);
+      setSortDirection(nextSortDirection);
+    },
+    [sortField, sortDirection, savePersistedSettings],
+  );
 
   const teachers = useMemo(() => {
-    const uniqueTeachers = Array.from(new Set(students.map(s => s.teacher).filter(Boolean)));
-    return uniqueTeachers.sort((a, b) => a.localeCompare(b, 'ar'));
+    const uniqueTeachers = Array.from(new Set(students.map((s) => s.teacher).filter(Boolean)));
+    return uniqueTeachers.sort((a, b) => a.localeCompare(b, "ar"));
   }, [students]);
 
   // كشف الأسماء المكررة (بعد التطبيع) لتمييزها داخل الجدول
@@ -131,42 +203,70 @@ export const CompetitionTable = ({ students, currentYear, competitionLabel = "ا
 
   const currentYearNum = parseInt(currentYear);
 
-  const getStudentSortValue = useCallback((student: Student, field: SortField): string | number => {
-    const parts = parseFloat(student.yearData?.parts || '0');
-    const totalScore = parseFloat(student.yearData?.total || '0');
-    const isActive = parts > 0 || totalScore > 0;
-    const baseHifz = resolveBaseHifz(student.hifzHistory || {}, currentYearNum, student.yearData?.baseHifz);
+  const getStudentSortValue = useCallback(
+    (student: Student, field: SortField): string | number => {
+      const parts = parseFloat(student.yearData?.parts || "0");
+      const totalScore = parseFloat(student.yearData?.total || "0");
+      const isActive = parts > 0 || totalScore > 0;
+      const baseHifz = resolveBaseHifz(
+        student.hifzHistory || {},
+        currentYearNum,
+        student.yearData?.baseHifz,
+      );
 
-    switch (field) {
-      case 'name': return student.name || '';
-      case 'teacher': return student.teacher || '';
-      case 'baseHifz': return baseHifz;
-      case 'parts': return parts;
-      case 'totalHifz': return Math.min(baseHifz + parts, 30);
-      case 'annual': return parseFloat(student.yearData?.annual || '0');
-      case 'recitation': return parseFloat(student.yearData?.recitation || '0');
-      case 'memorization': return parseFloat(student.yearData?.memorization || '0');
-      case 'total': return totalScore;
-      case 'status': return isActive ? 1 : 0;
-      case 'grade': {
-        const { grade } = calculateGrade(totalScore);
-        const order: Record<string, number> = { 'ممتاز': 5, 'جيد جداً': 4, 'جيد': 3, 'مقبول': 2, 'ضعيف': 1, '': 0 };
-        return order[grade] || 0;
+      switch (field) {
+        case "name":
+          return student.name || "";
+        case "teacher":
+          return student.teacher || "";
+        case "baseHifz":
+          return baseHifz;
+        case "parts":
+          return parts;
+        case "totalHifz":
+          return Math.min(baseHifz + parts, 30);
+        case "annual":
+          return parseFloat(student.yearData?.annual || "0");
+        case "recitation":
+          return parseFloat(student.yearData?.recitation || "0");
+        case "memorization":
+          return parseFloat(student.yearData?.memorization || "0");
+        case "total":
+          return totalScore;
+        case "status":
+          return isActive ? 1 : 0;
+        case "grade": {
+          const { grade } = calculateGrade(totalScore);
+          const order: Record<string, number> = {
+            ممتاز: 5,
+            "جيد جداً": 4,
+            جيد: 3,
+            مقبول: 2,
+            ضعيف: 1,
+            "": 0,
+          };
+          return order[grade] || 0;
+        }
+        case "prize":
+          return parseFloat(student.yearData?.prize || "0");
+        case "statusPrize":
+          return parseFloat(student.yearData?.statusPrize || "0");
+        case "rank":
+          return parseFloat(student.yearData?.rank || "0") || 9999;
+        default:
+          return 0;
       }
-      case 'prize': return parseFloat(student.yearData?.prize || '0');
-      case 'statusPrize': return parseFloat(student.yearData?.statusPrize || '0');
-      case 'rank': return parseFloat(student.yearData?.rank || '0') || 9999;
-      default: return 0;
-    }
-  }, [currentYearNum]);
+    },
+    [currentYearNum],
+  );
 
   const filteredStudents = useMemo(() => {
-    const filtered = students.filter(student => {
+    const filtered = students.filter((student) => {
       if (selectedTeacher !== "all" && student.teacher !== selectedTeacher) return false;
       if (nameFilter && !student.name.includes(nameFilter)) return false;
 
-      const parts = parseFloat(student.yearData?.parts || '0');
-      const total = parseFloat(student.yearData?.total || '0');
+      const parts = parseFloat(student.yearData?.parts || "0");
+      const total = parseFloat(student.yearData?.total || "0");
       const isActive = parts > 0 || total > 0;
 
       if (statusFilter !== "all") {
@@ -175,7 +275,7 @@ export const CompetitionTable = ({ students, currentYear, competitionLabel = "ا
       }
 
       if (gradeFilter !== "all") {
-        const totalScore = parseFloat(student.yearData?.total || '0');
+        const totalScore = parseFloat(student.yearData?.total || "0");
         const { grade } = calculateGrade(totalScore);
         if (grade !== gradeFilter) return false;
       }
@@ -192,20 +292,39 @@ export const CompetitionTable = ({ students, currentYear, competitionLabel = "ا
       filtered.sort((a, b) => {
         const aVal = getStudentSortValue(a, sortField);
         const bVal = getStudentSortValue(b, sortField);
-        const cmp = typeof aVal === 'string' ? aVal.localeCompare(bVal as string, 'ar') : (aVal as number) - (bVal as number);
-        return sortDirection === 'asc' ? cmp : -cmp;
+        const cmp =
+          typeof aVal === "string"
+            ? aVal.localeCompare(bVal as string, "ar")
+            : (aVal as number) - (bVal as number);
+        return sortDirection === "asc" ? cmp : -cmp;
       });
     }
 
     return filtered;
-  }, [students, selectedTeacher, nameFilter, statusFilter, gradeFilter, partsFilter, sortField, sortDirection, getStudentSortValue]);
+  }, [
+    students,
+    selectedTeacher,
+    nameFilter,
+    statusFilter,
+    gradeFilter,
+    partsFilter,
+    sortField,
+    sortDirection,
+    getStudentSortValue,
+  ]);
 
-  const hasFilters = selectedTeacher !== "all" || nameFilter !== "" || statusFilter !== "all" || gradeFilter !== "all" || partsFilter !== "";
+  const hasFilters =
+    selectedTeacher !== "all" ||
+    nameFilter !== "" ||
+    statusFilter !== "all" ||
+    gradeFilter !== "all" ||
+    partsFilter !== "";
 
   const getFilterDescription = () => {
     const parts: string[] = [];
     if (selectedTeacher !== "all") parts.push(`المعلمة: ${selectedTeacher}`);
-    if (statusFilter !== "all") parts.push(`الحالة: ${statusFilter === "active" ? "نشط" : "منقطع"}`);
+    if (statusFilter !== "all")
+      parts.push(`الحالة: ${statusFilter === "active" ? "نشط" : "منقطع"}`);
     if (gradeFilter !== "all") parts.push(`التقدير: ${gradeFilter}`);
     if (partsFilter) parts.push(`الحفظ الجديد ≥ ${partsFilter}`);
     if (nameFilter) parts.push(`الاسم: ${nameFilter}`);
@@ -215,34 +334,42 @@ export const CompetitionTable = ({ students, currentYear, competitionLabel = "ا
   const handlePrintFiltered = async () => {
     const { printHtmlDocument } = await import("@/utils/nativePrint");
 
-    const rows = filteredStudents.map((s, i) => {
-      const parts = parseFloat(s.yearData?.parts || '0');
-      const totalScore = parseFloat(s.yearData?.total || '0');
-      const isActive = parts > 0 || totalScore > 0;
-      const { grade } = calculateGrade(totalScore);
-      const prize = parseFloat(s.yearData?.prize || '0');
-      const statusPrize = parseFloat(s.yearData?.statusPrize || '0');
+    const rows = filteredStudents
+      .map((s, i) => {
+        const parts = parseFloat(s.yearData?.parts || "0");
+        const totalScore = parseFloat(s.yearData?.total || "0");
+        const isActive = parts > 0 || totalScore > 0;
+        const { grade } = calculateGrade(totalScore);
+        const prize = parseFloat(s.yearData?.prize || "0");
+        const statusPrize = parseFloat(s.yearData?.statusPrize || "0");
 
-      return `<tr>
+        return `<tr>
         <td>${i + 1}</td>
         <td>${s.name}</td>
         <td>${s.teacher}</td>
-        <td>${s.yearData?.baseHifz || '-'}</td>
-        <td>${s.yearData?.parts || '-'}</td>
-        <td>${s.yearData?.totalHifz || '-'}</td>
-        <td>${s.yearData?.annual || '-'}</td>
-        <td>${s.yearData?.recitation || '-'}</td>
-        <td>${s.yearData?.memorization || '-'}</td>
-        <td>${totalScore || '-'}</td>
-        <td class="${isActive ? 'active' : 'inactive'}">${isActive ? 'نشط' : 'منقطع'}</td>
-        <td>${grade || '-'}</td>
+        <td>${s.yearData?.baseHifz || "-"}</td>
+        <td>${s.yearData?.parts || "-"}</td>
+        <td>${s.yearData?.totalHifz || "-"}</td>
+        <td>${s.yearData?.annual || "-"}</td>
+        <td>${s.yearData?.recitation || "-"}</td>
+        <td>${s.yearData?.memorization || "-"}</td>
+        <td>${totalScore || "-"}</td>
+        <td class="${isActive ? "active" : "inactive"}">${isActive ? "نشط" : "منقطع"}</td>
+        <td>${grade || "-"}</td>
         <td>${prize.toLocaleString()}</td>
         <td>${statusPrize.toLocaleString()}</td>
       </tr>`;
-    }).join('');
+      })
+      .join("");
 
-    const totalPrize = filteredStudents.reduce((sum, s) => sum + (parseFloat(s.yearData?.prize || '0')), 0);
-    const totalStatusPrize = filteredStudents.reduce((sum, s) => sum + (parseFloat(s.yearData?.statusPrize || '0')), 0);
+    const totalPrize = filteredStudents.reduce(
+      (sum, s) => sum + parseFloat(s.yearData?.prize || "0"),
+      0,
+    );
+    const totalStatusPrize = filteredStudents.reduce(
+      (sum, s) => sum + parseFloat(s.yearData?.statusPrize || "0"),
+      0,
+    );
 
     const fullHtml = `
       <html dir="rtl"><head><title>تقرير مصفى - ${currentYear}هـ</title>
@@ -289,7 +416,7 @@ export const CompetitionTable = ({ students, currentYear, competitionLabel = "ا
             </tr>
           </tbody>
         </table>
-        <div class="footer">تصميم أ/ مختار الكمالي - ${new Date().toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
+        <div class="footer">تصميم أ/ مختار الكمالي - ${new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" })}</div>
       </body></html>
     `;
     printHtmlDocument(fullHtml, `تقرير_${competitionLabel}_${currentYear}`);
@@ -317,30 +444,37 @@ export const CompetitionTable = ({ students, currentYear, competitionLabel = "ا
         <div className="flex items-center justify-between gap-3 border-b border-border/60 bg-background/55 px-4 py-3 print:hidden">
           <div>
             <h3 className="font-black text-foreground">كشف الطالبات</h3>
-            <p className="text-xs text-muted-foreground">اسحب يمين/يسار لرؤية كل الأعمدة على الجوال</p>
+            <p className="text-xs text-muted-foreground">
+              اسحب يمين/يسار لرؤية كل الأعمدة على الجوال
+            </p>
           </div>
           <div className="rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
             {filteredStudents.length} طالبة
           </div>
         </div>
         <div className="table-scroll max-h-[60vh] overflow-auto md:max-h-[72vh]">
-        <table className="w-full min-w-[1480px] table-fixed border-separate border-spacing-0 bg-card text-sm whitespace-nowrap">
-          <TableHeader currentYear={currentYear} sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
-          <tbody>
-            {filteredStudents.map((student, index) => (
-              <TableRow
-                key={`${student.id}-${currentYear}`}
-                student={student}
-                index={index + 1}
-                currentYear={currentYear}
-                onDelete={onDelete}
-                onDirtyChange={onDirtyChange}
-                teacherNames={teacherNames}
-                duplicateNameCount={getDuplicateCountFor(student.name, duplicateNameCounts)}
-              />
-            ))}
-          </tbody>
-        </table>
+          <table className="w-full min-w-[1480px] table-fixed border-separate border-spacing-0 bg-card text-sm whitespace-nowrap">
+            <TableHeader
+              currentYear={currentYear}
+              sortField={sortField}
+              sortDirection={sortDirection}
+              onSort={handleSort}
+            />
+            <tbody>
+              {filteredStudents.map((student, index) => (
+                <TableRow
+                  key={`${student.id}-${currentYear}`}
+                  student={student}
+                  index={index + 1}
+                  currentYear={currentYear}
+                  onDelete={onDelete}
+                  onDirtyChange={onDirtyChange}
+                  teacherNames={teacherNames}
+                  duplicateNameCount={getDuplicateCountFor(student.name, duplicateNameCounts)}
+                />
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
 

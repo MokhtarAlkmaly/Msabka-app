@@ -99,8 +99,18 @@ export const migrateLegacyIndexedDbCache = async (): Promise<void> => {
     }
 
     const [
-      students, hifzHistory, yearData, settings, pending,
-      teachers, teacherBonuses, donors, awards, ceremonyExpenses, certificates, media,
+      students,
+      hifzHistory,
+      yearData,
+      settings,
+      pending,
+      teachers,
+      teacherBonuses,
+      donors,
+      awards,
+      ceremonyExpenses,
+      certificates,
+      media,
     ] = await Promise.all([
       readAll<any>(legacyDb, LEGACY_STORES.students),
       readAll<any>(legacyDb, LEGACY_STORES.hifzHistory),

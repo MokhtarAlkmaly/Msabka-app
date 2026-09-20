@@ -2,12 +2,37 @@ import { useState, useEffect, useCallback, useMemo, type ReactElement } from "re
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "@/lib/router-compat";
-import { ArrowRight, Award, Plus, Pencil, Trash2, Save, Printer, Gift, Sparkles, Calendar, HeartHandshake, Search as SearchIcon } from "lucide-react";
+import {
+  ArrowRight,
+  Award,
+  Plus,
+  Pencil,
+  Trash2,
+  Save,
+  Printer,
+  Gift,
+  Sparkles,
+  Calendar,
+  HeartHandshake,
+  Search as SearchIcon,
+} from "lucide-react";
 import logo from "@/assets/logo.png";
 import { Student, START_YEAR, END_YEAR } from "@/types/student";
 import {
@@ -25,13 +50,7 @@ import {
 type AwardType = "khatm_bonus" | "ceremony" | "annual" | "certificate" | "guardian_contribution";
 type AwardKind = "cash" | "in_kind";
 type RecipientType =
-  | "teacher"
-  | "male_teacher"
-  | "student"
-  | "male_student"
-  | "orphan"
-  | "needy"
-  | "other";
+  "teacher" | "male_teacher" | "student" | "male_student" | "orphan" | "needy" | "other";
 
 const RECIPIENT_LABEL: Record<RecipientType, string> = {
   teacher: "معلمة",
@@ -74,8 +93,9 @@ const TYPE_ICON: Record<AwardType, ReactElement> = {
 };
 
 const esc = (s: string) =>
-  (s || "").replace(/[&<>"']/g, (c) =>
-    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string)
+  (s || "").replace(
+    /[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] as string,
   );
 
 const Awards = () => {
@@ -148,13 +168,17 @@ const Awards = () => {
         })
         .map((s) => s.name)
         .filter(Boolean),
-    [students]
+    [students],
   );
 
   // كل طالبات العام المسجّلات (مو الخاتمات فقط) — لاختيار المستفيدة بالبحث/القائمة
   const allStudentNames = useMemo(
-    () => students.map((s) => s.name).filter(Boolean).sort((a, b) => a.localeCompare(b, "ar")),
-    [students]
+    () =>
+      students
+        .map((s) => s.name)
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b, "ar")),
+    [students],
   );
   const filteredStudentNames = useMemo(() => {
     const q = studentQuery.trim();
@@ -164,7 +188,7 @@ const Awards = () => {
 
   const yearAwards = useMemo(
     () => awards.filter((a) => a.year === currentYear),
-    [awards, currentYear]
+    [awards, currentYear],
   );
 
   const byType = (t: AwardType) => yearAwards.filter((a) => a.award_type === t);
@@ -174,7 +198,8 @@ const Awards = () => {
     setForm({
       year: currentYear,
       award_type: type,
-      recipient_type: (type === "certificate" || type === "guardian_contribution") ? "student" : "teacher",
+      recipient_type:
+        type === "certificate" || type === "guardian_contribution" ? "student" : "teacher",
       recipient_name: "",
       student_name: "",
       award_kind: type === "certificate" ? "in_kind" : "cash",
@@ -236,12 +261,15 @@ const Awards = () => {
     await loadAll();
   };
 
-  const totalOf = (rows: AwardRow[]) =>
-    rows.reduce((sum, r) => sum + Number(r.amount || 0), 0);
+  const totalOf = (rows: AwardRow[]) => rows.reduce((sum, r) => sum + Number(r.amount || 0), 0);
 
   const printReport = async () => {
     const { printHtmlDocument } = await import("@/utils/nativePrint");
-    const bonuses = (await loadTeacherBonuses(currentYear)) as { teacher_name: string; amount: number; month: number }[];
+    const bonuses = (await loadTeacherBonuses(currentYear)) as {
+      teacher_name: string;
+      amount: number;
+      month: number;
+    }[];
 
     // group by teacher
     const teacherMap = new Map<
@@ -274,8 +302,10 @@ const Awards = () => {
           .map(
             (c) =>
               `<div>• ${esc(TYPE_LABEL[c.award_type])} — ${
-                c.award_kind === "cash" ? `${Number(c.amount).toLocaleString()} ريال` : esc(c.item || "عيني")
-              }${c.notes ? ` — ${esc(c.notes)}` : ""}</div>`
+                c.award_kind === "cash"
+                  ? `${Number(c.amount).toLocaleString()} ريال`
+                  : esc(c.item || "عيني")
+              }${c.notes ? ` — ${esc(c.notes)}` : ""}</div>`,
           )
           .join("");
         return `<tr>
@@ -299,7 +329,7 @@ const Awards = () => {
           <td class="num">${Number(a.amount || 0).toLocaleString()}</td>
           <td>${esc(a.item || "—")}</td>
           <td>${esc(a.notes || "—")}</td>
-        </tr>`
+        </tr>`,
       )
       .join("");
 
@@ -322,18 +352,22 @@ const Awards = () => {
       <div class="sub">عام ${esc(currentYear)}هـ</div>
 
       <h2>إكراميات المعلمات</h2>
-      ${teachersHtml
-        ? `<table><thead><tr>
+      ${
+        teachersHtml
+          ? `<table><thead><tr>
             <th>المعلمة</th><th>الشهرية</th><th>الخاتمات</th><th>حفل التكريم</th><th>السنوية</th><th>المجموع</th><th>الشهادات/الجوائز</th>
           </tr></thead><tbody>${teachersHtml}</tbody></table>`
-        : '<div style="text-align:center;color:#888">لا توجد بيانات</div>'}
+          : '<div style="text-align:center;color:#888">لا توجد بيانات</div>'
+      }
 
       <h2>شهادات وجوائز الطالبات الخاتمات</h2>
-      ${studentsHtml
-        ? `<table><thead><tr>
+      ${
+        studentsHtml
+          ? `<table><thead><tr>
             <th>الطالبة</th><th>النوع</th><th>نقدية/عينية</th><th>المبلغ</th><th>الجائزة</th><th>ملاحظات</th>
           </tr></thead><tbody>${studentsHtml}</tbody></table>`
-        : '<div style="text-align:center;color:#888">لا توجد بيانات</div>'}
+          : '<div style="text-align:center;color:#888">لا توجد بيانات</div>'
+      }
     </body></html>`;
 
     printHtmlDocument(html, `تقرير_الإكراميات_${currentYear}`);
@@ -364,7 +398,9 @@ const Awards = () => {
                 <th className="px-3 py-2 text-right">#</th>
                 <th className="px-3 py-2 text-right">المستفيد</th>
                 <th className="px-3 py-2 text-center">الفئة</th>
-                {type === "khatm_bonus" && <th className="px-3 py-2 text-right">الطالبة الخاتمة</th>}
+                {type === "khatm_bonus" && (
+                  <th className="px-3 py-2 text-right">الطالبة الخاتمة</th>
+                )}
                 <th className="px-3 py-2 text-center">نقدية/عينية</th>
                 <th className="px-3 py-2 text-center">المبلغ</th>
                 <th className="px-3 py-2 text-right">الجائزة/الوصف</th>
@@ -395,10 +431,20 @@ const Awards = () => {
                   <td className="px-3 py-2 text-center text-xs">{a.awarded_at}</td>
                   <td className="px-3 py-2">
                     <div className="flex gap-1 justify-center">
-                      <Button size="sm" variant="secondary" className="gap-1" onClick={() => openEdit(a)}>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="gap-1"
+                        onClick={() => openEdit(a)}
+                      >
                         <Pencil className="h-3 w-3" />
                       </Button>
-                      <Button size="sm" variant="destructive" className="gap-1" onClick={() => remove(a.id)}>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="gap-1"
+                        onClick={() => remove(a.id)}
+                      >
                         <Trash2 className="h-3 w-3" />
                       </Button>
                     </div>
@@ -413,7 +459,10 @@ const Awards = () => {
   );
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,hsl(var(--primary)/0.14),transparent_34rem),linear-gradient(180deg,hsl(var(--background)),hsl(var(--secondary)/0.45))]" dir="rtl">
+    <div
+      className="min-h-screen bg-[radial-gradient(circle_at_top_right,hsl(var(--primary)/0.14),transparent_34rem),linear-gradient(180deg,hsl(var(--background)),hsl(var(--secondary)/0.45))]"
+      dir="rtl"
+    >
       <header className="mx-3 mt-3 rounded-[2rem] bg-gradient-to-br from-primary via-emerald-700 to-teal-950 px-4 py-5 text-primary-foreground shadow-2xl shadow-primary/20">
         <div className="container mx-auto max-w-7xl">
           <div className="flex items-center justify-between mb-4">
@@ -446,11 +495,13 @@ const Awards = () => {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {Array.from({ length: END_YEAR - START_YEAR + 1 }, (_, i) => START_YEAR + i).map((y) => (
-                  <SelectItem key={y} value={String(y)}>
-                    {y}هـ
-                  </SelectItem>
-                ))}
+                {Array.from({ length: END_YEAR - START_YEAR + 1 }, (_, i) => START_YEAR + i).map(
+                  (y) => (
+                    <SelectItem key={y} value={String(y)}>
+                      {y}هـ
+                    </SelectItem>
+                  ),
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -516,10 +567,14 @@ const Awards = () => {
                   value={form.award_type}
                   onValueChange={(v) => setForm({ ...form, award_type: v as AwardType })}
                 >
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     {(Object.keys(TYPE_LABEL) as AwardType[]).map((k) => (
-                      <SelectItem key={k} value={k}>{TYPE_LABEL[k]}</SelectItem>
+                      <SelectItem key={k} value={k}>
+                        {TYPE_LABEL[k]}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -527,10 +582,17 @@ const Awards = () => {
               <div>
                 <label className="text-sm font-medium">العام</label>
                 <Select value={form.year} onValueChange={(v) => setForm({ ...form, year: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
-                    {Array.from({ length: END_YEAR - START_YEAR + 1 }, (_, i) => START_YEAR + i).map((y) => (
-                      <SelectItem key={y} value={String(y)}>{y}هـ</SelectItem>
+                    {Array.from(
+                      { length: END_YEAR - START_YEAR + 1 },
+                      (_, i) => START_YEAR + i,
+                    ).map((y) => (
+                      <SelectItem key={y} value={String(y)}>
+                        {y}هـ
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -546,10 +608,14 @@ const Awards = () => {
                     setForm({ ...form, recipient_type: v as RecipientType, recipient_name: "" })
                   }
                 >
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     {(Object.keys(RECIPIENT_LABEL) as RecipientType[]).map((k) => (
-                      <SelectItem key={k} value={k}>{RECIPIENT_LABEL[k]}</SelectItem>
+                      <SelectItem key={k} value={k}>
+                        {RECIPIENT_LABEL[k]}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -560,7 +626,9 @@ const Awards = () => {
                   value={form.award_kind}
                   onValueChange={(v) => setForm({ ...form, award_kind: v as AwardKind })}
                 >
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="cash">نقدية</SelectItem>
                     <SelectItem value="in_kind">عينية</SelectItem>
@@ -578,10 +646,14 @@ const Awards = () => {
                   value={form.recipient_name}
                   onValueChange={(v) => setForm({ ...form, recipient_name: v })}
                 >
-                  <SelectTrigger><SelectValue placeholder="اختر المعلمة" /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue placeholder="اختر المعلمة" />
+                  </SelectTrigger>
                   <SelectContent>
                     {teachers.map((t) => (
-                      <SelectItem key={t} value={t}>{t}</SelectItem>
+                      <SelectItem key={t} value={t}>
+                        {t}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -618,7 +690,9 @@ const Awards = () => {
                     </div>
                   )}
                   {allStudentNames.length === 0 && (
-                    <p className="mt-1 text-xs text-muted-foreground">لا توجد طالبات مسجّلات بهذا العام</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      لا توجد طالبات مسجّلات بهذا العام
+                    </p>
                   )}
                 </div>
               ) : (
@@ -636,11 +710,15 @@ const Awards = () => {
                 value={form.funded_by || "__none__"}
                 onValueChange={(v) => setForm({ ...form, funded_by: v === "__none__" ? "" : v })}
               >
-                <SelectTrigger><SelectValue placeholder="اختياري" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="اختياري" />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none__">— بدون تحديد —</SelectItem>
                   {donors.map((d) => (
-                    <SelectItem key={d} value={d}>{d}</SelectItem>
+                    <SelectItem key={d} value={d}>
+                      {d}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -651,13 +729,19 @@ const Awards = () => {
                 <label className="text-sm font-medium">الطالبة الخاتمة (اختياري)</label>
                 <Select
                   value={form.student_name || "__none__"}
-                  onValueChange={(v) => setForm({ ...form, student_name: v === "__none__" ? "" : v })}
+                  onValueChange={(v) =>
+                    setForm({ ...form, student_name: v === "__none__" ? "" : v })
+                  }
                 >
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none__">— بدون تحديد —</SelectItem>
                     {khatimat.map((n) => (
-                      <SelectItem key={n} value={n}>{n}</SelectItem>
+                      <SelectItem key={n} value={n}>
+                        {n}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -691,7 +775,9 @@ const Awards = () => {
               <Input
                 value={form.item}
                 onChange={(e) => setForm({ ...form, item: e.target.value })}
-                placeholder={form.award_kind === "in_kind" ? "مثال: مصحف مذهّب، سجادة صلاة" : "اختياري"}
+                placeholder={
+                  form.award_kind === "in_kind" ? "مثال: مصحف مذهّب، سجادة صلاة" : "اختياري"
+                }
               />
             </div>
 
@@ -705,7 +791,9 @@ const Awards = () => {
             </div>
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>إلغاء</Button>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+              إلغاء
+            </Button>
             <Button onClick={save} className="gap-1">
               <Save className="h-4 w-4" /> حفظ
             </Button>

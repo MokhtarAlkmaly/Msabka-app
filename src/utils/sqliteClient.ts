@@ -248,7 +248,9 @@ let platformCache: string | null = null;
 
 const assertBrowser = () => {
   if (typeof window === "undefined") {
-    throw new Error("sqliteClient: لا يمكن استخدام قاعدة البيانات المحلية إلا داخل المتصفح (client-side فقط).");
+    throw new Error(
+      "sqliteClient: لا يمكن استخدام قاعدة البيانات المحلية إلا داخل المتصفح (client-side فقط).",
+    );
   }
 };
 
