@@ -268,6 +268,86 @@ export type Database = {
         }
         Relationships: []
       }
+      monthly_tracking: {
+        Row: {
+          attendance_score: number
+          behavior_score: number
+          created_at: string
+          id: string
+          memorization_from_ayah: number | null
+          memorization_from_surah: number | null
+          memorization_hifz_score: number
+          memorization_recitation_score: number
+          memorization_to_ayah: number | null
+          memorization_to_surah: number | null
+          month: number
+          review_from_ayah: number | null
+          review_from_surah: number | null
+          review_hifz_score: number
+          review_recitation_score: number
+          review_to_ayah: number | null
+          review_to_surah: number | null
+          student_id: number
+          updated_at: string
+          user_id: string
+          year: string
+        }
+        Insert: {
+          attendance_score?: number
+          behavior_score?: number
+          created_at?: string
+          id?: string
+          memorization_from_ayah?: number | null
+          memorization_from_surah?: number | null
+          memorization_hifz_score?: number
+          memorization_recitation_score?: number
+          memorization_to_ayah?: number | null
+          memorization_to_surah?: number | null
+          month: number
+          review_from_ayah?: number | null
+          review_from_surah?: number | null
+          review_hifz_score?: number
+          review_recitation_score?: number
+          review_to_ayah?: number | null
+          review_to_surah?: number | null
+          student_id: number
+          updated_at?: string
+          user_id: string
+          year: string
+        }
+        Update: {
+          attendance_score?: number
+          behavior_score?: number
+          created_at?: string
+          id?: string
+          memorization_from_ayah?: number | null
+          memorization_from_surah?: number | null
+          memorization_hifz_score?: number
+          memorization_recitation_score?: number
+          memorization_to_ayah?: number | null
+          memorization_to_surah?: number | null
+          month?: number
+          review_from_ayah?: number | null
+          review_from_surah?: number | null
+          review_hifz_score?: number
+          review_recitation_score?: number
+          review_to_ayah?: number | null
+          review_to_surah?: number | null
+          student_id?: number
+          updated_at?: string
+          user_id?: string
+          year?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monthly_tracking_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       students: {
         Row: {
           created_at: string

@@ -54,7 +54,7 @@ export interface InternalCompetition {
   rank: string;
   prize: string;
   notes?: string | null;
-  date?: string;
+  date?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -72,7 +72,7 @@ export interface ExternalCompetition {
   rank: string;
   prize: string;
   notes?: string | null;
-  date?: string;
+  date?: string | null;
   created_at?: string;
   updated_at?: string;
 }

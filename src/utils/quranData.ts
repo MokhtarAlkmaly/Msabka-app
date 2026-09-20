@@ -1,3 +1,5 @@
+import type { AyahNo, Surah } from "quran-meta";
+
 export interface SurahOption {
   number: number;
   name: string;
@@ -136,21 +138,24 @@ export const getAyahCount = (surah: number): number => {
 // كسول (lazy) ومحمية بالكامل: أي فشل بها لا يؤثر على القوائم المنسدلة
 // أعلاه (اللي تعمل دائماً من البيانات الثابتة المضمَّنة)، وبس ميزة
 // "حساب الأوجه التلقائي" تتعطل بهدوء وتحتاج إدخال يدوي عندها.
-let hafsInstance: any = null;
+type HafsInstance = ReturnType<(typeof import("quran-meta"))["createHafs"]>;
+let hafsInstance: HafsInstance | null = null;
 
-const getHafs = async () => {
+const getHafs = async (): Promise<HafsInstance> => {
   if (!hafsInstance) {
-    const { QuranRiwaya } = await import("quran-meta");
-    hafsInstance = QuranRiwaya.hafs();
+    const { createHafs } = await import("quran-meta");
+    hafsInstance = createHafs();
   }
   return hafsInstance;
 };
 
 export const getPageForAyahAsync = async (surah: number, ayah: number): Promise<number | null> => {
-  if (!surah || !ayah) return null;
+  if (surah < 1 || surah > SURAH_LIST.length || ayah < 1 || ayah > getAyahCount(surah)) {
+    return null;
+  }
   try {
     const hafs = await getHafs();
-    const ayahId = hafs.findAyahIdBySurah(surah, ayah);
+    const ayahId = hafs.findAyahIdBySurah(surah as Surah, ayah as AyahNo);
     const meta = hafs.getAyahMeta(ayahId);
     return meta.page ?? null;
   } catch (e) {
