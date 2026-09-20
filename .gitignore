@@ -37,5 +37,5 @@ dist-ssr
 # ملف SQLite/WASM يُنسخ تلقائيًا عبر postinstall (scripts/copy-sqlite-wasm.mjs)
 public/assets/sql-wasm.wasm
 
-# ملف البيئة المحلي (يُحفظ خارج Git — انسخ القيم من .env.example)
-.env
+# ملف .env مُتتبَّع عمدًا: يحمل قيم VITE_ العامة فقط (تُضمَّن في حزمة المتصفح)
+# والنشر على Vercel يقرأها منه. للإعدادات السرية استعمل .env.local (غير مُتتبَّع)
