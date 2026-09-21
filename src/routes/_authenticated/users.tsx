@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import Users from "@/pages/Users";
 
-const title = "إدارة المستخدمين - نظام المسابقة الرمضانية";
+const title = "إدارة المستخدمين - نظام إدارة مركز إنماء الأهلي الخيري";
 const description =
   "قائمة بكل مستخدمي النظام مع التحكم بصلاحياتهم والسماح لهم بالاطلاع على بيانات المسؤول أو إيقافه.";
 
