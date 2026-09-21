@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { DEFAULT_SCHOOL_GRADES } from "@/utils/schoolGrades";
 import { Progress } from "@/components/ui/progress";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
@@ -80,6 +81,8 @@ import {
   Send,
   CheckCircle2,
   Clock,
+  ListFilter,
+  PencilLine,
 } from "lucide-react";
 
 interface Props {
@@ -121,6 +124,17 @@ export const StudentProfileModal = ({
 
   // Student details editing
   const [editingInfo, setEditingInfo] = useState(false);
+  /** كتابة السنة الدراسية يدويًا بدل اختيارها من القائمة الموحّدة */
+  const [manualGradeEntry, setManualGradeEntry] = useState(false);
+
+  /** قائمة السنوات الدراسية الموحّدة — نفس قائمة تصفية جدول الطلاب */
+  const gradeChoiceLabels = useMemo(() => DEFAULT_SCHOOL_GRADES, []);
+
+  /** هل القيمة المخزّنة نص حرّ مكتوب يدويًا (خارج القائمة الموحّدة)؟ */
+  const isManualGradeValue = (value?: string) => {
+    const trimmed = (value || "").trim();
+    return !!trimmed && !DEFAULT_SCHOOL_GRADES.includes(trimmed);
+  };
   const [studentData, setStudentData] = useState<Student | null>(null);
 
   // Year-specific data
@@ -684,14 +698,61 @@ export const StudentProfileModal = ({
                 </div>
                 <div>
                   <label className="font-bold text-foreground">السنة الدراسية وقت الالتحاق</label>
-                  <Input
-                    value={studentData.school_grade || ""}
-                    onChange={(e) =>
-                      setStudentData({ ...studentData, school_grade: e.target.value })
-                    }
-                    placeholder="مثال: الصف الخامس الابتدائي"
-                    className="h-9 mt-1 rounded-lg"
-                  />
+                  {manualGradeEntry || isManualGradeValue(studentData.school_grade) ? (
+                    <div className="mt-1 flex items-center gap-1">
+                      <Input
+                        autoFocus
+                        value={studentData.school_grade || ""}
+                        onChange={(e) =>
+                          setStudentData({ ...studentData, school_grade: e.target.value })
+                        }
+                        placeholder="اكتب السنة الدراسية"
+                        className="h-9 rounded-lg"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setManualGradeEntry(false)}
+                        className="h-9 w-9 shrink-0 rounded-lg p-0 text-primary hover:bg-primary/10"
+                        title="العودة إلى قائمة السنوات الدراسية"
+                      >
+                        <ListFilter className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <Select
+                      value={studentData.school_grade || "__none__"}
+                      onValueChange={(v) => {
+                        if (v === "__manual__") {
+                          setManualGradeEntry(true);
+                          return;
+                        }
+                        setStudentData({
+                          ...studentData,
+                          school_grade: v === "__none__" ? "" : v,
+                        });
+                      }}
+                    >
+                      <SelectTrigger className="h-9 mt-1 rounded-lg">
+                        <SelectValue placeholder="اختر السنة الدراسية" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[60vh]">
+                        <SelectItem value="__none__">— بدون —</SelectItem>
+                        {gradeChoiceLabels.map((grade) => (
+                          <SelectItem key={grade} value={grade}>
+                            {grade}
+                          </SelectItem>
+                        ))}
+                        <SelectItem value="__manual__" className="font-bold text-primary">
+                          <span className="flex items-center gap-1">
+                            <PencilLine className="h-3.5 w-3.5" />
+                            إدخال يدوي (كتابة حرة)
+                          </span>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
                 <div>
                   <label className="font-bold text-foreground">الحالة</label>
