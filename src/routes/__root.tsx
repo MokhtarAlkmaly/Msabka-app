@@ -61,7 +61,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         name: "viewport",
         content: "width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes",
       },
-      { title: "نظام المسابقة الرمضانية - مركز إنماء" },
+      { title: "نظام إدارة مركز إنماء الأهلي الخيري - قسم القرآن الكريم" },
       {
         name: "description",
         content: "نظام إدارة المسابقة الرمضانية لحفظ القرآن الكريم - مركز إنماء الأهلي الخيري",
@@ -71,11 +71,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "theme-color", content: "#047857" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
-      { name: "apple-mobile-web-app-title", content: "المسابقة الرمضانية" },
+      { name: "apple-mobile-web-app-title", content: "مركز إنماء" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { property: "og:title", content: "نظام المسابقة الرمضانية - مركز إنماء" },
-      { name: "twitter:title", content: "نظام المسابقة الرمضانية - مركز إنماء" },
+      { property: "og:title", content: "نظام إدارة مركز إنماء الأهلي الخيري - قسم القرآن الكريم" },
+      { name: "twitter:title", content: "نظام إدارة مركز إنماء الأهلي الخيري - قسم القرآن الكريم" },
       {
         property: "og:description",
         content: "نظام إدارة المسابقة الرمضانية لحفظ القرآن الكريم - مركز إنماء الأهلي الخيري",

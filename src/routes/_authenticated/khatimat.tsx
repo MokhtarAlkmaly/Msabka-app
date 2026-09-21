@@ -4,12 +4,12 @@ import Khatimat from "@/pages/Khatimat";
 export const Route = createFileRoute("/_authenticated/khatimat")({
   head: () => ({
     meta: [
-      { title: "كشف الخاتمات - نظام المسابقة الرمضانية" },
+      { title: "كشف الخاتمات - نظام إدارة مركز إنماء الأهلي الخيري" },
       {
         name: "description",
         content: "قائمة الطالبات اللواتي ختمن القرآن الكريم عبر جميع الأعوام.",
       },
-      { property: "og:title", content: "كشف الخاتمات - نظام المسابقة الرمضانية" },
+      { property: "og:title", content: "كشف الخاتمات - نظام إدارة مركز إنماء الأهلي الخيري" },
       {
         property: "og:description",
         content: "قائمة الطالبات اللواتي ختمن القرآن الكريم عبر جميع الأعوام.",
