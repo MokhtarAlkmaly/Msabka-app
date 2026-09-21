@@ -639,6 +639,51 @@ export interface RecallCandidate {
   years: string[];
 }
 
+/**
+ * ترتيب زمني لمفاتيح الأعوام: مسابقة رمضان في عام ما تسبق مسابقة ذي الحجة
+ * من العام نفسه، وتليها رمضان العام التالي. "1447" < "1447D" < "1448".
+ */
+const yearRank = (key: string) => parseInt(key) * 10 + (key.endsWith("D") ? 5 : 0);
+
+/**
+ * الحفظ السابق المرحَّل لطالب عند استدعائه إلى عام: مجموع أجزاء الأعوام
+ * السابقة (أو آخر إجمالي تراكمي إن كان أكبر)، وآخر معلمة له.
+ */
+const computeCarryOver = async (
+  year: string,
+  studentId: number,
+): Promise<{ baseHifz: number; teacher: string }> => {
+  const student = (await getCachedStudents()).find((s) => s.id === studentId);
+  if (!student) return { baseHifz: 0, teacher: "" };
+
+  const targetRank = yearRank(year);
+  const previous = (await getCachedYearData())
+    .filter((row) => row.student_id === studentId)
+    .sort((a, b) => yearRank(a.year) - yearRank(b.year))
+    .filter((row) => yearRank(row.year) < targetRank);
+
+  const history: HifzHistory = {};
+  (await getCachedHifzHistory())
+    .filter((row) => row.student_id === studentId)
+    .forEach((row) => {
+      history[row.year_key] = row.value;
+    });
+  previous.forEach((row) => {
+    const parts = parseFloat(row.parts) || 0;
+    if (parts > 0) {
+      const key = `h${row.year}`;
+      if ((parseFloat(history[key]) || 0) < parts) history[key] = parts.toString();
+    }
+  });
+
+  const last = previous.length > 0 ? previous[previous.length - 1] : null;
+  const lastTotalHifz = last
+    ? parseFloat(last.total_hifz) || 0
+    : parseFloat(student.initial_hifz || "0") || 0;
+  const baseHifz = resolveBaseHifz(history, parseInt(year), lastTotalHifz);
+  return { baseHifz, teacher: last?.teacher || student.teacher || "" };
+};
+
 // الطالبات الموجودات في السجل العام وغير مسجّلات في العام المختار
 export const listRecallCandidates = async (year: string): Promise<RecallCandidate[]> => {
   await ensureCache();
@@ -646,6 +691,7 @@ export const listRecallCandidates = async (year: string): Promise<RecallCandidat
   const allYearData = await getCachedYearData();
   const allHistory = await getCachedHifzHistory();
   const yearNum = parseInt(year);
+  const targetRank = yearRank(year);
 
   const byStudent = new Map<number, typeof allYearData>();
   allYearData.forEach((row) => {
@@ -665,8 +711,8 @@ export const listRecallCandidates = async (year: string): Promise<RecallCandidat
     const rows = byStudent.get(s.id) || [];
     if (rows.some((r) => r.year === year)) continue;
     const previous = rows
-      .filter((r) => parseInt(r.year) < yearNum)
-      .sort((a, b) => a.year.localeCompare(b.year));
+      .filter((r) => yearRank(r.year) < targetRank)
+      .sort((a, b) => yearRank(a.year) - yearRank(b.year));
 
     const history = { ...(historyMap[s.id] || {}) };
     previous.forEach((r) => {
@@ -689,7 +735,7 @@ export const listRecallCandidates = async (year: string): Promise<RecallCandidat
       teacher: last?.teacher || s.teacher || "",
       lastYear: last?.year || s.first_competition_year || "سجل عام",
       baseHifz,
-      years: rows.map((r) => r.year).sort(),
+      years: rows.map((r) => r.year).sort((a, b) => yearRank(a) - yearRank(b)),
     });
   }
 
@@ -718,16 +764,15 @@ export const recallStudentsToYear = async (year: string, ids: number[]): Promise
   return added;
 };
 
-// تسجيل طالبة في العام المختار
+// تسجيل طالبة في العام المختار مع ترحيل الحفظ التراكمي من الأعوام السابقة
 export const registerStudentInYear = async (year: string, studentId: number, teacher = "") => {
   guardWrite();
-  const student = (await getCachedStudents()).find((s) => s.id === studentId);
-  const initialBase = student?.initial_hifz ? student.initial_hifz : "0";
+  const carry = await computeCarryOver(year, studentId);
   await saveYearData(year, studentId, {
     ...emptyYearData(),
-    teacher: teacher || student?.teacher || "",
-    baseHifz: initialBase,
-    totalHifz: initialBase,
+    teacher: teacher || carry.teacher,
+    baseHifz: carry.baseHifz.toString(),
+    totalHifz: carry.baseHifz.toString(),
   });
 };
 
@@ -754,6 +799,54 @@ export const loadGlobalStudents = async (): Promise<Student[]> => {
       custom_fields: (s.custom_fields as Record<string, string> | null) ?? {},
       notes: s.notes || undefined,
     }))
+    .sort((a, b) => (a.name || "").localeCompare(b.name || "", "ar"));
+};
+
+/**
+ * السجل الشامل لكل الأعوام: كل طلاب السجل الرسمي (بدون ربط بعام محدد)
+ * مع الأعوام المسجل بها كل طالب وآخر حفظ تراكمي حققه، لعرضه في صفحة
+ * إدارة الطلاب واستدعاء الطالبات منها إلى أي عام/مسابقة.
+ */
+export const loadGlobalStudentsWithYears = async (): Promise<Student[]> => {
+  await ensureCache();
+  const userId = await getUserId();
+  if (!userId) return [];
+
+  const [students, allYearData] = await Promise.all([getCachedStudents(), getCachedYearData()]);
+
+  const rowsByStudent = new Map<number, CachedYearData[]>();
+  allYearData.forEach((row) => {
+    const list = rowsByStudent.get(row.student_id) || [];
+    list.push(row);
+    rowsByStudent.set(row.student_id, list);
+  });
+
+  return students
+    .filter((student) => student.user_id === userId)
+    .map((s) => {
+      const rows = (rowsByStudent.get(s.id) || []).sort(
+        (a, b) => yearRank(a.year) - yearRank(b.year),
+      );
+      const last = rows.length > 0 ? rows[rows.length - 1] : null;
+      return {
+        id: s.id,
+        name: s.name,
+        // معلمة السجل هي المرجع؛ وعند فراغها نستأنف بآخر معلمة في الأعوام
+        teacher: s.teacher || last?.teacher || "",
+        gender: s.gender || undefined,
+        hijri_join_date: s.hijri_join_date || undefined,
+        initial_hifz: s.initial_hifz || undefined,
+        first_competition_year: s.first_competition_year || undefined,
+        status: s.status || "طبيعي",
+        school_grade: s.school_grade || undefined,
+        guardian_phone: s.guardian_phone || undefined,
+        student_phone: s.student_phone || undefined,
+        custom_fields: (s.custom_fields as Record<string, string> | null) ?? {},
+        notes: s.notes || undefined,
+        registered_years: rows.map((row) => row.year),
+        latest_total_hifz: last ? last.total_hifz : s.initial_hifz || "0",
+      };
+    })
     .sort((a, b) => (a.name || "").localeCompare(b.name || "", "ar"));
 };
 

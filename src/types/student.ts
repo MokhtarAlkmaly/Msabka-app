@@ -40,7 +40,21 @@ export interface Student {
   notes?: string;
   hifzHistory?: HifzHistory;
   yearData?: YearData;
+  // ===== السجل الشامل (كل الأعوام) =====
+  registered_years?: string[]; // الأعوام المسجل بها الطالب (مثل: 1441، 1447، 1447D لذو الحجة)
+  latest_total_hifz?: string; // آخر حفظ تراكمي من آخر عام مسجل
 }
+
+/**
+ * مفتاح العام قد يكون رقماً عادياً ("1447") أو برفقة مسابقة ذي الحجة ("1447D").
+ * هذه الدوال تنسّقه للعرض.
+ */
+export const formatYearKey = (key: string): string =>
+  key.endsWith("D") ? `${key.slice(0, -1)}هـ · عشر ذي الحجة` : `${key}هـ`;
+
+// نسخة مختصرة للأشرطة الصغيرة داخل الجداول
+export const formatYearKeyShort = (key: string): string =>
+  key.endsWith("D") ? `${key.slice(0, -1)} ذ.ح` : key;
 
 export interface InternalCompetition {
   id: string;

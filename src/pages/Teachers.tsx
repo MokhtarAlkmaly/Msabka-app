@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { Student, START_YEAR, END_YEAR } from "@/types/student";
+import { RecallStudents } from "@/components/RecallStudents";
 import {
   loadAllStudentsWithData,
   getActiveYear,
@@ -298,21 +299,28 @@ const Teachers = () => {
 
       <div className="container mx-auto max-w-7xl px-3 py-5 sm:px-4 sm:py-7">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">سنة المسابقة</span>
-            <Select value={currentYear} onValueChange={(v) => void handleYearChange(v)}>
-              <SelectTrigger className="w-32">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {YEARS.map((y) => (
-                  <SelectItem key={y} value={y}>
-                    {y}هـ
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">سنة المسابقة</span>
+              <Select value={currentYear} onValueChange={(v) => void handleYearChange(v)}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {YEARS.map((y) => (
+                    <SelectItem key={y} value={y}>
+                      {y}هـ
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <RecallStudents
+              targetYear={currentYear}
+              onRecalled={loadAll}
+              buttonClassName="h-9 gap-1.5 rounded-xl text-xs font-bold"
+            />
           </div>
           <div className="flex gap-2">
             <Link to="/awards">

@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import logo from "@/assets/logo.png";
+import { RecallStudents } from "@/components/RecallStudents";
 import {
   Student,
   MonthlyRecord,
@@ -451,6 +452,12 @@ const MonthlyTracking = () => {
               </SelectContent>
             </Select>
           </div>
+
+          <RecallStudents
+            targetYear={year}
+            onRecalled={loadData}
+            buttonClassName="h-9 gap-1.5 rounded-2xl text-xs font-bold"
+          />
 
           <div className="flex items-center gap-2 rounded-2xl bg-secondary px-3 py-2 text-sm ring-1 ring-primary/10">
             <span className="font-semibold">الشهر</span>

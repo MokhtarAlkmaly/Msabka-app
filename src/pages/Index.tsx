@@ -25,7 +25,6 @@ import {
   WifiOff,
   LogOut,
   Users,
-  Trophy,
   BookOpenCheck,
   Heart,
   Calendar,
@@ -33,18 +32,10 @@ import {
   Plus,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
+import { Student, CustomColumnDef, DEFAULT_STATUSES, GENDER_OPTIONS } from "@/types/student";
 import {
-  Student,
-  START_YEAR,
-  END_YEAR,
-  CustomColumnDef,
-  DEFAULT_STATUSES,
-  GENDER_OPTIONS,
-} from "@/types/student";
-import {
-  loadStudentsForYear,
+  loadGlobalStudentsWithYears,
   getActiveYear,
-  setActiveYear,
   syncToCloud,
   syncFromCloud,
   loadTeachers,
@@ -54,7 +45,6 @@ import {
   saveStudentStatuses,
   saveStudent,
   deleteStudent,
-  registerStudentInYear,
 } from "@/utils/storage";
 import { getPendingChanges } from "@/utils/localDB";
 import { useToast } from "@/hooks/use-toast";
@@ -84,14 +74,13 @@ const Index = () => {
   const { user, signOut } = useAuth();
 
   const loadData = useCallback(async () => {
-    if (!currentYear) return;
     setLoading(true);
     try {
-      // Load the registry first. It initializes the user-scoped cache so the
-      // related settings and teacher list read from the same account snapshot.
-      const allStudents = await loadStudentsForYear(currentYear);
+      // السجل الشامل لكل الأعوام: لا يرتبط بعام محدد. يُهيَّئ الكاش أولاً
+      // لتقرأ الإعدادات والمعلمات من نفس لقطة الحساب.
+      const allStudents = await loadGlobalStudentsWithYears();
       const [teachers, columns, statuses] = await Promise.all([
-        loadTeachers(currentYear),
+        loadTeachers(),
         loadCustomColumns(),
         loadStudentStatuses(),
       ]);
@@ -110,7 +99,7 @@ const Index = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentYear, toast, user]);
+  }, [toast, user]);
 
   const handleSaveStudent = useCallback(
     async (student: Partial<Student> & { id?: number; name: string }) => {
@@ -130,6 +119,17 @@ const Index = () => {
 
   const handleDeleteStudent = useCallback(
     async (id: number) => {
+      const student = students.find((s) => s.id === id);
+      const name = student?.name || "هذا الطالب";
+      // السجل شامل لكل الأعوام، لذا الحذف هنا يمس بيانات الطالب في جميع
+      // الأعوام والمسابقات — نطلب تأكيداً صريحاً قبل التنفيذ.
+      if (
+        !confirm(
+          `حذف ${name} من السجل الشامل نهائياً؟\nستُحذف بياناته في جميع الأعوام والمسابقات ولا يمكن التراجع.`,
+        )
+      ) {
+        return;
+      }
       await deleteStudent(id);
       setDirtyMap((current) => {
         const next = { ...current };
@@ -138,7 +138,7 @@ const Index = () => {
       });
       await loadData();
     },
-    [loadData],
+    [loadData, students],
   );
 
   const handleAddStudent = async () => {
@@ -151,7 +151,6 @@ const Index = () => {
       });
       return;
     }
-    if (!currentYear) return;
 
     setAddingStudent(true);
     try {
@@ -165,13 +164,12 @@ const Index = () => {
         throw new Error("Unable to create student without an authenticated user");
       }
 
-      await registerStudentInYear(currentYear, id, teacher);
       await loadData();
       setNewStudent({ name: "", teacher: "", gender: "" });
       setAddStudentOpen(false);
       toast({
         title: "تمت إضافة الطالب",
-        description: `أُضيف ${name} إلى سجل عام ${currentYear}هـ`,
+        description: `أُضيف ${name} إلى السجل الشامل (كل الأعوام)`,
       });
     } catch (error) {
       console.error("Failed to add student:", error);
@@ -276,6 +274,8 @@ const Index = () => {
   }, [autoSyncPending]);
 
   useEffect(() => {
+    // العام النشط يبقى مرجعاً للملف الشامل للطالب واستيراد/تصدير بيانات عام،
+    // لكن جدول الإدارة نفسه شامل لكل الأعوام ولا يرتبط به.
     const init = async () => {
       const year = await getActiveYear();
       setCurrentYear(year);
@@ -286,15 +286,6 @@ const Index = () => {
   useEffect(() => {
     void loadData();
   }, [loadData]);
-
-  const handleYearChange = async (year: string) => {
-    setCurrentYear(year);
-    await setActiveYear(year);
-    toast({
-      title: "تم تغيير السنة",
-      description: `تم التبديل إلى عام ${year}هـ`,
-    });
-  };
 
   const handleSyncFromCloud = async () => {
     if (!online) {
@@ -343,6 +334,14 @@ const Index = () => {
   const distinctTeachers = useMemo(() => {
     const set = new Set(students.map((s) => s.teacher?.trim()).filter(Boolean));
     return set.size;
+  }, [students]);
+  // عدد الأعوام التي يغطيها السجل (ذو الحجة تُحسب ضمن عامها)
+  const yearsCoveredCount = useMemo(() => {
+    const years = new Set<string>();
+    students.forEach((s) =>
+      (s.registered_years || []).forEach((y) => years.add(y.replace(/D$/, ""))),
+    );
+    return years.size;
   }, [students]);
 
   return (
@@ -404,24 +403,9 @@ const Index = () => {
                   </div>
                   <div>{hijriDate}</div>
                   <div className="flex items-center justify-between gap-2 pt-1 border-t border-white/10">
-                    <div className="flex items-center gap-1 text-xs">
+                    <div className="flex items-center gap-1 text-xs font-bold text-amber-200">
                       <Calendar className="h-3.5 w-3.5" />
-                      <span>العام:</span>
-                      <Select value={currentYear} onValueChange={(v) => void handleYearChange(v)}>
-                        <SelectTrigger className="h-6 w-20 text-xs bg-white/10 border-white/20 text-white font-bold p-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Array.from(
-                            { length: END_YEAR - START_YEAR + 1 },
-                            (_, i) => START_YEAR + i,
-                          ).map((y) => (
-                            <SelectItem key={y} value={String(y)}>
-                              {y}هـ
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <span>سجل شامل لكل الأعوام ({yearsCoveredCount} عامًا)</span>
                     </div>
                     <Button
                       onClick={signOut}
@@ -441,12 +425,12 @@ const Index = () => {
                 <div className="rounded-3xl bg-white/14 p-3.5 ring-1 ring-white/15 backdrop-blur">
                   <Users className="mb-2 h-5 w-5 text-amber-300" />
                   <div className="text-2xl font-black">{totalStudents}</div>
-                  <div className="text-xs text-white/70">إجمالي الطلاب المسجلين</div>
+                  <div className="text-xs text-white/70">إجمالي طلاب السجل (كل الأعوام)</div>
                 </div>
                 <div className="rounded-3xl bg-white/14 p-3.5 ring-1 ring-white/15 backdrop-blur">
-                  <Trophy className="mb-2 h-5 w-5 text-amber-300" />
-                  <div className="text-2xl font-black">{totalStudents}</div>
-                  <div className="text-xs text-white/70">السجل الأساسي المعتمد</div>
+                  <Calendar className="mb-2 h-5 w-5 text-amber-300" />
+                  <div className="text-2xl font-black">{yearsCoveredCount}</div>
+                  <div className="text-xs text-white/70">أعوام يشملها السجل</div>
                 </div>
                 <div className="rounded-3xl bg-white/14 p-3.5 ring-1 ring-white/15 backdrop-blur">
                   <Heart className="mb-2 h-5 w-5 text-amber-300" />
@@ -468,7 +452,7 @@ const Index = () => {
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/60 bg-card/85 p-3 shadow-md backdrop-blur">
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-bold text-foreground sm:text-lg">
-                  جدول طلاب العام {currentYear}هـ
+                  سجل الطلاب الشامل — كل الأعوام
                 </h2>
                 <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
                   {students.length} طالب
@@ -478,7 +462,6 @@ const Index = () => {
               <div className="flex flex-wrap items-center gap-2">
                 <Button
                   onClick={() => setAddStudentOpen(true)}
-                  disabled={!currentYear}
                   size="sm"
                   className="h-9 gap-1.5 rounded-xl text-xs"
                 >
@@ -552,8 +535,8 @@ const Index = () => {
                   إضافة طالب جديد
                 </DialogTitle>
                 <DialogDescription>
-                  سيُضاف الطالب إلى سجل إدارة الطلاب للعام {currentYear}هـ، ويمكن استدعاؤه بعد ذلك
-                  إلى المسابقات.
+                  سيُضاف الطالب إلى السجل الشامل المشترك لكل الأعوام، ويمكن استدعاؤه بعد ذلك إلى
+                  المسابقة الرمضانية أو أي صفحة أخرى.
                 </DialogDescription>
               </DialogHeader>
 
