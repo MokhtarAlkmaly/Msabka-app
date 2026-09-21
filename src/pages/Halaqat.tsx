@@ -231,7 +231,7 @@ const Halaqat = () => {
     if (viewAs || !year) return;
     if (
       !confirm(
-        `إخراج «${student.name || "بدون اسم"}» من عام ${year}هـ فقط؟ سيبقى ملفه في السجل العام.`,
+        `إخراج «${student.name || "بدون اسم"}» من عام ${year}هـ فقط؟ سيبقى ملفه في السجل الشامل.`,
       )
     )
       return;
@@ -240,7 +240,7 @@ const Halaqat = () => {
       await deleteStudentFromYear(year, student.id);
       toast({
         title: "تم إخراج الطالب من العام",
-        description: "بقي ملف الطالب محفوظاً في السجل العام.",
+        description: "بقي ملف الطالب محفوظاً في السجل الشامل.",
         variant: "destructive",
       });
       await loadData();
@@ -322,7 +322,7 @@ const Halaqat = () => {
             variant="outline"
             className="gap-2 rounded-2xl"
           >
-            <GraduationCap className="h-4 w-4" /> ربط طلاب من السجل العام
+            <GraduationCap className="h-4 w-4" /> ربط طلاب من السجل الشامل
           </Button>
         </div>
 
@@ -336,7 +336,7 @@ const Halaqat = () => {
             <UsersRound className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
             <p className="font-bold">لا توجد حلقات أو طلاب مسجلون في هذا العام.</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              أضف معلمة أو اربط طلاباً من السجل العام للبدء.
+              أضف معلمة أو اربط طلاباً من السجل الشامل للبدء.
             </p>
           </Card>
         ) : (
@@ -448,7 +448,7 @@ const Halaqat = () => {
       >
         <DialogContent dir="rtl" className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle>ربط طلاب من السجل العام بعام {year}هـ</DialogTitle>
+            <DialogTitle>ربط طلاب من السجل الشامل (كل الأعوام) بعام {year}هـ</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <div className="relative">

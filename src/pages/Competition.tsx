@@ -577,7 +577,12 @@ const Competition = () => {
                 )}
               </Button>
 
-              <RecallStudents currentYear={currentYear} onRecalled={loadData} />
+              <RecallStudents
+                targetYear={dataYearKey}
+                onRecalled={loadData}
+                buttonClassName="h-12 gap-2 rounded-2xl"
+                buttonVariant="secondary"
+              />
 
               <Button onClick={handlePrint} variant="secondary" className="h-12 gap-2 rounded-2xl">
                 <Printer className="h-4 w-4" />

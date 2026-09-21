@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { START_YEAR, END_YEAR, Student } from "@/types/student";
+import { RecallStudents } from "@/components/RecallStudents";
 import {
   getActiveYear,
   setActiveYear,
@@ -295,29 +296,36 @@ const Certificates = () => {
 
       <div className="container mx-auto max-w-7xl px-3 py-5 sm:px-4 sm:py-7 space-y-4">
         <div className="flex flex-wrap gap-3 items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4" />
-            <span className="text-sm">العام:</span>
-            <Select
-              value={currentYear}
-              onValueChange={(v) => {
-                setCurrentYear(v);
-                void setActiveYear(v);
-              }}
-            >
-              <SelectTrigger className="w-32">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Array.from({ length: END_YEAR - START_YEAR + 1 }, (_, i) => START_YEAR + i).map(
-                  (y) => (
-                    <SelectItem key={y} value={String(y)}>
-                      {y}هـ
-                    </SelectItem>
-                  ),
-                )}
-              </SelectContent>
-            </Select>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              <span className="text-sm">العام:</span>
+              <Select
+                value={currentYear}
+                onValueChange={(v) => {
+                  setCurrentYear(v);
+                  void setActiveYear(v);
+                }}
+              >
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: END_YEAR - START_YEAR + 1 }, (_, i) => START_YEAR + i).map(
+                    (y) => (
+                      <SelectItem key={y} value={String(y)}>
+                        {y}هـ
+                      </SelectItem>
+                    ),
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+            <RecallStudents
+              targetYear={currentYear}
+              onRecalled={load}
+              buttonClassName="h-9 gap-1.5 rounded-xl text-xs font-bold"
+            />
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="secondary" className="gap-1" onClick={() => void generate()}>

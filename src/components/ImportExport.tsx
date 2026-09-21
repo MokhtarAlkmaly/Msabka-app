@@ -301,7 +301,10 @@ export const ImportExport = ({ onDataImported, currentYear, displayYear }: Props
       >
         <div className="flex items-center gap-2 text-primary font-semibold text-sm">
           <FileSpreadsheet className="h-4 w-4" />
-          <span>استيراد وتصدير البيانات</span>
+          <span>استيراد وتصدير بيانات المسابقة</span>
+          <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-bold text-muted-foreground">
+            لعام {labelYear}هـ
+          </span>
         </div>
         {isOpen ? (
           <ChevronUp className="h-4 w-4 text-muted-foreground" />
@@ -366,7 +369,8 @@ export const ImportExport = ({ onDataImported, currentYear, displayYear }: Props
             {merging ? "جارٍ الدمج..." : "دمج الأسماء المكررة"}
           </Button>
           <p className="text-xs text-muted-foreground">
-            📝 نزّل القالب، عبّئ البيانات (الاسم إلزامي)، ثم استورده.
+            📝 نزّل القالب، عبّئ البيانات (الاسم إلزامي)، ثم استورده — الطالبات الجديدة تُضاف
+            تلقائياً إلى السجل الشامل لكل الأعوام وتُسجَّل بيانات مسابقتهن في عام {labelYear}هـ.
           </p>
         </div>
       )}

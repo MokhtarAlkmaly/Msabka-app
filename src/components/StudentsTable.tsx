@@ -1,5 +1,12 @@
 import { useState, useMemo } from "react";
-import { Student, CustomColumnDef, DEFAULT_STATUSES, GENDER_OPTIONS } from "@/types/student";
+import {
+  Student,
+  CustomColumnDef,
+  DEFAULT_STATUSES,
+  GENDER_OPTIONS,
+  formatYearKey,
+  formatYearKeyShort,
+} from "@/types/student";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -234,7 +241,11 @@ export const StudentsTable = ({
         المعلمة: current.teacher || "",
         "تاريخ هجري الالتحاق": current.hijri_join_date || "",
         "الحفظ قبل الالتحاق": current.initial_hifz || "0",
+        "الحفظ التراكمي (آخر عام)": current.latest_total_hifz || "0",
         "عام أول مسابقة": current.first_competition_year || "",
+        "الأعوام المسجل بها": (current.registered_years || [])
+          .map((y) => formatYearKey(y))
+          .join("، "),
         الحالة: current.status || "طبيعي",
         "السنة الدراسية وقت الالتحاق": current.school_grade || "",
         "رقم ولي الأمر": current.guardian_phone || "",
@@ -250,9 +261,9 @@ export const StudentsTable = ({
 
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, `طلاب ${activeYear}هـ`);
+    XLSX.utils.book_append_sheet(wb, ws, "سجل الطلاب الشامل");
 
-    const fileName = `سجل_الطلاب_الرسمي_${activeYear}هـ_مركز_إنماء.xlsx`;
+    const fileName = `سجل_الطلاب_الشامل_كل_الأعوام_مركز_إنماء.xlsx`;
     if (Capacitor.isNativePlatform()) {
       const base64 = XLSX.write(wb, { type: "base64", bookType: "xlsx" });
       const result = await Filesystem.writeFile({
@@ -266,7 +277,7 @@ export const StudentsTable = ({
     }
     toast({
       title: "تم التصدير",
-      description: `تم تصدير طلاب عام ${activeYear}هـ إلى ملف Excel بنجاح`,
+      description: `تم تصدير ${filteredStudents.length} طالب من السجل الشامل (كل الأعوام) إلى ملف Excel بنجاح`,
     });
   };
 
@@ -281,6 +292,11 @@ export const StudentsTable = ({
           .map((col) => `<td>${esc(current.custom_fields?.[col.id] || "—")}</td>`)
           .join("");
 
+        const yearsLabel =
+          (current.registered_years || []).length > 0
+            ? (current.registered_years || []).map((y) => esc(formatYearKey(y))).join("، ")
+            : "—";
+
         return `<tr>
           <td>${i + 1}</td>
           <td class="name font-bold">${esc(current.name)}</td>
@@ -288,6 +304,9 @@ export const StudentsTable = ({
           <td>${esc(current.teacher || "—")}</td>
           <td>${esc(current.hijri_join_date || "—")}</td>
           <td>${esc(current.initial_hifz || "0")} جزء</td>
+          <td>${esc(current.latest_total_hifz || "0")} جزء</td>
+          <td>${esc(current.first_competition_year || "—")}</td>
+          <td>${yearsLabel}</td>
           <td>${esc(current.status || "طبيعي")}</td>
           <td>${esc(current.school_grade || "—")}</td>
           <td dir="ltr">${esc(current.guardian_phone || "—")}</td>
@@ -320,14 +339,15 @@ export const StudentsTable = ({
         <div class="header">
           <img src="${logo}" alt="الشعار" />
           <h1>مركز إنماء الأهلي الخيري - قسم القرآن الكريم</h1>
-          <h2>كشف طلاب العام النشط ${esc(activeYear)}هـ</h2>
-          <div class="sub">إجمالي الطلاب المسجلين في العام: <strong>${filteredStudents.length}</strong> طالب</div>
+          <h2>كشف السجل الشامل لطلاب المركز — كل الأعوام</h2>
+          <div class="sub">إجمالي الطلاب في السجل الشامل: <strong>${filteredStudents.length}</strong> طالب</div>
         </div>
         <table>
           <thead>
             <tr>
               <th>م</th><th>اسم الطالب</th><th>الجنس</th><th>المعلمة</th><th>تاريخ هجري الالتحاق</th>
-              <th>الحفظ قبل الالتحاق</th><th>الحالة</th><th>السنة الدراسية</th>
+              <th>الحفظ قبل الالتحاق</th><th>الحفظ التراكمي</th><th>عام أول مسابقة</th><th>الأعوام المسجل بها</th>
+              <th>الحالة</th><th>السنة الدراسية</th>
               <th>رقم ولي الأمر</th><th>رقم الطالب</th>
               ${customHeaders}
             </tr>
@@ -341,7 +361,7 @@ export const StudentsTable = ({
         </div>
       </body></html>`;
 
-    printHtmlDocument(fullHtml, `سجل_طلاب_${activeYear}هـ_مركز_إنماء`);
+    printHtmlDocument(fullHtml, `سجل_الطلاب_الشامل_كل_الأعوام_مركز_إنماء`);
   };
 
   return (
@@ -355,11 +375,11 @@ export const StudentsTable = ({
             </div>
             <div>
               <h2 className="text-lg font-black text-foreground sm:text-xl">
-                سجل الطلاب الرسمي المعتمد
+                سجل الطلاب الرسمي المعتمد — شامل لكل الأعوام
               </h2>
               <p className="text-xs text-muted-foreground">
-                الطلاب المسجلون في العام النشط {activeYear}هـ — ويمكن فتح الملف الشامل لأي طالب عبر
-                زر العرض
+                جميع طلاب المركز عبر كل الأعوام في سجل واحد موحد — تُستدعى الطالبات منه إلى المسابقة
+                الرمضانية والمتابعة الشهرية وأي صفحة أخرى
               </p>
             </div>
           </div>
@@ -540,7 +560,13 @@ export const StudentsTable = ({
                   مقدار الحفظ قبل الالتحاق
                 </th>
                 <th className="sticky top-0 z-30 min-w-[110px] bg-emerald-900 p-2.5 text-center border-b border-l border-emerald-800">
+                  الحفظ التراكمي (آخر عام)
+                </th>
+                <th className="sticky top-0 z-30 min-w-[110px] bg-emerald-900 p-2.5 text-center border-b border-l border-emerald-800">
                   عام المسابقة الأولى
+                </th>
+                <th className="sticky top-0 z-30 min-w-[170px] bg-emerald-900 p-2.5 text-center border-b border-l border-emerald-800">
+                  الأعوام المسجل بها
                 </th>
                 <th className="sticky top-0 z-30 min-w-[120px] bg-emerald-900 p-2.5 text-center border-b border-l border-emerald-800">
                   الحالة
@@ -577,7 +603,7 @@ export const StudentsTable = ({
               {filteredStudents.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={12 + customColumns.length}
+                    colSpan={14 + customColumns.length}
                     className="p-12 text-center text-muted-foreground"
                   >
                     لا يوجد طلاب مطابقون لمعايير البحث
@@ -716,6 +742,23 @@ export const StudentsTable = ({
                         </div>
                       </td>
 
+                      {/* Cumulative memorization from the latest registered year */}
+                      <td className="border-b border-l border-border/70 p-1 bg-emerald-500/5">
+                        <div className="flex items-center justify-center gap-1 font-black text-emerald-700 dark:text-emerald-300">
+                          {current.latest_total_hifz !== undefined &&
+                          current.latest_total_hifz !== "" ? (
+                            <>
+                              <span>{current.latest_total_hifz}</span>
+                              <span className="text-[11px] font-normal text-muted-foreground">
+                                جزء
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </div>
+                      </td>
+
                       {/* First Competition Year */}
                       <td className="border-b border-l border-border/70 p-1">
                         <Input
@@ -726,6 +769,31 @@ export const StudentsTable = ({
                           placeholder="1443هـ"
                           className="h-9 w-20 mx-auto rounded-xl border-0 bg-background/70 text-center text-xs"
                         />
+                      </td>
+
+                      {/* Registered years across all competitions */}
+                      <td className="border-b border-l border-border/70 p-1">
+                        {(current.registered_years || []).length > 0 ? (
+                          <div className="flex flex-wrap items-center justify-center gap-1">
+                            {(current.registered_years || []).map((y) => (
+                              <span
+                                key={y}
+                                title={formatYearKey(y)}
+                                className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                                  y.endsWith("D")
+                                    ? "bg-teal-500/15 text-teal-700 dark:text-teal-300"
+                                    : "bg-primary/10 text-primary"
+                                }`}
+                              >
+                                {formatYearKeyShort(y)}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-[11px] text-muted-foreground">
+                            غير مسجل بعام بعد
+                          </span>
+                        )}
                       </td>
 
                       {/* Status */}
@@ -840,7 +908,7 @@ export const StudentsTable = ({
                             size="sm"
                             onClick={() => onDeleteStudent(student.id)}
                             className="h-8 w-8 rounded-lg p-0 text-rose-500 hover:bg-rose-500/10 hover:text-rose-600"
-                            title="حذف الطالب"
+                            title="حذف الطالب من السجل الشامل نهائياً (كل الأعوام)"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -861,7 +929,7 @@ export const StudentsTable = ({
         open={profileModalOpen}
         onOpenChange={setProfileModalOpen}
         onStudentUpdated={onUpdate}
-        initialYear={activeYear}
+        initialYear={activeYear || undefined}
         customColumns={customColumns}
       />
 
