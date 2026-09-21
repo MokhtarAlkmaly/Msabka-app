@@ -38,10 +38,7 @@ import {
 import { StudentProfileModal } from "./StudentProfileModal";
 import { getDuplicateNameCounts, getDuplicateCountFor } from "@/utils/studentNames";
 import { esc } from "@/utils/report";
-import * as XLSX from "xlsx";
-import { Capacitor } from "@capacitor/core";
-import { Filesystem, Directory } from "@capacitor/filesystem";
-import { Share as NativeShare } from "@capacitor/share";
+import { loadXLSX, saveWorkbook } from "@/utils/excel";
 import { useToast } from "@/hooks/use-toast";
 import logo from "@/assets/logo.png";
 
@@ -259,22 +256,13 @@ export const StudentsTable = ({
       return row;
     });
 
+    const XLSX = await loadXLSX();
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "سجل الطلاب الشامل");
 
     const fileName = `سجل_الطلاب_الشامل_كل_الأعوام_مركز_إنماء.xlsx`;
-    if (Capacitor.isNativePlatform()) {
-      const base64 = XLSX.write(wb, { type: "base64", bookType: "xlsx" });
-      const result = await Filesystem.writeFile({
-        path: fileName,
-        data: base64,
-        directory: Directory.Cache,
-      });
-      await NativeShare.share({ title: fileName, url: result.uri });
-    } else {
-      XLSX.writeFile(wb, fileName);
-    }
+    await saveWorkbook(wb, fileName);
     toast({
       title: "تم التصدير",
       description: `تم تصدير ${filteredStudents.length} طالب من السجل الشامل (كل الأعوام) إلى ملف Excel بنجاح`,

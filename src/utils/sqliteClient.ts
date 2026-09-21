@@ -279,8 +279,11 @@ const ensureWebStore = async (sqlite: SQLiteConnectionType) => {
   await sqlite.initWebStore();
 };
 
-/** يحفظ قاعدة البيانات في مخزن IndexedDB الدائم عند التشغيل على الويب (على الجوال الأصلي لا حاجة لذلك). */
-export const persist = async () => {
+/**
+ * حفظ فعلي فوري لقاعدة البيانات في مخزن IndexedDB (الويب فقط).
+ * لا تستدعِها مباشرة من دوال الكتابة — استخدم persist() المؤجَّلة.
+ */
+const flushToStore = async () => {
   try {
     const platform = await getPlatform();
     if (platform !== "web" || !sqliteConn) return;
@@ -288,6 +291,87 @@ export const persist = async () => {
   } catch (err) {
     console.error("sqliteClient: فشل حفظ قاعدة البيانات المحلية إلى المتصفح", err);
   }
+};
+
+// ========== حفظ مؤجَّل (أهم تحسين أداء في طبقة التخزين) ==========
+//
+// saveToStore يُسلسِل قاعدة البيانات **بالكامل** ثم يكتبها في IndexedDB.
+// استدعاؤها بعد كل صف (كما كان سابقًا) يعني أن استيراد/مزامنة 500 طالب
+// تكتب القاعدة كاملة 500 مرة — وهذا السبب الأول لتجمّد الواجهة.
+// الآن نجمع عمليات الكتابة المتتالية ونحفظ مرة واحدة بعد توقّفها.
+
+const PERSIST_DEBOUNCE_MS = 400;
+/** أقصى مدة نسمح فيها بتأجيل الحفظ حتى مع تدفّق كتابات متواصل. */
+const PERSIST_MAX_WAIT_MS = 3000;
+
+let persistTimer: ReturnType<typeof setTimeout> | null = null;
+let persistDeadline = 0;
+let persistInFlight: Promise<void> | null = null;
+let persistPendingAfterFlush = false;
+
+const runPersist = async () => {
+  persistTimer = null;
+  persistDeadline = 0;
+
+  if (persistInFlight) {
+    // حفظ جارٍ بالفعل: نعلّم أن هناك تغييرات أحدث تحتاج حفظًا بعده.
+    persistPendingAfterFlush = true;
+    return;
+  }
+
+  persistInFlight = flushToStore().finally(() => {
+    persistInFlight = null;
+    if (persistPendingAfterFlush) {
+      persistPendingAfterFlush = false;
+      schedulePersist();
+    }
+  });
+  await persistInFlight;
+};
+
+const schedulePersist = () => {
+  const now = Date.now();
+  if (persistTimer) {
+    // مع استمرار الكتابة نمدّد المهلة، لكن دون تجاوز السقف الأقصى.
+    if (persistDeadline && now + PERSIST_DEBOUNCE_MS > persistDeadline) return;
+    clearTimeout(persistTimer);
+  } else {
+    persistDeadline = now + PERSIST_MAX_WAIT_MS;
+  }
+  persistTimer = setTimeout(() => void runPersist(), PERSIST_DEBOUNCE_MS);
+};
+
+/**
+ * يطلب حفظ قاعدة البيانات إلى المخزن الدائم (الويب). الحفظ مؤجَّل ومجمَّع،
+ * والدالة ترجع فورًا حتى لا تُعطِّل الواجهة بعد كل عملية.
+ */
+export const persist = async () => {
+  if (typeof window === "undefined" || !sqliteConn) return;
+  schedulePersist();
+};
+
+/** حفظ فوري مضمون — يُستخدم قبل مغادرة الصفحة أو عند إخفائها. */
+export const persistNow = async () => {
+  if (persistTimer) {
+    clearTimeout(persistTimer);
+    persistTimer = null;
+    persistDeadline = 0;
+  }
+  if (persistInFlight) await persistInFlight;
+  await flushToStore();
+};
+
+let lifecycleHooksBound = false;
+/** يضمن ألا تضيع الكتابات المؤجَّلة عند إغلاق التبويب أو تصغير التطبيق. */
+const bindLifecycleFlush = () => {
+  if (lifecycleHooksBound || typeof document === "undefined") return;
+  lifecycleHooksBound = true;
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") void persistNow();
+  });
+  window.addEventListener("pagehide", () => {
+    void persistNow();
+  });
 };
 
 /** يفتح (أو يعيد استخدام) اتصال SQLite واحد مع تطبيق السكيمة مرة واحدة فقط. */
@@ -321,6 +405,7 @@ export const getDB = (): Promise<SQLiteDBConnection> => {
       }
 
       dbConn = db;
+      bindLifecycleFlush();
       return db;
     } catch (err) {
       initPromise = null;

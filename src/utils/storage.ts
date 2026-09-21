@@ -103,6 +103,8 @@ import {
   getCachedMedia,
   putCachedMedia,
   deleteCachedMedia,
+  hasForeignCachedStudents,
+  hasAnyCachedStudent,
   getCachedYearDataForStudent,
   getCachedYearDataForStudents,
   getCachedYearDataForYear,
@@ -129,6 +131,8 @@ let knownUserId: string | null = null;
 let cacheResetInFlight: Promise<void> | null = null;
 
 const clearSessionCache = () => {
+  // أي مسح للكاش يُبطل نتيجة فحص ensureCache المحفوظة.
+  invalidateEnsureCache();
   const reset = clearAllCache().catch((error) => {
     console.error("Failed to clear the previous user cache:", error);
   });
@@ -193,6 +197,9 @@ supabase.auth.onAuthStateChange((event, session) => {
   if (signedOut || identityChanged) {
     knownUserId = newUserId;
     clearSessionCache();
+  } else if (newUserId) {
+    // تسجيل دخول جديد على نفس الجهاز: نُعيد الفحص لهذه الهوية.
+    invalidateEnsureCache();
   }
 });
 
@@ -261,15 +268,18 @@ const newLocalId = () => {
   });
 };
 
-const ensureCache = async () => {
-  const userId = await getUserId();
-  if (!userId) return;
+/**
+ * الفحص الكامل للكاش — مكلف نسبياً، لذلك يُنفَّذ مرة واحدة لكل مستخدم ولا
+ * يُعاد إلا بعد تسجيل خروج/تبديل حساب أو تبديل وضع الاطلاع.
+ */
+const runEnsureCache = async (userId: string) => {
   if (cacheResetInFlight) await cacheResetInFlight;
 
-  const hasCache = await isCachePopulated();
-  const cacheOwner = await getCachedSetting<string>(CACHE_USER_SETTING);
-  const cachedStudents = await getCachedStudents();
-  const containsAnotherUsersStudents = cachedStudents.some((student) => student.user_id !== userId);
+  const [hasCache, cacheOwner, containsAnotherUsersStudents] = await Promise.all([
+    isCachePopulated(),
+    getCachedSetting<string>(CACHE_USER_SETTING),
+    hasForeignCachedStudents(userId),
+  ]);
 
   // The local database is shared by sessions on the same device. Never expose
   // the previous account's students while a new session is being initialized.
@@ -286,13 +296,47 @@ const ensureCache = async () => {
   // Adopt a legacy cache only when every cached student already belongs to the
   // current user. This avoids an unnecessary download without weakening the
   // per-user isolation guarantee.
-  if (!cacheOwner && cachedStudents.length > 0) {
+  if (!cacheOwner && (await hasAnyCachedStudent())) {
     await setCachedSetting(CACHE_USER_SETTING, userId);
   }
 
   if (!hasCache && isOnline()) {
     await syncFromCloud();
   }
+};
+
+/**
+ * ensureCache يُستدعى في مقدمة كل دالة قراءة (16 موضعاً)، وكل شاشة تستدعي
+ * عدة دوال. سابقاً كان كل نداء يقرأ جدول الطلاب كاملاً من SQLite لفحص
+ * الملكية — أي عشرات المسوحات الكاملة لفتح شاشة واحدة.
+ *
+ * الآن: الفحص يتم مرة واحدة لكل هوية مستخدم، ويُعاد استخدام نفس الوعد
+ * للنداءات المتوازية، ويُبطَل عند تسجيل الخروج أو تبديل الحساب/وضع الاطلاع.
+ */
+let ensureCachePromise: Promise<void> | null = null;
+let ensureCacheUserId: string | null = null;
+
+const invalidateEnsureCache = () => {
+  ensureCachePromise = null;
+  ensureCacheUserId = null;
+};
+
+const ensureCache = async () => {
+  const userId = await getUserId();
+  if (!userId) return;
+
+  if (ensureCachePromise && ensureCacheUserId === userId) {
+    return ensureCachePromise;
+  }
+
+  ensureCacheUserId = userId;
+  const run = runEnsureCache(userId).catch((error) => {
+    // لا نُبقي على وعد فاشل: المحاولة القادمة يجب أن تعيد الفحص.
+    if (ensureCachePromise === run) invalidateEnsureCache();
+    throw error;
+  });
+  ensureCachePromise = run;
+  return run;
 };
 
 const belongsToUser = <T extends { user_id: string }>(row: T, userId: string) =>

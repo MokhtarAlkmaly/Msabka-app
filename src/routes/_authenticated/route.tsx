@@ -1,4 +1,5 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { AppSidebar } from "@/components/AppSidebar";
 import { ViewAsBanner } from "@/components/ViewAsBanner";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +17,26 @@ export const Route = createFileRoute("/_authenticated")({
 });
 
 function AuthenticatedLayout() {
+  // تهيئة قاعدة البيانات المحلية (SQLite/WASM ~1MB) تحدث هنا فقط — أي بعد
+  // تسجيل الدخول — بدل تحميلها على كل صفحة من الجذر. صفحة الدخول تبقى خفيفة.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { getDB } = await import("@/utils/sqliteClient");
+        await getDB();
+        if (cancelled) return;
+        const { migrateLegacyIndexedDbCache } = await import("@/utils/migrateLegacyCache");
+        await migrateLegacyIndexedDbCache();
+      } catch (err) {
+        console.error("تعذّرت تهيئة قاعدة البيانات المحلية (SQLite)", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <div className="min-h-screen" dir="rtl">
       <AppSidebar />

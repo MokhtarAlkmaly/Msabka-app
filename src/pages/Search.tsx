@@ -19,10 +19,7 @@ import {
   Gift,
   Award as AwardIcon,
 } from "lucide-react";
-import * as XLSX from "xlsx";
-import { Capacitor } from "@capacitor/core";
-import { Filesystem, Directory } from "@capacitor/filesystem";
-import { Share as NativeShare } from "@capacitor/share";
+import { loadXLSX, saveWorkbook } from "@/utils/excel";
 import { useToast } from "@/hooks/use-toast";
 import logo from "@/assets/logo.png";
 import { Student, HifzHistory, YearData, START_YEAR, END_YEAR } from "@/types/student";
@@ -415,6 +412,7 @@ const Search = () => {
         "مكافأة الحالة": c.statusPrize,
       };
     });
+    const XLSX = await loadXLSX();
     const ws = XLSX.utils.json_to_sheet(data);
     ws["!cols"] = Array(12).fill({ wch: 14 });
     const wb = XLSX.utils.book_new();
@@ -458,17 +456,7 @@ const Search = () => {
     XLSX.utils.book_append_sheet(wb, wsExtras, "الجوائز والشهادات");
 
     const fileName = `سجل_${selected.name}.xlsx`;
-    if (Capacitor.isNativePlatform()) {
-      const base64 = XLSX.write(wb, { type: "base64", bookType: "xlsx" });
-      const result = await Filesystem.writeFile({
-        path: fileName,
-        data: base64,
-        directory: Directory.Cache,
-      });
-      await NativeShare.share({ title: fileName, url: result.uri });
-    } else {
-      XLSX.writeFile(wb, fileName);
-    }
+    await saveWorkbook(wb, fileName);
     toast({ title: "تم التصدير", description: "تم تصدير سجل الطالبة والإحصائيات إلى Excel" });
   };
 
