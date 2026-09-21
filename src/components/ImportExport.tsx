@@ -3,10 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Upload, Download, FileSpreadsheet, ChevronDown, ChevronUp, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import * as XLSX from "xlsx";
-import { Capacitor } from "@capacitor/core";
-import { Filesystem, Directory } from "@capacitor/filesystem";
-import { Share } from "@capacitor/share";
+import { loadXLSX, saveWorkbook } from "@/utils/excel";
 import {
   loadGlobalStudents,
   saveStudent,
@@ -17,26 +14,6 @@ import {
 } from "@/utils/storage";
 import { Student } from "@/types/student";
 import { Progress } from "@/components/ui/progress";
-
-// يحفظ ملف Excel: تنزيل مباشر بالمتصفح العادي، أو حفظ ومشاركة عبر
-// أدوات Capacitor الأصلية عند التشغيل داخل التطبيق المثبت (APK)
-// لأن متصفح الويب المدمج بالتطبيق لا يدعم تنزيل الملفات مباشرة.
-const saveWorkbook = async (workbook: XLSX.WorkBook, fileName: string) => {
-  if (Capacitor.isNativePlatform()) {
-    const base64 = XLSX.write(workbook, { type: "base64", bookType: "xlsx" });
-    const result = await Filesystem.writeFile({
-      path: fileName,
-      data: base64,
-      directory: Directory.Cache,
-    });
-    await Share.share({
-      title: fileName,
-      url: result.uri,
-    });
-  } else {
-    XLSX.writeFile(workbook, fileName);
-  }
-};
 
 interface Props {
   onDataImported: () => void;
@@ -64,6 +41,7 @@ export const ImportExport = ({ onDataImported, currentYear, displayYear }: Props
   };
 
   const handleExport = async () => {
+    const XLSX = await loadXLSX();
     const { loadAllStudentsWithData } = await import("@/utils/storage");
     const students = await loadAllStudentsWithData(currentYear);
 
@@ -121,6 +99,7 @@ export const ImportExport = ({ onDataImported, currentYear, displayYear }: Props
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
+        const XLSX = await loadXLSX();
         const data = e.target?.result;
         const workbook = XLSX.read(data, { type: "binary" });
         const sheetName = workbook.SheetNames[0];
@@ -247,6 +226,7 @@ export const ImportExport = ({ onDataImported, currentYear, displayYear }: Props
   };
 
   const downloadTemplate = async () => {
+    const XLSX = await loadXLSX();
     const templateData = [
       {
         الاسم: "مثال: فاطمة أحمد",

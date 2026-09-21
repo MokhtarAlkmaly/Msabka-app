@@ -808,3 +808,25 @@ export const getCachedYearDataForStudent = async (studentId: number): Promise<Ca
   );
   return (res.values ?? []) as CachedYearData[];
 };
+
+/**
+ * فحص سريع: هل يوجد في الكاش طالب واحد على الأقل يخص مستخدماً آخر؟
+ *
+ * كان ensureCache() يجلب جدول الطلاب كاملاً (getCachedStudents) في كل نداء
+ * بيانات فقط ليفحص الملكية — أي تحويل آلاف الصفوف إلى كائنات JS وتحليل JSON
+ * لكل صف، عشرات المرات في كل شاشة. هذا الاستعلام يكلّف صفاً واحداً فقط.
+ */
+export const hasForeignCachedStudents = async (userId: string): Promise<boolean> => {
+  const db = await getDB();
+  const res = await db.query(`SELECT 1 FROM ${STORES.students} WHERE user_id IS NOT ? LIMIT 1`, [
+    userId,
+  ]);
+  return (res.values?.length ?? 0) > 0;
+};
+
+/** هل جدول الطلاب غير فارغ؟ (بدون تحميل أي صف فعلياً). */
+export const hasAnyCachedStudent = async (): Promise<boolean> => {
+  const db = await getDB();
+  const res = await db.query(`SELECT 1 FROM ${STORES.students} LIMIT 1`);
+  return (res.values?.length ?? 0) > 0;
+};
