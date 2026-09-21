@@ -34,13 +34,77 @@ import {
   GraduationCap,
   ExternalLink,
   AlertTriangle,
+  X,
+  PencilLine,
+  ListFilter,
 } from "lucide-react";
 import { StudentProfileModal } from "./StudentProfileModal";
 import { getDuplicateNameCounts, getDuplicateCountFor } from "@/utils/studentNames";
+import {
+  ALL_GRADES_VALUE,
+  buildSchoolGradeOptions,
+  matchesSchoolGrade,
+} from "@/utils/schoolGrades";
 import { esc } from "@/utils/report";
 import { loadXLSX, saveWorkbook } from "@/utils/excel";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 import logo from "@/assets/logo.png";
+
+/* ==========================================================================
+ * تنسيق أعمدة الجدول
+ * كل عرض/تنسيق يُعرَّف مرة واحدة هنا ويُستخدم في الرأس (<colgroup> + <th>)
+ * وفي الخلايا، حتى تبقى الأعمدة متساوية ومحاذاتها موحّدة تمامًا.
+ * ========================================================================== */
+
+/** عامل التحويل من rem إلى بكسل — يُستخدم لحساب أقل عرض مسموح للجدول */
+const REM_PX = 16;
+
+/**
+ * أعمدة الجدول: الترتيب والعنوان والعرض والمحاذاة.
+ * العرض يُطبَّق على <col> في <colgroup> فيتطابق الرأس مع الخلايا تمامًا.
+ */
+const TABLE_COLUMNS: { key: string; label: string; width: string; align: "center" | "right" }[] = [
+  { key: "index", label: "م", width: "3rem", align: "center" },
+  { key: "name", label: "اسم الطالب", width: "19rem", align: "right" },
+  { key: "gender", label: "الجنس", width: "5.5rem", align: "center" },
+  { key: "teacher", label: "المعلمة", width: "9rem", align: "center" },
+  { key: "hijri_join_date", label: "تاريخ هجري الالتحاق", width: "8.5rem", align: "center" },
+  { key: "initial_hifz", label: "الحفظ قبل الالتحاق", width: "8.5rem", align: "center" },
+  { key: "latest_total_hifz", label: "الحفظ التراكمي (آخر عام)", width: "8.5rem", align: "center" },
+  { key: "first_competition_year", label: "عام المسابقة الأولى", width: "8rem", align: "center" },
+  { key: "registered_years", label: "الأعوام المسجل بها", width: "11rem", align: "center" },
+  { key: "status", label: "الحالة", width: "8rem", align: "center" },
+  {
+    key: "school_grade",
+    label: "السنة الدراسية وقت الالتحاق",
+    width: "10rem",
+    align: "center",
+  },
+  { key: "guardian_phone", label: "رقم ولي الأمر", width: "9rem", align: "center" },
+  { key: "student_phone", label: "رقم الطالب", width: "8.5rem", align: "center" },
+];
+
+/** عرض أعمدة: المخصّصة، والإجراءات */
+const CUSTOM_COLUMN_WIDTH = "9rem";
+const ACTIONS_COLUMN_WIDTH = "6.5rem";
+
+/** القيم الخاصة داخل القوائم المنسدلة للخلايا */
+const NONE_VALUE = "__none__";
+const MANUAL_GRADE_VALUE = "__manual__";
+
+/** ارتفاعات وتنسيقات موحّدة لكل خلايا الجدول */
+const HEAD_CELL =
+  "sticky top-0 z-30 h-12 whitespace-normal align-middle bg-emerald-900 px-2 py-2 text-[11px] leading-snug border-b border-l border-emerald-800/70";
+const HEAD_CELL_INDEX = cn(HEAD_CELL, "right-0 z-40");
+const HEAD_CELL_NAME = cn(HEAD_CELL, "right-12 z-40 shadow-[-8px_0_12px_-10px_rgba(0,0,0,0.45)]");
+const HEAD_CELL_CUSTOM = cn(HEAD_CELL, "bg-teal-900");
+const BODY_CELL = "border-b border-l border-border/70 p-1.5 align-middle";
+const BODY_CELL_STICKY = cn(BODY_CELL, "sticky right-0 z-10 bg-card text-center");
+const CELL_INPUT = "h-9 w-full rounded-xl border-0 bg-background/70 px-2 text-center text-xs";
+const CELL_INPUT_NUMERIC = cn(CELL_INPUT, "tabular-nums font-bold");
+const CELL_SELECT =
+  "h-9 w-full rounded-xl border-0 bg-background/70 px-2 text-center text-xs font-bold";
 
 interface Props {
   students: Student[];
@@ -79,9 +143,11 @@ export const StudentsTable = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTeacher, setSelectedTeacher] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
-  const [selectedGrade, setSelectedGrade] = useState<string>("all");
+  const [selectedGrade, setSelectedGrade] = useState<string>(ALL_GRADES_VALUE);
   const [selectedGender, setSelectedGender] = useState<string>("all");
   const [duplicatesOnly, setDuplicatesOnly] = useState(false);
+  /** الطلاب الذين اختاروا الكتابة اليدوية للسنة الدراسية داخل الجدول */
+  const [manualGradeIds, setManualGradeIds] = useState<number[]>([]);
 
   // Active student for profile modal
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -157,14 +223,23 @@ export const StudentsTable = ({
     toast({ title: "تمت إضافة العمود الجديد", description: `أُضيف عمود "${trimmed}" للجدول` });
   };
 
-  // Grade options
-  const gradeOptions = useMemo(() => {
-    const set = new Set<string>();
-    students.forEach((s) => {
-      if (s.school_grade && s.school_grade.trim()) set.add(s.school_grade.trim());
-    });
-    return Array.from(set).sort((a, b) => a.localeCompare(b, "ar"));
-  }, [students]);
+  // السنوات الدراسية: قائمة المركز الثابتة + أي قيم مكتوبة داخل السجل، بترتيب
+  // تربوي ومع عدد الطلاب في كل سنة — هذه هي القائمة التي تغذّي الفلتر المنسدل
+  // وخلايا العمود معًا، فتعمل التصفية دائمًا مهما اختلفت صياغة النص.
+  const gradeOptions = useMemo(
+    () =>
+      buildSchoolGradeOptions(students, [selectedGrade === ALL_GRADES_VALUE ? "" : selectedGrade]),
+    [students, selectedGrade],
+  );
+  const gradeLabels = useMemo(() => gradeOptions.map((option) => option.value), [gradeOptions]);
+  const studentsWithoutGradeCount = useMemo(
+    () => students.filter((s) => !(s.school_grade || "").trim()).length,
+    [students],
+  );
+  const selectedGradeLabel = useMemo(() => {
+    if (selectedGrade === ALL_GRADES_VALUE) return "كل السنوات الدراسية";
+    return gradeOptions.find((option) => option.value === selectedGrade)?.label || selectedGrade;
+  }, [selectedGrade, gradeOptions]);
 
   // Duplicate names across the whole registry (normalized, Arabic-aware)
   const duplicateNameCounts = useMemo(() => getDuplicateNameCounts(students), [students]);
@@ -178,6 +253,16 @@ export const StudentsTable = ({
     [students, duplicateNameCounts],
   );
 
+  /**
+   * أقل عرض مسموح للجدول = مجموع عروض كل الأعمدة (بالبكسل)، فتبقى الأعمدة
+   * بأحجامها المتساوية ولا تنضغط على الشاشات الضيقة، ويظهر شريط تمرير أفقي.
+   */
+  const tableMinWidth = useMemo(() => {
+    const fixedWidth = TABLE_COLUMNS.reduce((total, column) => total + parseFloat(column.width), 0);
+    const customWidth = customColumns.length * parseFloat(CUSTOM_COLUMN_WIDTH);
+    return Math.round((fixedWidth + customWidth + parseFloat(ACTIONS_COLUMN_WIDTH)) * REM_PX);
+  }, [customColumns.length]);
+
   // Filtered Students list
   const filteredStudents = useMemo(() => {
     return students.filter((s) => {
@@ -187,7 +272,11 @@ export const StudentsTable = ({
         return false;
       }
       if (selectedStatus !== "all" && (current.status || "طبيعي") !== selectedStatus) return false;
-      if (selectedGrade !== "all" && (current.school_grade || "") !== selectedGrade) return false;
+      if (
+        selectedGrade !== ALL_GRADES_VALUE &&
+        !matchesSchoolGrade(current.school_grade, selectedGrade)
+      )
+        return false;
       if (selectedGender !== "all" && (current.gender || "") !== selectedGender) return false;
 
       if (searchQuery.trim()) {
@@ -225,6 +314,74 @@ export const StudentsTable = ({
     duplicatesOnly,
     duplicateNameCounts,
   ]);
+
+  // حالة الفلاتر: تُعرض كرقائق (chips) أسفل شريط التصفية مع زرّ مسح سريع،
+  // حتى يعرف المستخدم دائمًا أن قائمة "كل السنوات الدراسية" مُفعَّلة فعلًا.
+  const hasActiveFilters =
+    !!searchQuery.trim() ||
+    selectedTeacher !== "all" ||
+    selectedStatus !== "all" ||
+    selectedGrade !== ALL_GRADES_VALUE ||
+    selectedGender !== "all" ||
+    duplicatesOnly;
+
+  const activeFilterChips = useMemo(() => {
+    const chips: { key: string; label: string; onClear: () => void }[] = [];
+    if (searchQuery.trim())
+      chips.push({
+        key: "search",
+        label: `البحث: ${searchQuery.trim()}`,
+        onClear: () => setSearchQuery(""),
+      });
+    if (selectedTeacher !== "all")
+      chips.push({
+        key: "teacher",
+        label: `المعلمة: ${selectedTeacher}`,
+        onClear: () => setSelectedTeacher("all"),
+      });
+    if (selectedStatus !== "all")
+      chips.push({
+        key: "status",
+        label: `الحالة: ${selectedStatus}`,
+        onClear: () => setSelectedStatus("all"),
+      });
+    if (selectedGrade !== ALL_GRADES_VALUE)
+      chips.push({
+        key: "grade",
+        label: `السنة الدراسية: ${selectedGradeLabel}`,
+        onClear: () => setSelectedGrade(ALL_GRADES_VALUE),
+      });
+    if (selectedGender !== "all")
+      chips.push({
+        key: "gender",
+        label: `الجنس: ${selectedGender}`,
+        onClear: () => setSelectedGender("all"),
+      });
+    if (duplicatesOnly)
+      chips.push({
+        key: "duplicates",
+        label: "الأسماء المكررة فقط",
+        onClear: () => setDuplicatesOnly(false),
+      });
+    return chips;
+  }, [
+    searchQuery,
+    selectedTeacher,
+    selectedStatus,
+    selectedGrade,
+    selectedGender,
+    duplicatesOnly,
+    selectedGradeLabel,
+  ]);
+
+  const clearAllFilters = () => {
+    setSearchQuery("");
+    setSelectedTeacher("all");
+    setSelectedStatus("all");
+    setSelectedGrade(ALL_GRADES_VALUE);
+    setSelectedGender("all");
+    setDuplicatesOnly(false);
+  };
 
   // Export to Excel
   const handleExportExcel = async () => {
@@ -474,16 +631,53 @@ export const StudentsTable = ({
           </Select>
 
           <Select value={selectedGrade} onValueChange={setSelectedGrade}>
-            <SelectTrigger className="h-10 rounded-xl bg-background/80 text-xs font-bold border-border/80">
-              <SelectValue placeholder="تصفية حسب السنة الدراسية" />
+            <SelectTrigger
+              className={cn(
+                "h-10 rounded-xl bg-background/80 text-xs font-bold border-border/80 gap-1",
+                selectedGrade !== ALL_GRADES_VALUE &&
+                  "border-primary/60 bg-primary/10 text-primary ring-1 ring-primary/30",
+              )}
+              title="تصفية الطلاب حسب السنة الدراسية وقت الالتحاق"
+            >
+              <span className="flex min-w-0 items-center gap-1">
+                <ListFilter className="h-3.5 w-3.5 shrink-0 opacity-70" />
+                <SelectValue placeholder="تصفية حسب السنة الدراسية">
+                  {selectedGradeLabel}
+                </SelectValue>
+              </span>
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">كل السنوات الدراسية</SelectItem>
-              {gradeOptions.map((g) => (
-                <SelectItem key={g} value={g}>
-                  {g}
+            <SelectContent className="max-h-[60vh]">
+              <SelectItem value={ALL_GRADES_VALUE} className="font-bold">
+                <span className="flex w-full items-center justify-between gap-3">
+                  <span>كل السنوات الدراسية</span>
+                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold tabular-nums text-primary">
+                    {students.length}
+                  </span>
+                </span>
+              </SelectItem>
+              {gradeOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  <span className="flex w-full items-center justify-between gap-3">
+                    <span>{option.label}</span>
+                    <span
+                      className={cn(
+                        "rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums",
+                        option.count > 0
+                          ? "bg-primary/10 text-primary"
+                          : "bg-muted text-muted-foreground",
+                      )}
+                    >
+                      {option.count}
+                    </span>
+                  </span>
                 </SelectItem>
               ))}
+              {studentsWithoutGradeCount > 0 && (
+                <div className="mt-1 border-t border-border/60 px-2 pt-1.5 text-[10px] text-muted-foreground">
+                  {studentsWithoutGradeCount} طالب بدون سنة دراسية مسجّلة (يمكن تعبئتها من الخلية
+                  داخل الجدول)
+                </div>
+              )}
             </SelectContent>
           </Select>
 
@@ -501,6 +695,36 @@ export const StudentsTable = ({
             </SelectContent>
           </Select>
         </div>
+
+        {/* رقائق الفلاتر المفعّلة — تؤكد أن التصفية تعمل وتُظهر النتيجة بعدد الطلاب */}
+        {hasActiveFilters && (
+          <div className="flex flex-wrap items-center gap-2 border-t border-border/60 pt-2">
+            <span className="text-[11px] font-bold text-muted-foreground">تصفية مفعّلة:</span>
+            {activeFilterChips.map((chip) => (
+              <button
+                key={chip.key}
+                type="button"
+                onClick={chip.onClear}
+                title="إزالة هذه التصفية"
+                className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-bold text-primary transition-colors hover:bg-primary/20"
+              >
+                {chip.label}
+                <X className="h-3 w-3" />
+              </button>
+            ))}
+            <span className="rounded-full bg-muted px-2.5 py-1 text-[11px] font-bold text-muted-foreground">
+              {filteredStudents.length} من {students.length} طالب
+            </span>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={clearAllFilters}
+              className="h-7 gap-1 rounded-lg px-2 text-[11px] font-bold text-rose-600 hover:bg-rose-500/10 hover:text-rose-700"
+            >
+              <X className="h-3.5 w-3.5" /> مسح كل الفلاتر
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Main Students Table */}
@@ -521,7 +745,23 @@ export const StudentsTable = ({
         </div>
 
         <div className="table-scroll max-h-[60vh] overflow-auto md:max-h-[72vh]">
-          <table className="w-full min-w-[1340px] table-fixed border-separate border-spacing-0 bg-card text-sm whitespace-nowrap">
+          <table
+            className="w-full table-fixed border-separate border-spacing-0 bg-card text-sm whitespace-nowrap"
+            style={{ minWidth: tableMinWidth }}
+          >
+            {/*
+              عرض الأعمدة يُثبَّت من <colgroup> فيتطابق الرأس مع الخلايا تمامًا،
+              وتصبح المحاذاة موحّدة: الأرقام والقيم القصيرة في الوسط، والاسم يمينًا.
+            */}
+            <colgroup>
+              {TABLE_COLUMNS.map((column) => (
+                <col key={column.key} style={{ width: column.width }} />
+              ))}
+              {customColumns.map((column) => (
+                <col key={column.id} style={{ width: CUSTOM_COLUMN_WIDTH }} />
+              ))}
+              <col style={{ width: ACTIONS_COLUMN_WIDTH }} />
+            </colgroup>
             <thead>
               {/*
                 كل خلية رأس ثابتة (sticky) بخلفية معتمة خاصة بها — لا نعتمد على
@@ -529,60 +769,31 @@ export const StudentsTable = ({
                 التداخل عند التمرير.
               */}
               <tr className="text-white font-bold text-xs">
-                <th className="sticky top-0 right-0 z-40 w-12 bg-emerald-900 p-2.5 text-center border-b border-l border-emerald-800">
-                  م
-                </th>
-                <th className="sticky top-0 right-12 z-40 w-[320px] min-w-[300px] bg-emerald-900 p-2.5 text-right border-b border-l border-emerald-800 shadow-[-8px_0_12px_-10px_rgba(0,0,0,0.5)]">
-                  اسم الطالب
-                </th>
-                <th className="sticky top-0 z-30 min-w-[90px] bg-emerald-900 p-2.5 text-center border-b border-l border-emerald-800">
-                  الجنس
-                </th>
-                <th className="sticky top-0 z-30 min-w-[130px] bg-emerald-900 p-2.5 text-center border-b border-l border-emerald-800">
-                  المعلمة
-                </th>
-                <th className="sticky top-0 z-30 min-w-[130px] bg-emerald-900 p-2.5 text-center border-b border-l border-emerald-800">
-                  تاريخ هجري الالتحاق
-                </th>
-                <th className="sticky top-0 z-30 min-w-[130px] bg-emerald-900 p-2.5 text-center border-b border-l border-emerald-800">
-                  مقدار الحفظ قبل الالتحاق
-                </th>
-                <th className="sticky top-0 z-30 min-w-[110px] bg-emerald-900 p-2.5 text-center border-b border-l border-emerald-800">
-                  الحفظ التراكمي (آخر عام)
-                </th>
-                <th className="sticky top-0 z-30 min-w-[110px] bg-emerald-900 p-2.5 text-center border-b border-l border-emerald-800">
-                  عام المسابقة الأولى
-                </th>
-                <th className="sticky top-0 z-30 min-w-[170px] bg-emerald-900 p-2.5 text-center border-b border-l border-emerald-800">
-                  الأعوام المسجل بها
-                </th>
-                <th className="sticky top-0 z-30 min-w-[120px] bg-emerald-900 p-2.5 text-center border-b border-l border-emerald-800">
-                  الحالة
-                </th>
-                <th className="sticky top-0 z-30 min-w-[140px] bg-emerald-900 p-2.5 text-center border-b border-l border-emerald-800">
-                  السنة الدراسية وقت الالتحاق
-                </th>
-                <th className="sticky top-0 z-30 min-w-[130px] bg-emerald-900 p-2.5 text-center border-b border-l border-emerald-800">
-                  رقم ولي الأمر
-                </th>
-                <th className="sticky top-0 z-30 min-w-[120px] bg-emerald-900 p-2.5 text-center border-b border-l border-emerald-800">
-                  رقم الطالب
-                </th>
-
-                {/* Dynamic custom columns */}
-                {customColumns.map((col) => (
+                {TABLE_COLUMNS.map((column) => (
                   <th
-                    key={col.id}
-                    className="sticky top-0 z-30 min-w-[130px] bg-teal-900 p-2.5 text-center border-b border-l border-emerald-800"
+                    key={column.key}
+                    className={cn(
+                      column.key === "index"
+                        ? HEAD_CELL_INDEX
+                        : column.key === "name"
+                          ? HEAD_CELL_NAME
+                          : HEAD_CELL,
+                      column.align === "right" ? "text-right" : "text-center",
+                    )}
                   >
-                    <div className="flex items-center justify-center gap-1">
-                      <span>{col.name}</span>
-                    </div>
+                    <span className="block leading-snug">{column.label}</span>
                   </th>
                 ))}
 
-                <th className="sticky top-0 z-30 w-24 bg-teal-900 p-2.5 text-center border-b border-l border-emerald-800">
-                  إجراءات
+                {/* الأعمدة المخصّصة (تُضاف وتُحذف من زرّ إدارة الأعمدة) */}
+                {customColumns.map((column) => (
+                  <th key={column.id} className={cn(HEAD_CELL_CUSTOM, "text-center")}>
+                    <span className="block leading-snug">{column.name}</span>
+                  </th>
+                ))}
+
+                <th className={cn(HEAD_CELL_CUSTOM, "text-center")}>
+                  <span className="block leading-snug">إجراءات</span>
                 </th>
               </tr>
             </thead>
@@ -591,7 +802,7 @@ export const StudentsTable = ({
               {filteredStudents.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={14 + customColumns.length}
+                    colSpan={TABLE_COLUMNS.length + customColumns.length + 1}
                     className="p-12 text-center text-muted-foreground"
                   >
                     لا يوجد طلاب مطابقون لمعايير البحث
@@ -612,17 +823,23 @@ export const StudentsTable = ({
                       }`}
                     >
                       {/* Index */}
-                      <td className="sticky right-0 z-10 w-12 border-b border-l border-border/70 bg-card p-1 text-center font-black text-primary group-hover:bg-emerald-50 dark:group-hover:bg-emerald-950">
+                      <td
+                        className={cn(
+                          BODY_CELL_STICKY,
+                          "font-black tabular-nums text-primary group-hover:bg-emerald-50 dark:group-hover:bg-emerald-950",
+                        )}
+                      >
                         {index + 1}
                       </td>
 
                       {/* Student Name: Clickable to open profile */}
                       <td
-                        className={`sticky right-12 z-10 w-[320px] min-w-[300px] max-w-[320px] overflow-hidden border-b border-l border-border/70 p-1.5 shadow-[-8px_0_12px_-10px_rgba(0,0,0,0.3)] ${
+                        className={cn(
+                          "sticky right-12 z-10 overflow-hidden border-b border-l border-border/70 p-1.5 align-middle shadow-[-8px_0_12px_-10px_rgba(0,0,0,0.3)]",
                           isDuplicateName
                             ? "bg-amber-100 group-hover:bg-amber-200 dark:bg-amber-800 dark:group-hover:bg-amber-700"
-                            : "bg-card group-hover:bg-emerald-50 dark:group-hover:bg-emerald-950"
-                        }`}
+                            : "bg-card group-hover:bg-emerald-50 dark:group-hover:bg-emerald-950",
+                        )}
                       >
                         <div className="flex min-w-0 items-center justify-between gap-1">
                           <button
@@ -654,18 +871,18 @@ export const StudentsTable = ({
                       </td>
 
                       {/* Gender */}
-                      <td className="border-b border-l border-border/70 p-1">
+                      <td className={BODY_CELL}>
                         <Select
-                          value={current.gender || "__none__"}
+                          value={current.gender || NONE_VALUE}
                           onValueChange={(v) =>
-                            updateStudentField(student, "gender", v === "__none__" ? "" : v)
+                            updateStudentField(student, "gender", v === NONE_VALUE ? "" : v)
                           }
                         >
-                          <SelectTrigger className="h-9 w-full min-w-[80px] rounded-xl border-0 bg-background/70 text-center text-xs font-bold">
+                          <SelectTrigger className={CELL_SELECT}>
                             <SelectValue placeholder="الجنس" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="__none__">— بدون —</SelectItem>
+                            <SelectItem value={NONE_VALUE}>— بدون —</SelectItem>
                             {GENDER_OPTIONS.map((g) => (
                               <SelectItem key={g} value={g}>
                                 {g}
@@ -676,18 +893,18 @@ export const StudentsTable = ({
                       </td>
 
                       {/* Teacher */}
-                      <td className="border-b border-l border-border/70 p-1">
+                      <td className={BODY_CELL}>
                         <Select
-                          value={current.teacher || "__none__"}
+                          value={current.teacher || NONE_VALUE}
                           onValueChange={(v) =>
-                            updateStudentField(student, "teacher", v === "__none__" ? "" : v)
+                            updateStudentField(student, "teacher", v === NONE_VALUE ? "" : v)
                           }
                         >
-                          <SelectTrigger className="h-9 w-full min-w-[110px] rounded-xl border-0 bg-background/70 text-center text-xs">
+                          <SelectTrigger className={cn(CELL_SELECT, "font-normal")}>
                             <SelectValue placeholder="المعلمة" />
                           </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="__none__">— بدون —</SelectItem>
+                          <SelectContent className="max-h-[60vh]">
+                            <SelectItem value={NONE_VALUE}>— بدون —</SelectItem>
                             {current.teacher && !teacherNames.includes(current.teacher) && (
                               <SelectItem value={current.teacher}>{current.teacher}</SelectItem>
                             )}
@@ -701,19 +918,19 @@ export const StudentsTable = ({
                       </td>
 
                       {/* Hijri Join Date */}
-                      <td className="border-b border-l border-border/70 p-1">
+                      <td className={BODY_CELL}>
                         <Input
                           value={current.hijri_join_date || ""}
                           onChange={(e) =>
                             updateStudentField(student, "hijri_join_date", e.target.value)
                           }
-                          placeholder="مثال: 1443هـ"
-                          className="h-9 rounded-xl border-0 bg-background/70 text-center text-xs"
+                          placeholder="1443هـ"
+                          className={cn(CELL_INPUT, "tabular-nums")}
                         />
                       </td>
 
                       {/* Initial Memorization before joining */}
-                      <td className="border-b border-l border-border/70 p-1 bg-amber-500/5">
+                      <td className={cn(BODY_CELL, "bg-amber-500/5")}>
                         <div className="flex items-center justify-center gap-1">
                           <Input
                             type="number"
@@ -724,15 +941,16 @@ export const StudentsTable = ({
                             placeholder="0"
                             min="0"
                             max="30"
-                            className="h-9 w-16 rounded-xl border-0 bg-background/70 text-center font-bold text-xs"
+                            title="مقدار الحفظ قبل الالتحاق (عدد الأجزاء)"
+                            className={cn(CELL_INPUT_NUMERIC, "max-w-[4.5rem]")}
                           />
-                          <span className="text-[11px] text-muted-foreground">جزء</span>
+                          <span className="shrink-0 text-[11px] text-muted-foreground">جزء</span>
                         </div>
                       </td>
 
                       {/* Cumulative memorization from the latest registered year */}
-                      <td className="border-b border-l border-border/70 p-1 bg-emerald-500/5">
-                        <div className="flex items-center justify-center gap-1 font-black text-emerald-700 dark:text-emerald-300">
+                      <td className={cn(BODY_CELL, "bg-emerald-500/5")}>
+                        <div className="flex items-center justify-center gap-1 font-black tabular-nums text-emerald-700 dark:text-emerald-300">
                           {current.latest_total_hifz !== undefined &&
                           current.latest_total_hifz !== "" ? (
                             <>
@@ -748,19 +966,19 @@ export const StudentsTable = ({
                       </td>
 
                       {/* First Competition Year */}
-                      <td className="border-b border-l border-border/70 p-1">
+                      <td className={BODY_CELL}>
                         <Input
                           value={current.first_competition_year || ""}
                           onChange={(e) =>
                             updateStudentField(student, "first_competition_year", e.target.value)
                           }
                           placeholder="1443هـ"
-                          className="h-9 w-20 mx-auto rounded-xl border-0 bg-background/70 text-center text-xs"
+                          className={cn(CELL_INPUT, "tabular-nums")}
                         />
                       </td>
 
                       {/* Registered years across all competitions */}
-                      <td className="border-b border-l border-border/70 p-1">
+                      <td className={BODY_CELL}>
                         {(current.registered_years || []).length > 0 ? (
                           <div className="flex flex-wrap items-center justify-center gap-1">
                             {(current.registered_years || []).map((y) => (
@@ -785,7 +1003,7 @@ export const StudentsTable = ({
                       </td>
 
                       {/* Status */}
-                      <td className="border-b border-l border-border/70 p-1">
+                      <td className={BODY_CELL}>
                         <Select
                           value={current.status || "طبيعي"}
                           onValueChange={(v) => {
@@ -797,10 +1015,10 @@ export const StudentsTable = ({
                             }
                           }}
                         >
-                          <SelectTrigger className="h-9 w-full min-w-[100px] rounded-xl border-0 bg-background/70 text-center text-xs font-bold">
+                          <SelectTrigger className={CELL_SELECT}>
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="max-h-[60vh]">
                             {studentStatuses.map((st) => (
                               <SelectItem key={st} value={st}>
                                 {st}
@@ -813,28 +1031,94 @@ export const StudentsTable = ({
                         </Select>
                       </td>
 
-                      {/* School Grade at Enrollment */}
-                      <td className="border-b border-l border-border/70 p-1">
-                        <Input
-                          value={current.school_grade || ""}
-                          onChange={(e) =>
-                            updateStudentField(student, "school_grade", e.target.value)
-                          }
-                          placeholder="مثال: الصف الرابع"
-                          className="h-9 rounded-xl border-0 bg-background/70 text-center text-xs"
-                        />
+                      {/*
+                        السنة الدراسية وقت الالتحاق — نفس قائمة "كل السنوات الدراسية"
+                        المستخدمة في التصفية، مع خيار الكتابة اليدوية لمن يحتاج صياغة خاصة.
+                      */}
+                      <td className={cn(BODY_CELL, "bg-primary/5")}>
+                        {manualGradeIds.includes(student.id) ? (
+                          <div className="flex items-center gap-1">
+                            <Input
+                              autoFocus
+                              value={current.school_grade || ""}
+                              onChange={(e) =>
+                                updateStudentField(student, "school_grade", e.target.value)
+                              }
+                              placeholder="اكتب السنة الدراسية"
+                              className={CELL_INPUT}
+                            />
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                setManualGradeIds((ids) => ids.filter((id) => id !== student.id))
+                              }
+                              className="h-8 w-8 shrink-0 rounded-lg p-0 text-primary hover:bg-primary/10"
+                              title="العودة إلى قائمة السنوات الدراسية"
+                            >
+                              <ListFilter className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <Select
+                            value={current.school_grade || NONE_VALUE}
+                            onValueChange={(v) => {
+                              if (v === MANUAL_GRADE_VALUE) {
+                                setManualGradeIds((ids) =>
+                                  ids.includes(student.id) ? ids : [...ids, student.id],
+                                );
+                                return;
+                              }
+                              updateStudentField(
+                                student,
+                                "school_grade",
+                                v === NONE_VALUE ? "" : v,
+                              );
+                            }}
+                          >
+                            <SelectTrigger
+                              className={cn(CELL_SELECT, "font-normal")}
+                              title="اختر السنة الدراسية من قائمة موحّدة"
+                            >
+                              <SelectValue placeholder="غير محددة" />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-[60vh]">
+                              <SelectItem value={NONE_VALUE}>— بدون —</SelectItem>
+                              {!!current.school_grade?.trim() &&
+                                !gradeLabels.includes(current.school_grade.trim()) && (
+                                  <SelectItem value={current.school_grade.trim()}>
+                                    {current.school_grade.trim()}
+                                  </SelectItem>
+                                )}
+                              {gradeOptions.map((option) => (
+                                <SelectItem key={option.value} value={option.value}>
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                              <SelectItem
+                                value={MANUAL_GRADE_VALUE}
+                                className="font-bold text-primary"
+                              >
+                                <span className="flex items-center gap-1">
+                                  <PencilLine className="h-3.5 w-3.5" />
+                                  إدخال يدوي (كتابة حرة)
+                                </span>
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        )}
                       </td>
 
                       {/* Guardian Phone */}
-                      <td className="border-b border-l border-border/70 p-1">
-                        <div className="flex items-center gap-1 justify-center">
+                      <td className={BODY_CELL}>
+                        <div className="flex items-center justify-center gap-1">
                           <Input
                             value={current.guardian_phone || ""}
                             onChange={(e) =>
                               updateStudentField(student, "guardian_phone", e.target.value)
                             }
                             placeholder="770000000"
-                            className="h-9 w-28 rounded-xl border-0 bg-background/70 text-center text-xs"
+                            className={cn(CELL_INPUT, "tracking-wider")}
                             dir="ltr"
                           />
                           {current.guardian_phone && (
@@ -852,21 +1136,21 @@ export const StudentsTable = ({
                       </td>
 
                       {/* Student Phone */}
-                      <td className="border-b border-l border-border/70 p-1">
+                      <td className={BODY_CELL}>
                         <Input
                           value={current.student_phone || ""}
                           onChange={(e) =>
                             updateStudentField(student, "student_phone", e.target.value)
                           }
                           placeholder="770000000"
-                          className="h-9 w-28 mx-auto rounded-xl border-0 bg-background/70 text-center text-xs"
+                          className={cn(CELL_INPUT, "tracking-wider")}
                           dir="ltr"
                         />
                       </td>
 
                       {/* Dynamic Custom Columns */}
                       {customColumns.map((col) => (
-                        <td key={col.id} className="border-b border-l border-border/70 p-1">
+                        <td key={col.id} className={BODY_CELL}>
                           <Input
                             type={col.type === "number" ? "number" : "text"}
                             value={current.custom_fields?.[col.id] || ""}
@@ -874,13 +1158,18 @@ export const StudentsTable = ({
                               updateStudentCustomField(student, col.id, e.target.value)
                             }
                             placeholder="—"
-                            className="h-9 rounded-xl border-0 bg-background/70 text-center text-xs"
+                            className={cn(
+                              CELL_INPUT,
+                              col.type === "number" && "tabular-nums font-bold",
+                              col.type === "phone" && "tracking-wider",
+                            )}
+                            dir={col.type === "phone" ? "ltr" : undefined}
                           />
                         </td>
                       ))}
 
                       {/* Actions */}
-                      <td className="border-b border-border/70 p-1 text-center">
+                      <td className={cn(BODY_CELL, "border-l-0 text-center")}>
                         <div className="flex items-center justify-center gap-1">
                           <Button
                             variant="ghost"

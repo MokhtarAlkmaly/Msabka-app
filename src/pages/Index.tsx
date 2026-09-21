@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { Student, CustomColumnDef, DEFAULT_STATUSES, GENDER_OPTIONS } from "@/types/student";
+import { DEFAULT_SCHOOL_GRADES } from "@/utils/schoolGrades";
 import {
   loadGlobalStudentsWithYears,
   getActiveYear,
@@ -68,7 +69,12 @@ const Index = () => {
   const [dirtyMap, setDirtyMap] = useState<Record<number, Student>>({});
   const [addStudentOpen, setAddStudentOpen] = useState(false);
   const [addingStudent, setAddingStudent] = useState(false);
-  const [newStudent, setNewStudent] = useState({ name: "", teacher: "", gender: "" });
+  const [newStudent, setNewStudent] = useState({
+    name: "",
+    teacher: "",
+    gender: "",
+    school_grade: "",
+  });
 
   const { toast } = useToast();
   const { user, signOut } = useAuth();
@@ -159,13 +165,14 @@ const Index = () => {
         name,
         teacher,
         gender: newStudent.gender || undefined,
+        school_grade: newStudent.school_grade || undefined,
       });
       if (id === null) {
         throw new Error("Unable to create student without an authenticated user");
       }
 
       await loadData();
-      setNewStudent({ name: "", teacher: "", gender: "" });
+      setNewStudent({ name: "", teacher: "", gender: "", school_grade: "" });
       setAddStudentOpen(false);
       toast({
         title: "تمت إضافة الطالب",
@@ -525,7 +532,7 @@ const Index = () => {
             onOpenChange={(open) => {
               if (addingStudent) return;
               setAddStudentOpen(open);
-              if (!open) setNewStudent({ name: "", teacher: "", gender: "" });
+              if (!open) setNewStudent({ name: "", teacher: "", gender: "", school_grade: "" });
             }}
           >
             <DialogContent dir="rtl" className="max-w-md">
@@ -610,6 +617,35 @@ const Index = () => {
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-bold text-foreground">السنة الدراسية</label>
+                  <Select
+                    value={newStudent.school_grade || "unspecified"}
+                    onValueChange={(grade) =>
+                      setNewStudent((current) => ({
+                        ...current,
+                        school_grade: grade === "unspecified" ? "" : grade,
+                      }))
+                    }
+                    disabled={addingStudent}
+                  >
+                    <SelectTrigger className="rounded-xl">
+                      <SelectValue placeholder="غير محددة" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[60vh]">
+                      <SelectItem value="unspecified">غير محددة</SelectItem>
+                      {DEFAULT_SCHOOL_GRADES.map((grade) => (
+                        <SelectItem key={grade} value={grade}>
+                          {grade}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[11px] text-muted-foreground">
+                    نفس قائمة «كل السنوات الدراسية» في جدول الطلاب، ويمكن تغييرها لاحقًا من الجدول.
+                  </p>
                 </div>
               </div>
 
