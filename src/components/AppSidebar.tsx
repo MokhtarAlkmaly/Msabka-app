@@ -25,6 +25,8 @@ import {
   Settings,
   Eye,
   EyeOff,
+  Link2,
+  Inbox,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { useAuth } from "@/hooks/useAuth";
@@ -79,6 +81,18 @@ export const AppSidebar = ({ online = true }: SidebarProps) => {
       label: "بحث المتابعة الشهرية",
       icon: Search,
       color: "text-sky-300",
+    },
+    {
+      to: "/teacher-links",
+      label: "روابط المعلمات",
+      icon: Link2,
+      color: "text-violet-300",
+    },
+    {
+      to: "/submissions",
+      label: "وارد المعلمات",
+      icon: Inbox,
+      color: "text-amber-300",
     },
     {
       to: "/halaqat",
