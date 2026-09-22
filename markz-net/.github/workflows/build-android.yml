@@ -1,0 +1,67 @@
+name: بناء تطبيق أندرويد (APK)
+
+# يبني ملف APK جاهزًا للتثبيت، دون الحاجة لأي جهاز كمبيوتر أو Android Studio
+# ولا يحتاج أي أسرار أو خدمات سحابية — النسخة مستقلة وتعمل بدون إنترنت.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: سحب المشروع
+        uses: actions/checkout@v7
+
+      - name: تثبيت Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: تثبيت Java (مطلوب لبناء أندرويد)
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: تثبيت حزم المشروع
+        run: npm ci
+
+      - name: بناء ملفات الويب
+        run: npm run build
+
+      - name: توليد index.html ثابت من الخادم (لتطبيق أندرويد فقط)
+        run: |
+          PORT=3000 node .output/server/index.mjs &
+          SERVER_PID=$!
+          for i in $(seq 1 20); do
+            if curl -sf http://localhost:3000/ -o .output/public/index.html; then
+              break
+            fi
+            sleep 0.5
+          done
+          kill $SERVER_PID
+          test -s .output/public/index.html
+
+      - name: ربط الإضافات الأصلية (Capacitor sync)
+        run: npx cap sync android
+
+      - name: صلاحية تنفيذ gradlew
+        run: chmod +x android/gradlew
+
+      - name: بناء APK (نسخة تجريبية debug)
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: رفع ملف APK كمرفق للتحميل
+        uses: actions/upload-artifact@v7
+        with:
+          name: app-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14

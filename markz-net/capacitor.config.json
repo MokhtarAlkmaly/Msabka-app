@@ -1,0 +1,12 @@
+{
+  "appId": "net.markz.app",
+  "appName": "Markz Net",
+  "webDir": ".output/public",
+  "plugins": {
+    "CapacitorSQLite": {
+      "androidIsEncryption": false,
+      "iosIsEncryption": false,
+      "iosDatabaseLocation": "Library/CapacitorDatabase"
+    }
+  }
+}

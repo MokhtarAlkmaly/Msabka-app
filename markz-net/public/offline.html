@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>غير متصل — Markz Net</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: system-ui, "Segoe UI", Tahoma, sans-serif;
+        background: linear-gradient(180deg, #052e26, #064e3b);
+        color: #ecfdf5;
+        text-align: center;
+        padding: 1.5rem;
+      }
+      .card {
+        max-width: 28rem;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 1.75rem;
+        padding: 2.5rem 2rem;
+        backdrop-filter: blur(8px);
+      }
+      .icon {
+        font-size: 3rem;
+        margin-bottom: 0.5rem;
+      }
+      h1 {
+        font-size: 1.35rem;
+        margin: 0 0 0.75rem;
+      }
+      p {
+        margin: 0.35rem 0;
+        color: rgba(236, 253, 245, 0.8);
+        font-size: 0.95rem;
+        line-height: 1.8;
+      }
+      .hint {
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.12);
+        font-size: 0.85rem;
+        color: rgba(236, 253, 245, 0.65);
+      }
+      button {
+        margin-top: 1.5rem;
+        background: #10b981;
+        color: #052e26;
+        border: 0;
+        border-radius: 0.9rem;
+        padding: 0.7rem 2rem;
+        font-size: 1rem;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #34d399;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="icon">📡</div>
+      <h1>تعذّر الوصول إلى النظام</h1>
+      <p>خادم Markz Net المحلي غير متاح حالياً على هذا الجهاز أو الشبكة.</p>
+      <p>بياناتك محفوظة بأمان ولن تتأثر — أعد تشغيل الخادم ثم أعد المحاولة.</p>
+      <button onclick="location.reload()">إعادة المحاولة</button>
+      <p class="hint">
+        لتشغيل الخادم: افتح مجلد النظام ونفّذ الأمر
+        <code dir="ltr">npm start</code>
+      </p>
+    </div>
+  </body>
+</html>

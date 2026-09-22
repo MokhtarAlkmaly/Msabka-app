@@ -1,0 +1,41 @@
+name: فحص جودة الكود (lint + أنواع + اختبارات + بناء)
+
+# يفحص كل دفع/طلب سحب: ESLint، فحص أنواع TypeScript، اختبارات قاعدة البيانات
+# المحلية والاختبارات التكاملية، ثم بناء الويب الكامل. النسخة مستقلة تماماً
+# ولا تحتاج أي متغيرات بيئة أو خدمات سحابية.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: سحب المشروع
+        uses: actions/checkout@v7
+
+      - name: تثبيت Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: تثبيت حزم المشروع
+        run: npm ci
+
+      - name: فحص ESLint
+        run: npm run lint
+
+      - name: فحص أنواع TypeScript
+        run: npx tsc --noEmit
+
+      - name: اختبار قاعدة البيانات المحلية
+        run: npm run test:db
+
+      - name: الاختبارات التكاملية (مصادقة + صلاحيات + عزل بيانات)
+        run: npm run test:integration
+
+      - name: بناء الويب
+        run: npm run build
