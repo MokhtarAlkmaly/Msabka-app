@@ -1,5 +1,5 @@
 /**
- * روابط المعلمات — إنشاء روابط خاصة (كود بدون حساب) لكل معلمة وعام/شهر،
+ * روابط المعلمين والمعلمات — إنشاء روابط خاصة (كود بدون حساب) لكل معلم/ة وعام/شهر،
  * ونسخها وتغيير الكود وإيقافها وحذفها، مع «نسخ روابط الكل».
  */
 
@@ -57,7 +57,8 @@ const TeacherLinks = () => {
 
   const [portals, setPortals] = useState<TeacherPortal[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
-  const [teachers, setTeachers] = useState<string[]>([]);
+  /** أسماء المعلمين والمعلمات المضافين في صفحة «المعلمين والمعلمات» لكل عام. */
+  const [teachersByYear, setTeachersByYear] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
 
   // نموذج الإنشاء
@@ -86,17 +87,27 @@ const TeacherLinks = () => {
       const [p, s, t] = await Promise.all([
         loadPortals(userId),
         loadSubmissions(userId),
-        loadTeachers(activeYear || undefined).catch(() => []),
+        // كل الأعوام: الروابط تُنشأ لعام قد يختلف عن العام النشط.
+        loadTeachers().catch(() => []),
       ]);
       setPortals(p);
       setSubmissions(s);
-      setTeachers(
-        Array.from(new Set(t.map((x) => x.name).filter(Boolean))).sort((a, b) =>
-          a.localeCompare(b, "ar"),
+      const byYear: Record<string, Set<string>> = {};
+      for (const row of t) {
+        const name = (row.name || "").trim();
+        if (!name || !row.year) continue;
+        (byYear[row.year] ??= new Set()).add(name);
+      }
+      setTeachersByYear(
+        Object.fromEntries(
+          Object.entries(byYear).map(([year, set]) => [
+            year,
+            Array.from(set).sort((a, b) => a.localeCompare(b, "ar")),
+          ]),
         ),
       );
     } catch (err) {
-      console.error("تعذّر تحميل روابط المعلمات", err);
+      console.error("تعذّر تحميل روابط المعلمين والمعلمات", err);
       toast({
         title: "تعذّر التحميل",
         description: "تحقق من الاتصال وحاول مجدداً.",
@@ -105,7 +116,7 @@ const TeacherLinks = () => {
     } finally {
       setLoading(false);
     }
-  }, [userId, activeYear, toast]);
+  }, [userId, toast]);
 
   useEffect(() => {
     void (async () => {
@@ -119,6 +130,20 @@ const TeacherLinks = () => {
     void load();
   }, [load]);
 
+  // عند تغيير العام: لا يُترك اسم غير مضاف في ذلك العام.
+  useEffect(() => {
+    if (newTeacher && !(teachersByYear[newYear] ?? []).includes(newTeacher)) setNewTeacher("");
+  }, [newYear, teachersByYear, newTeacher]);
+
+  /** أسماء المعلمين والمعلمات المضافين للعام المختار في نموذج الإنشاء. */
+  const yearTeachers = useMemo(() => teachersByYear[newYear] ?? [], [teachersByYear, newYear]);
+
+  /** هل الاسم مضاف فعلاً في صفحة المعلمين والمعلمات لهذا العام؟ */
+  const isRegisteredTeacher = useCallback(
+    (name: string, year: string) => (teachersByYear[year] ?? []).includes(name.trim()),
+    [teachersByYear],
+  );
+
   const yearOptions = useMemo(() => {
     const list: string[] = [];
     for (let y = END_YEAR; y >= START_YEAR; y--) list.push(String(y));
@@ -129,6 +154,8 @@ const TeacherLinks = () => {
   const countsByPortal = useMemo(() => {
     const map: Record<string, { pending: number; approved: number; rejected: number }> = {};
     for (const s of submissions) {
+      // الإدخال اليدوي ليس وراءه رابط، فلا يُحسب على أي رابط.
+      if (!s.portal_id) continue;
       map[s.portal_id] ??= { pending: 0, approved: 0, rejected: 0 };
       if (s.status === "pending") map[s.portal_id].pending++;
       else if (s.status === "approved") map[s.portal_id].approved++;
@@ -144,7 +171,18 @@ const TeacherLinks = () => {
     if (!name || !year) {
       toast({
         title: "أكمل الحقول",
-        description: "اسم المعلمة والعام مطلوبان.",
+        description: "اسم المعلم/ة والعام مطلوبان.",
+        variant: "destructive",
+      });
+      return;
+    }
+    // لا يُرسل رابط إلا لمعلم/ة مضاف في صفحة «المعلمين والمعلمات» لهذا العام.
+    if (!isRegisteredTeacher(name, year)) {
+      toast({
+        title: "غير مسموح",
+        description: `«${name}» غير مضاف في صفحة المعلمين والمعلمات لعام ${formatYearKey(
+          year,
+        )}. أضفه هناك أولاً ثم أنشئ الرابط.`,
         variant: "destructive",
       });
       return;
@@ -153,7 +191,7 @@ const TeacherLinks = () => {
     try {
       await createPortal(userId, { teacher_name: name, year, month: newMonth });
       setNewTeacher("");
-      toast({ title: "أُنشئ الرابط", description: "انسخي الرابط وأرسليه للمعلمة." });
+      toast({ title: "أُنشئ الرابط", description: "انسخ الرابط وأرسله للمعلم/ة." });
       await load();
     } catch (err) {
       console.error(err);
@@ -261,10 +299,11 @@ const TeacherLinks = () => {
           <div>
             <h1 className="flex items-center gap-2 text-xl font-black text-white">
               <Link2 className="h-5 w-5 text-violet-300" />
-              روابط المعلمات
+              روابط المعلمين والمعلمات
             </h1>
             <p className="mt-1 text-xs text-white/50">
-              كل رابط يقود معلمة إلى بطاقات طالباتها لعام وشهر محددين — بدون تسجيل دخول.
+              كل رابط يقود معلم/ة إلى بطاقات طلابه لعام وشهر محددين — بدون تسجيل دخول. يُنشأ الرابط
+              فقط للمعلمين والمعلمات المضافين في صفحة «المعلمين والمعلمات».
             </p>
           </div>
           <Button
@@ -285,19 +324,37 @@ const TeacherLinks = () => {
           </h2>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-1">
-              <label className="text-[11px] font-bold text-white/50">اسم المعلمة</label>
-              <Input
-                list="teachers-list"
-                value={newTeacher}
-                onChange={(e) => setNewTeacher(e.target.value)}
-                placeholder="مثال: أم محمد"
-                className="bg-white/5 text-sm"
-              />
-              <datalist id="teachers-list">
-                {teachers.map((t) => (
-                  <option key={t} value={t} />
-                ))}
-              </datalist>
+              <label className="text-[11px] font-bold text-white/50">
+                اسم المعلم/ة (من صفحة المعلمين والمعلمات)
+              </label>
+              <Select
+                value={newTeacher || undefined}
+                onValueChange={setNewTeacher}
+                disabled={yearTeachers.length === 0}
+              >
+                <SelectTrigger className="h-9 bg-white/5 text-sm">
+                  <SelectValue
+                    placeholder={
+                      yearTeachers.length === 0
+                        ? "لا يوجد معلمون مضافون لهذا العام"
+                        : "اختر المعلم/ة"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent className="max-h-72">
+                  {yearTeachers.map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {t}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {yearTeachers.length === 0 && (
+                <p className="text-[10px] font-bold text-amber-300">
+                  أضف المعلمين والمعلمات لعام {formatYearKey(newYear)} من صفحة «المعلمين والمعلمات
+                  والإكراميات» أولاً.
+                </p>
+              )}
             </div>
             <div className="space-y-1">
               <label className="text-[11px] font-bold text-white/50">العام</label>
@@ -358,7 +415,7 @@ const TeacherLinks = () => {
             </div>
           ) : portals.length === 0 ? (
             <p className="p-8 text-center text-sm text-white/40">
-              لا توجد روابط بعد — أنشئي أول رابط من الأعلى.
+              لا توجد روابط بعد — أنشئ أول رابط من الأعلى.
             </p>
           ) : (
             <div className="divide-y divide-white/5">
@@ -387,6 +444,14 @@ const TeacherLinks = () => {
                           <span className="flex items-center gap-1 rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-bold text-amber-300 ring-1 ring-amber-400/30">
                             <Inbox className="h-3 w-3" />
                             {c.pending} قيد المراجعة
+                          </span>
+                        )}
+                        {!isRegisteredTeacher(p.teacher_name, p.year) && (
+                          <span
+                            className="rounded-full bg-rose-400/15 px-2 py-0.5 text-[10px] font-bold text-rose-300 ring-1 ring-rose-400/30"
+                            title="أضف هذا الاسم في صفحة المعلمين والمعلمات، أو احذف الرابط"
+                          >
+                            غير مضاف في صفحة المعلمين
                           </span>
                         )}
                       </div>
@@ -440,9 +505,11 @@ const TeacherLinks = () => {
         </div>
 
         <p className="text-[11px] leading-relaxed text-white/40">
-          · «تغيير الكود» ينشئ رمزاً جديداً — الروابط القديمة تتوقف عن العمل، لذا أرسلي الجديد
-          للمعلمة. · «نسخ روابط الكل» يجمع روابط كل الأعوام بنص واحد جاهز للإرسال على واتساب. ·
-          إيقاف الرابط يبقي ترسيالاته السابقة محفوظة.
+          · لا يُنشأ رابط إلا لمعلم/ة مضاف في صفحة «المعلمين والمعلمات والإكراميات» لنفس العام —
+          الروابط التي اسمها غير مضاف تظهر بشارة تحذير حمراء. · «تغيير الكود» ينشئ رمزاً جديداً —
+          الروابط القديمة تتوقف عن العمل، لذا أرسل الجديد للمعلم/ة. · «نسخ روابط الكل» يجمع روابط كل
+          الأعوام بنص واحد جاهز للإرسال على واتساب. · إيقاف الرابط يبقي ترسيالاته السابقة محفوظة. ·
+          من لا يملك جوالاً أو إنترنت: أدخل بياناته يدوياً من صفحة «وارد المعلمين والمعلمات».
         </p>
       </div>
 
@@ -526,7 +593,7 @@ const TeacherLinks = () => {
                   {deleteTarget.teacher_name} · {monthLabel(deleteTarget.month)}{" "}
                   {formatYearKey(deleteTarget.year)}
                 </b>{" "}
-                <b>مع كل ترسيلاته</b> (سجل المتابعة التي أرسلتها هذه المعلمة عبر هذا الرابط).
+                <b>مع كل ترسيلاته</b> (سجل المتابعة التي أرسلها هذا المعلم/ة عبر هذا الرابط).
               </p>
               <DialogFooter>
                 <Button
@@ -558,7 +625,7 @@ const TeacherLinks = () => {
       <Dialog open={allLinksOpen} onOpenChange={setAllLinksOpen}>
         <DialogContent className="max-w-lg bg-slate-900 text-white">
           <DialogHeader>
-            <DialogTitle>روابط المعلمات</DialogTitle>
+            <DialogTitle>روابط المعلمين والمعلمات</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <textarea
@@ -577,7 +644,7 @@ const TeacherLinks = () => {
                 إغلاق
               </Button>
               <Button
-                onClick={() => copyText(allLinksText, "روابط المعلمات كاملة")}
+                onClick={() => copyText(allLinksText, "روابط المعلمين والمعلمات كاملة")}
                 className="rounded-lg bg-emerald-600 hover:bg-emerald-500"
               >
                 <Copy className="h-4 w-4" />

@@ -149,8 +149,8 @@ export const StudentReport = ({ student }: Props) => {
           <h2>تقرير المسابقة الرمضانية - ${esc(student.name)}</h2>
         </div>
         <div class="student-info">
-          <div><strong>الطالبة:</strong> ${esc(student.name)}</div>
-          <div><strong>المعلمة:</strong> ${esc(student.teacher)}</div>
+          <div><strong>الطالب/ة:</strong> ${esc(student.name)}</div>
+          <div><strong>المعلم/ة:</strong> ${esc(student.teacher)}</div>
         </div>
         <table>
           <thead><tr>
@@ -188,13 +188,13 @@ export const StudentReport = ({ student }: Props) => {
       }}
     >
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="h-7 w-7 p-0" title="تقرير الطالبة">
+        <Button variant="outline" size="sm" className="h-7 w-7 p-0" title="تقرير الطالب/ة">
           <FileText className="h-4 w-4" />
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" dir="rtl">
         <DialogHeader>
-          <DialogTitle>تقرير الطالبة: {student.name}</DialogTitle>
+          <DialogTitle>تقرير الطالب/ة: {student.name}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -227,10 +227,10 @@ export const StudentReport = ({ student }: Props) => {
               </div>
               <div className="student-info">
                 <div>
-                  <strong>الطالبة:</strong> {student.name}
+                  <strong>الطالب/ة:</strong> {student.name}
                 </div>
                 <div>
-                  <strong>المعلمة:</strong> {student.teacher}
+                  <strong>المعلم/ة:</strong> {student.teacher}
                 </div>
               </div>
               <table>

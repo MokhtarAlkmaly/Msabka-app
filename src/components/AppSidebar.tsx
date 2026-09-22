@@ -84,13 +84,13 @@ export const AppSidebar = ({ online = true }: SidebarProps) => {
     },
     {
       to: "/teacher-links",
-      label: "روابط المعلمات",
+      label: "روابط المعلمين والمعلمات",
       icon: Link2,
       color: "text-violet-300",
     },
     {
       to: "/submissions",
-      label: "وارد المعلمات",
+      label: "وارد المعلمين والمعلمات",
       icon: Inbox,
       color: "text-amber-300",
     },
@@ -102,7 +102,7 @@ export const AppSidebar = ({ online = true }: SidebarProps) => {
     },
     {
       to: "/teachers",
-      label: "المعلمات والإكراميات",
+      label: "المعلمين والمعلمات والإكراميات",
       icon: Users,
       color: "text-indigo-300",
     },
@@ -132,7 +132,7 @@ export const AppSidebar = ({ online = true }: SidebarProps) => {
     },
     {
       to: "/khatimat",
-      label: "كشف الخاتمات",
+      label: "كشف الخاتمين والخاتمات",
       icon: Sparkles,
       color: "text-amber-400",
     },

@@ -159,7 +159,7 @@ export const TableRow = ({
           placeholder="الاسم"
           title={
             isDuplicateName
-              ? `⚠️ اسم مكرر: يوجد ${duplicateNameCount} طالبات بنفس الاسم في السجل`
+              ? `⚠️ اسم مكرر: يوجد ${duplicateNameCount} طلاب بنفس الاسم في السجل`
               : undefined
           }
           className={`h-10 rounded-xl border-0 text-center font-semibold focus-visible:ring-1 ${
@@ -176,12 +176,12 @@ export const TableRow = ({
           onValueChange={(v) => updateTeacher(v === "__none__" ? "" : v)}
         >
           <SelectTrigger className="h-10 w-full min-w-[120px] rounded-xl border-0 bg-background/70 text-center focus:ring-1">
-            <SelectValue placeholder="المعلمة" />
+            <SelectValue placeholder="المعلم/ة" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="__none__">— بدون —</SelectItem>
             {yearData.teacher && !teacherNames.includes(yearData.teacher) && (
-              <SelectItem value={yearData.teacher}>{yearData.teacher} (غير مسجلة)</SelectItem>
+              <SelectItem value={yearData.teacher}>{yearData.teacher} (غير مسجل)</SelectItem>
             )}
             {teacherNames.map((t) => (
               <SelectItem key={t} value={t}>

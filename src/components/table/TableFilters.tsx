@@ -90,10 +90,10 @@ export const TableFilters = ({
         <div className="grid grid-cols-1 gap-3 border-t border-border/60 bg-background/45 p-4 sm:grid-cols-2 lg:grid-cols-5">
           <Select value={selectedTeacher} onValueChange={onTeacherChange}>
             <SelectTrigger className="h-11 rounded-2xl bg-background text-sm">
-              <SelectValue placeholder="المعلمة" />
+              <SelectValue placeholder="المعلم/ة" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">كل المعلمات</SelectItem>
+              <SelectItem value="all">كل المعلمين والمعلمات</SelectItem>
               {teachers.map((teacher) => (
                 <SelectItem key={teacher} value={teacher}>
                   {teacher}

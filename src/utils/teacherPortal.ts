@@ -1,11 +1,11 @@
 /**
- * روابط المعلمات (بوابة المعلمة) + وارد المعلمات (ترسيلات المتابعة الشهرية).
+ * روابط المعلمين والمعلمات (بوابة المعلم/ة) + وارد المعلمين والمعلمات (ترسيلات المتابعة الشهرية).
  *
  * طبقة البيانات الخاصة بالمزيج الجديد:
  *  - إدارة الروابط (authenticated): إنشاء/تعديل كود/إيقاف/حذف.
  *  - فتح البوابة (anon): عبر دالة open_teacher_portal دون تسجيل دخول.
- *  - إرسال/مراجعة الترسيلات: دالة submit_teacher_monthly للمعلمة، ودوال
- *    تحديث الحالة والتعديل للمالك (صفحة «وارد المعلمات»).
+ *  - إرسال/مراجعة الترسيلات: دالة submit_teacher_monthly للمعلم/ة، ودوال
+ *    تحديث الحالة والتعديل للمالك (صفحة «وارد المعلمين والمعلمات»).
  */
 
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +16,14 @@ import type { MonthlyRecord, QuranPoint } from "@/types/student";
 // ============================================================
 
 export type SubmissionStatus = "pending" | "approved" | "rejected";
+
+/**
+ * مصدر الترسيل:
+ *  - `portal`: أرسله المعلم/ة بنفسه عبر رابطه الخاص.
+ *  - `manual`: «التقرير اليدوي» — أدخله المالك نيابة عن معلم/ة لا يملك
+ *    جوالاً أو لا يستخدم الإنترنت (تقرير ورقي).
+ */
+export type SubmissionSource = "portal" | "manual";
 
 export interface TeacherPortal {
   id: string;
@@ -32,8 +40,10 @@ export interface TeacherPortal {
 export interface Submission {
   id: string;
   user_id: string;
-  portal_id: string;
-  code: string;
+  /** فارغ في الإدخال اليدوي (لا رابط وراءه). */
+  portal_id: string | null;
+  /** فارغ في الإدخال اليدوي. */
+  code: string | null;
   student_id: number;
   student_name: string;
   year: string;
@@ -54,15 +64,19 @@ export interface Submission {
   behavior_score: number;
   notes: string | null;
   status: SubmissionStatus;
+  /** مصدر الترسيل: رابط المعلم/ة أو إدخال يدوي. */
+  source: SubmissionSource;
+  /** اسم المعلم/ة المخزّن على الترسيل نفسه. */
+  teacher_name: string | null;
   review_note: string | null;
   reviewed_at: string | null;
   created_at: string;
   updated_at: string;
-  /** اسم معلمة الرابط (عند جلب التفاصيل). */
+  /** اسم معلم/ة الرابط (عند جلب التفاصيل). */
   portal_teacher_name?: string;
 }
 
-/** إطلالة المعلمة على البوابة: بيانات الرابط + بطاقات الطالبات. */
+/** إطلالة المعلم/ة على البوابة: بيانات الرابط + بطاقات الطلاب. */
 export interface PortalStudent {
   student_id: number;
   student_name: string;
@@ -70,7 +84,7 @@ export interface PortalStudent {
   prevMemo: QuranPoint;
   /** نقطة نهاية الشهر السابق (قسم المراجعة). */
   prevReview: QuranPoint;
-  /** آخر ترسيل لهذه الطالبة إن وجد (لتعبئة النموذج وإظهار الحالة). */
+  /** آخر ترسيل لهذا الطالب/ة إن وجد (لتعبئة النموذج وإظهار الحالة). */
   existing: Submission | null;
 }
 
@@ -94,8 +108,18 @@ export const SUBMISSION_STATUS_COLORS: Record<SubmissionStatus, string> = {
   rejected: "bg-rose-400/15 text-rose-300 ring-rose-400/30",
 };
 
+export const SUBMISSION_SOURCE_LABELS: Record<SubmissionSource, string> = {
+  portal: "عبر الرابط",
+  manual: "إدخال يدوي",
+};
+
+export const SUBMISSION_SOURCE_COLORS: Record<SubmissionSource, string> = {
+  portal: "bg-white/10 text-white/50 ring-white/10",
+  manual: "bg-violet-400/15 text-violet-300 ring-violet-400/30",
+};
+
 // ============================================================
-// نموذج النموذج (مشاركة بين صفحة المعلمة وصفحة الوارد)
+// نموذج النموذج (مشاركة بين صفحة المعلم/ة وصفحة الوارد)
 // ============================================================
 
 export interface PortalForm {
@@ -280,7 +304,7 @@ export const deletePortal = async (userId: string, id: string): Promise<void> =>
   if (error) throw error;
 };
 
-/** رابط المعلمة الكامل (يُرسل لها على واتساب). */
+/** رابط المعلم/ة الكامل (يُرسل لها على واتساب). */
 export const getPortalLink = (
   portal: Pick<TeacherPortal, "code" | "year" | "month">,
   origin?: string,
@@ -290,7 +314,7 @@ export const getPortalLink = (
 };
 
 // ============================================================
-// فتح البوابة (المعلمة — دون تسجيل دخول)
+// فتح البوابة (المعلم/ة — دون تسجيل دخول)
 // ============================================================
 
 export const openPortalByCode = async (
@@ -324,7 +348,7 @@ export const openPortalByCode = async (
 
   const rows = (data || []) as NonNullable<typeof data>;
   if (rows.length === 0) {
-    return { portal: null, error: "الرابط غير صحيح أو تم إيقافه. راجعي المعلمة المشرفة." };
+    return { portal: null, error: "الرابط غير صحيح أو تم إيقافه. راجع المشرف/ة." };
   }
 
   const first = rows[0];
@@ -361,6 +385,8 @@ export const openPortalByCode = async (
             behavior_score: Number(sub.behavior_score) || 0,
             notes: (sub.notes as string | null) ?? null,
             status: (sub.status as SubmissionStatus) ?? "pending",
+            source: "portal" as SubmissionSource,
+            teacher_name: first.teacher_name,
             review_note: null,
             reviewed_at: null,
             created_at: (sub.submitted_at as string) ?? "",
@@ -382,7 +408,7 @@ export const openPortalByCode = async (
   };
 };
 
-/** إرسال/تحديث ترسيل المعلمة. يعيد رسالة الخطأ العربية إن أخطأت الدالة. */
+/** إرسال/تحديث ترسيل المعلم/ة. يعيد رسالة الخطأ العربية إن أخطأت الدالة. */
 export const submitTeacherMonthly = async (
   params: {
     code: string;
@@ -435,7 +461,7 @@ export const submitTeacherMonthly = async (
 };
 
 // ============================================================
-// وارد المعلمات (للمالك)
+// وارد المعلمين والمعلمات (للمالك)
 // ============================================================
 
 export const loadSubmissions = async (
@@ -454,9 +480,11 @@ export const loadSubmissions = async (
   return (data || []).map((row) => {
     const portal = (row as Record<string, unknown>).portal as
       { teacher_name?: string } | null | undefined;
+    const rec = row as unknown as Submission;
     return {
-      ...(row as unknown as Submission),
-      portal_teacher_name: portal?.teacher_name ?? "",
+      ...rec,
+      source: (rec.source === "manual" ? "manual" : "portal") as SubmissionSource,
+      portal_teacher_name: portal?.teacher_name ?? rec.teacher_name ?? "",
     };
   });
 };
@@ -524,4 +552,82 @@ export const deleteSubmission = async (userId: string, subId: string): Promise<v
     .eq("id", subId)
     .eq("user_id", userId);
   if (error) throw error;
+};
+
+/**
+ * التقرير اليدوي — تسجيل/تحديث متابعة شهرية نيابة عن معلم/ة لا يستخدم
+ * الرابط (بلا جوال أو بلا إنترنت): يُدخلها المالك من الورقة مباشرة.
+ * لا يُنشئ رابطاً ولا كوداً، ويُخزّن اسم المعلم/ة على الترسيل نفسه.
+ */
+export const saveManualSubmission = async (
+  userId: string,
+  input: {
+    teacher_name: string;
+    student_id: number;
+    student_name: string;
+    year: string;
+    month: number;
+    form: PortalForm;
+    /** "pending" = يبقى للمراجعة، "approved" = يُعتمد فوراً. */
+    status?: SubmissionStatus;
+  },
+): Promise<Submission> => {
+  const record = formToRecord(input.form);
+  const status: SubmissionStatus = input.status ?? "pending";
+  const payload = {
+    user_id: userId,
+    portal_id: null,
+    code: null,
+    teacher_name: input.teacher_name.trim(),
+    student_id: input.student_id,
+    student_name: input.student_name,
+    year: input.year,
+    month: input.month,
+    memorization_from_surah: record.memoFrom.surah,
+    memorization_from_ayah: record.memoFrom.ayah,
+    memorization_to_surah: record.memoTo.surah,
+    memorization_to_ayah: record.memoTo.ayah,
+    memorization_hifz_score: parseFloat(record.memoHifzScore) || 0,
+    memorization_recitation_score: parseFloat(record.memoRecitationScore) || 0,
+    review_from_surah: record.reviewFrom.surah,
+    review_from_ayah: record.reviewFrom.ayah,
+    review_to_surah: record.reviewTo.surah,
+    review_to_ayah: record.reviewTo.ayah,
+    review_hifz_score: parseFloat(record.reviewHifzScore) || 0,
+    review_recitation_score: parseFloat(record.reviewRecitationScore) || 0,
+    attendance_score: parseFloat(record.attendanceScore) || 0,
+    behavior_score: parseFloat(record.behaviorScore) || 0,
+    notes: input.form.notes || null,
+    source: "manual",
+    status,
+    reviewed_at: status === "pending" ? null : new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  // إدخال يدوي سابق لنفس (الطالب، العام، الشهر) يُحدَّث بدل أن يتكرر.
+  const { data: existing, error: findError } = await supabase
+    .from("monthly_submissions")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("student_id", input.student_id)
+    .eq("year", input.year)
+    .eq("month", input.month)
+    .is("portal_id", null)
+    .maybeSingle();
+  if (findError) throw findError;
+
+  const { data, error } = existing?.id
+    ? await supabase
+        .from("monthly_submissions")
+        .update(payload)
+        .eq("id", existing.id)
+        .eq("user_id", userId)
+        .select()
+        .maybeSingle()
+    : await supabase.from("monthly_submissions").insert(payload).select().maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error("تعذّر حفظ التقرير اليدوي");
+
+  const rec = data as unknown as Submission;
+  return { ...rec, source: "manual", portal_teacher_name: rec.teacher_name ?? "" };
 };

@@ -1,8 +1,8 @@
 /**
- * بوابة المعلمة — صفحة عامة (بدون تسجيل دخول).
+ * بوابة المعلم/ة — صفحة عامة (بدون تسجيل دخول).
  *
- * تفتح المعلمة رابطها الخاص: /teacher?t=<code>&y=<year>&m=<month>
- * ترى بطاقات طالباتها لهذا العام/الشهر فقط، وتدخل حقول المتابعة الشهرية
+ * تفتح المعلم/ة رابطها الخاص: /teacher?t=<code>&y=<year>&m=<month>
+ * ترى بطاقات طلابه لهذا العام/الشهر فقط، وتدخل حقول المتابعة الشهرية
  * كاملة (نفس شاشة المتابعة الشهرية): من/إلى للحفظ الجديد والمراجعة،
  * التسميع والتلاوة، المواظبة والسلوك — مع زر «ابدأ من نهاية الشهر
  * السابق»، وحفظ مسودة على الجوال قبل الإرسال.
@@ -194,7 +194,7 @@ const TeacherPortal = () => {
   useEffect(() => {
     if (!code) {
       setLoadState("error");
-      setLoadError("لا يوجد رمز في الرابط. راجعي المعلمة المشرفة.");
+      setLoadError("لا يوجد رمز في الرابط. راجع المشرف/ة.");
       return;
     }
     let cancelled = false;
@@ -318,7 +318,7 @@ const TeacherPortal = () => {
     setSentAt((prev) => ({ ...prev, [student.student_id]: new Date().toISOString() }));
     toast({
       title: "تم الإرسال",
-      description: `أُرسلت متابعة ${student.student_name} إلى المعلمة المشرفة.`,
+      description: `أُرسلت متابعة ${student.student_name} إلى المشرف/ة.`,
     });
   };
 
@@ -377,13 +377,13 @@ const TeacherPortal = () => {
           <div className="min-w-0 flex-1">
             <p className="flex items-center gap-1.5 text-[11px] font-bold text-amber-300">
               <Link2 className="h-3 w-3" />
-              بوابة المعلمة · مركز إنماء الأهلي الخيري
+              بوابة المعلم/ة · مركز إنماء الأهلي الخيري
             </p>
             <h1 className="truncate text-lg font-black text-white">
               متابعة {monthLabel} · {yearLabel}
             </h1>
             <p className="truncate text-xs text-white/50">
-              للمعلمة: {portal.teacher_name} · {portal.students.length} طالبة
+              للمعلم/ة: {portal.teacher_name} · {portal.students.length} طالب/ة
             </p>
           </div>
         </div>
@@ -391,8 +391,8 @@ const TeacherPortal = () => {
 
       <main className="mx-auto max-w-2xl space-y-3 px-3 pt-4">
         <p className="rounded-xl bg-white/5 px-3 py-2 text-[11px] leading-relaxed text-white/50 ring-1 ring-white/10">
-          اختاري طالبة ثم أدخلي حقول الشهر كاملة. يمكنك «حفظ مسودة» قبل الإرسال، وإرسالها عند
-          جاهزيتك — وإذا أعدت الإرسال لنفس الطالبة يُحدَّث الإرسال القديم تلقائياً.
+          اختر طالب/ة ثم أدخل حقول الشهر كاملة. يمكنك «حفظ مسودة» قبل الإرسال، وإرسالها عند جاهزيتك
+          — وإذا أعدت الإرسال لنفس الطالب/ة يُحدَّث الإرسال القديم تلقائياً.
         </p>
 
         {portal.students.map((student) => (

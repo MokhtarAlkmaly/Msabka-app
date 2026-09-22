@@ -76,14 +76,14 @@ export const RecallStudents = ({
       const added = await recallStudentsToYear(targetYear, selected);
       toast({
         title: "تم الاستدعاء",
-        description: `تم استدعاء ${added} طالبة من السجل الشامل إلى ${formatYearKey(
+        description: `تم استدعاء ${added} طالب/ة من السجل الشامل إلى ${formatYearKey(
           targetYear,
         )} مع ترحيل الحفظ السابق`,
       });
       setOpen(false);
       await onRecalled();
     } catch (e) {
-      toast({ title: "خطأ", description: "تعذّر استدعاء الطالبات", variant: "destructive" });
+      toast({ title: "خطأ", description: "تعذّر استدعاء الطلاب", variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -94,14 +94,14 @@ export const RecallStudents = ({
       <DialogTrigger asChild>
         <Button variant={buttonVariant} className={buttonClassName} disabled={!targetYear}>
           <History className="h-4 w-4" />
-          استدعاء طالبات من السجل الشامل
+          استدعاء طلاب من السجل الشامل
         </Button>
       </DialogTrigger>
       <DialogContent dir="rtl" className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>استدعاء طالبات إلى {formatYearKey(targetYear)}</DialogTitle>
+          <DialogTitle>استدعاء طلاب إلى {formatYearKey(targetYear)}</DialogTitle>
           <DialogDescription>
-            اختر الطالبات من سجل الطلاب الشامل (كل الأعوام)، وسيتم تسجيلهن في العام المختار مع نقل
+            اختر الطلاب من سجل الطلاب الشامل (كل الأعوام)، وسيتم تسجيلهم في العام المختار مع نقل
             الإجمالي التراكمي كـ«حفظ سابق».
           </DialogDescription>
         </DialogHeader>
@@ -109,7 +109,7 @@ export const RecallStudents = ({
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="بحث بالاسم أو المعلمة..."
+          placeholder="بحث بالاسم أو المعلم/ة..."
           className="h-10 rounded-xl"
         />
 
@@ -119,7 +119,7 @@ export const RecallStudents = ({
           </div>
         ) : filtered.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">
-            لا توجد طالبات غير مسجّلات في هذا العام — كل طالبات السجل الشامل موجودات بالفعل
+            لا يوجد طلاب غير مسجّلين في هذا العام — كل طلاب السجل الشامل موجودون بالفعل
           </p>
         ) : (
           <>

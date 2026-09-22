@@ -64,8 +64,8 @@ const CERT_TYPES: Record<string, string> = {
 };
 
 const RECIPIENTS: Record<string, string> = {
-  student: "طالبة/طالب",
-  teacher: "معلمة/معلم",
+  student: "طالب/ة/طالب",
+  teacher: "معلم/ة/معلم",
   donor: "داعم",
   other: "أخرى",
 };
@@ -329,7 +329,7 @@ const Certificates = () => {
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="secondary" className="gap-1" onClick={() => void generate()}>
-              <Wand2 className="h-4 w-4" /> توليد للخاتمات والمعلمات
+              <Wand2 className="h-4 w-4" /> توليد للخاتمات والمعلمين والمعلمات
             </Button>
             <Button variant="outline" className="gap-1" onClick={() => printCerts(rows)}>
               <Printer className="h-4 w-4" /> طباعة الكل

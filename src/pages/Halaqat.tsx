@@ -149,17 +149,21 @@ const Halaqat = () => {
     const name = teacherName.trim();
     if (!name || !year || viewAs) return;
     if (teacherNames.includes(name)) {
-      toast({ title: "المعلمة موجودة", description: "هذه المعلمة مضافة لهذا العام مسبقاً." });
+      toast({ title: "المعلم/ة موجود", description: "هذا المعلم/ة مضاف لهذا العام مسبقاً." });
       return;
     }
     try {
       await saveTeacher({ name, year });
       setTeacherName("");
       setAddTeacherOpen(false);
-      toast({ title: "تمت إضافة المعلمة", description: `${name} — عام ${year}هـ` });
+      toast({ title: "تمت إضافة المعلم/ة", description: `${name} — عام ${year}هـ` });
       await loadData();
     } catch (error) {
-      toast({ title: "تعذر إضافة المعلمة", description: "حاول مرة أخرى.", variant: "destructive" });
+      toast({
+        title: "تعذر إضافة المعلم/ة",
+        description: "حاول مرة أخرى.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -270,7 +274,7 @@ const Halaqat = () => {
                   <UsersRound className="h-6 w-6" /> إدارة الحلقات
                 </h1>
                 <p className="mt-1 text-sm text-white/75">
-                  ربط الطلاب بالمعلمات وإدارة حلقات كل عام بشكل مستقل
+                  ربط الطلاب بالمعلمين والمعلمات وإدارة حلقات كل عام بشكل مستقل
                 </p>
               </div>
             </div>
@@ -314,7 +318,7 @@ const Halaqat = () => {
             onClick={() => setAddTeacherOpen(true)}
             className="gap-2 rounded-2xl"
           >
-            <Plus className="h-4 w-4" /> إضافة معلمة لهذا العام
+            <Plus className="h-4 w-4" /> إضافة معلم/ة لهذا العام
           </Button>
           <Button
             disabled={!!viewAs}
@@ -336,7 +340,7 @@ const Halaqat = () => {
             <UsersRound className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
             <p className="font-bold">لا توجد حلقات أو طلاب مسجلون في هذا العام.</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              أضف معلمة أو اربط طلاباً من السجل الشامل للبدء.
+              أضف معلم/ة أو اربط طلاباً من السجل الشامل للبدء.
             </p>
           </Card>
         ) : (
@@ -411,10 +415,10 @@ const Halaqat = () => {
       <Dialog open={addTeacherOpen} onOpenChange={setAddTeacherOpen}>
         <DialogContent dir="rtl">
           <DialogHeader>
-            <DialogTitle>إضافة معلمة لعام {year}هـ</DialogTitle>
+            <DialogTitle>إضافة معلم/ة لعام {year}هـ</DialogTitle>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="halaqat-teacher-name">اسم المعلمة</Label>
+            <Label htmlFor="halaqat-teacher-name">اسم المعلم/ة</Label>
             <Input
               id="halaqat-teacher-name"
               value={teacherName}
@@ -422,7 +426,7 @@ const Halaqat = () => {
               onKeyDown={(event) => {
                 if (event.key === "Enter") void addTeacher();
               }}
-              placeholder="اكتب اسم المعلمة"
+              placeholder="اكتب اسم المعلم/ة"
             />
           </div>
           <DialogFooter>
@@ -490,7 +494,7 @@ const Halaqat = () => {
                     />
                     <span className="font-semibold">{student.name || "بدون اسم"}</span>
                     <span className="text-xs text-muted-foreground">
-                      — {student.teacher || "بدون معلمة"}
+                      — {student.teacher || "بدون معلم/ة"}
                     </span>
                   </label>
                 ))

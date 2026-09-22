@@ -1,7 +1,7 @@
 /**
- * وارد المعلمات — مراجعة ترسيلات المعلمات من بواباتهن:
+ * وارد المعلمين والمعلمات — مراجعة ترسيلات المعلمين والمعلمات من بواباتهم:
  * مراجعة/تعديل/اعتماد (يُكتب في المتابعة الشهرية) /رفض، مع السجل الكامل
- * للتاريخ، ولوحة جانبية بعدد الطالبات الرسميات والمنتظرات.
+ * للتاريخ، ولوحة جانبية بعدد الطلاب المسجّلين والمنتظرين.
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -16,6 +16,9 @@ import {
   RotateCcw,
   Users,
   AlertCircle,
+  FilePlus2,
+  BadgeCheck,
+  Save,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,7 +39,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { PortalFormFields } from "@/components/PortalFormFields";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { getActiveYear, loadStudentsForYear, saveMonthlyRecord } from "@/utils/storage";
+import {
+  getActiveYear,
+  loadStudentsForYear,
+  loadTeachers,
+  saveMonthlyRecord,
+} from "@/utils/storage";
 import { START_YEAR, END_YEAR, TRACKING_MONTHS, formatYearKey, Student } from "@/types/student";
 import {
   Submission,
@@ -49,8 +57,11 @@ import {
   formFromSubmission,
   formToRecord,
   emptyForm,
+  saveManualSubmission,
   SUBMISSION_STATUS_LABELS,
   SUBMISSION_STATUS_COLORS,
+  SUBMISSION_SOURCE_LABELS,
+  SUBMISSION_SOURCE_COLORS,
 } from "@/utils/teacherPortal";
 
 const fmtDate = (iso: string | null) => {
@@ -134,6 +145,13 @@ const SubmissionCard = ({
               className={`rounded-full px-2 py-0.5 text-[10px] font-bold ring-1 ${SUBMISSION_STATUS_COLORS[sub.status]}`}
             >
               {SUBMISSION_STATUS_LABELS[sub.status]}
+            </span>
+            <span
+              className={`rounded-full px-2 py-0.5 text-[10px] font-bold ring-1 ${
+                SUBMISSION_SOURCE_COLORS[sub.source ?? "portal"]
+              }`}
+            >
+              {SUBMISSION_SOURCE_LABELS[sub.source ?? "portal"]}
             </span>
             <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-bold text-white/50">
               المجموع {total} / 100
@@ -220,7 +238,7 @@ const SubmissionCard = ({
                 <div className="space-y-1 rounded-xl bg-white/5 p-3 text-xs ring-1 ring-white/10">
                   {sub.notes && (
                     <p className="text-white/60">
-                      <b className="text-white/80">ملاحظات المعلمة:</b> {sub.notes}
+                      <b className="text-white/80">ملاحظات المعلم/ة:</b> {sub.notes}
                     </p>
                   )}
                   {sub.review_note && (
@@ -328,6 +346,15 @@ const Submissions = () => {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [busyId, setBusyId] = useState<string | null>(null);
 
+  // التقرير اليدوي (معلم/ة بلا جوال أو بلا إنترنت)
+  const [teachers, setTeachers] = useState<string[]>([]);
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualTeacher, setManualTeacher] = useState("");
+  const [manualMonth, setManualMonth] = useState(1);
+  const [manualStudent, setManualStudent] = useState("");
+  const [manualForm, setManualForm] = useState<PortalForm>(emptyForm());
+  const [savingManual, setSavingManual] = useState(false);
+
   // رفض: حوار ملاحظة
   const [rejectTarget, setRejectTarget] = useState<Submission | null>(null);
   const [rejectNote, setRejectNote] = useState("");
@@ -339,16 +366,22 @@ const Submissions = () => {
     if (!year) return;
     setLoading(true);
     try {
-      const [s, st] = await Promise.all([
+      const [s, st, tc] = await Promise.all([
         loadSubmissions(userId, {
           year,
           month: month || undefined,
           status: status === "all" ? undefined : status,
         }),
         loadStudentsForYear(year),
+        loadTeachers(year).catch(() => []),
       ]);
       setSubs(s);
       setStudents(st);
+      setTeachers(
+        Array.from(new Set(tc.map((t) => (t.name || "").trim()).filter(Boolean))).sort((a, b) =>
+          a.localeCompare(b, "ar"),
+        ),
+      );
     } catch (err) {
       console.error(err);
       toast({
@@ -388,7 +421,7 @@ const Submissions = () => {
   const approved = monthSubs.filter((s) => s.status === "approved").length;
   const rejected = monthSubs.filter((s) => s.status === "rejected").length;
 
-  // طالبات العام اللواتي لم يرسلن بعد (قيد المراجعة أو مٌعتمد) لهذا الشهر
+  // طلاب العام الذين لم يرسلوا بعد (قيد المراجعة أو مٌعتمد) لهذا الشهر
   const notSubmitted = useMemo(() => {
     if (!month) return [];
     const submitted = new Set(
@@ -489,23 +522,98 @@ const Submissions = () => {
     }
   };
 
+  /** طلاب الحوار: طلاب المعلم/ة المختار إن وجدوا، وإلا كل طلاب العام. */
+  const manualStudents = useMemo(() => {
+    const list = manualTeacher
+      ? students.filter((s) => (s.teacher || "").trim() === manualTeacher)
+      : students;
+    return [...(list.length ? list : students)].sort((a, b) =>
+      (a.name || "").localeCompare(b.name || "", "ar"),
+    );
+  }, [students, manualTeacher]);
+
+  /** حفظ التقرير اليدوي: للمراجعة، أو اعتماد مباشر في المتابعة الشهرية. */
+  const saveManual = async (approve: boolean) => {
+    if (!userId) return;
+    const student = students.find((s) => String(s.id) === manualStudent);
+    if (!manualTeacher.trim()) {
+      toast({
+        title: "اختر المعلم/ة",
+        description: "الاسم مطلوب لحفظ التقرير اليدوي.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!student) {
+      toast({ title: "اختر الطالب/ة", variant: "destructive" });
+      return;
+    }
+    setSavingManual(true);
+    try {
+      await saveManualSubmission(userId, {
+        teacher_name: manualTeacher,
+        student_id: student.id,
+        student_name: student.name,
+        year,
+        month: manualMonth,
+        form: manualForm,
+        status: approve ? "approved" : "pending",
+      });
+      if (approve) {
+        const ok = await saveMonthlyRecord(year, student.id, manualMonth, formToRecord(manualForm));
+        if (!ok) throw new Error("تعذّر الكتابة في المتابعة الشهرية");
+      }
+      toast({
+        title: approve ? "حُفظ وأُعتمد" : "حُفظ للمراجعة",
+        description: `${student.name} — ${monthLabelSafe(manualMonth)} ${formatYearKey(year)}`,
+      });
+      setManualOpen(false);
+      setManualStudent("");
+      setManualForm(emptyForm());
+      await load();
+    } catch (err) {
+      console.error("تعذّر حفظ التقرير اليدوي", err);
+      toast({
+        title: "تعذّر الحفظ",
+        description: "تحقق من الاتصال بالإنترنت وحاول مجدداً.",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingManual(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 p-4 md:p-6" dir="rtl">
       <div className="mx-auto max-w-6xl space-y-4">
         {/* الترويسة */}
-        <div>
-          <h1 className="flex items-center gap-2 text-xl font-black text-white">
-            <Inbox className="h-5 w-5 text-amber-300" />
-            وارد المعلمات
-            {pending > 0 && (
-              <span className="rounded-full bg-amber-400/20 px-2.5 py-0.5 text-xs font-black text-amber-300 ring-1 ring-amber-400/40">
-                {pending} قيد المراجعة
-              </span>
-            )}
-          </h1>
-          <p className="mt-1 text-xs text-white/50">
-            ترسيلات المعلمات من بواباتهن — راجعيها واعتمديها لتُكتب في المتابعة الشهرية.
-          </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="flex items-center gap-2 text-xl font-black text-white">
+              <Inbox className="h-5 w-5 text-amber-300" />
+              وارد المعلمين والمعلمات
+              {pending > 0 && (
+                <span className="rounded-full bg-amber-400/20 px-2.5 py-0.5 text-xs font-black text-amber-300 ring-1 ring-amber-400/40">
+                  {pending} قيد المراجعة
+                </span>
+              )}
+            </h1>
+            <p className="mt-1 text-xs text-white/50">
+              ترسيلات المعلمين والمعلمات من بواباتهم — راجعها واعتمدها لتُكتب في المتابعة الشهرية.
+            </p>
+          </div>
+          <Button
+            onClick={() => {
+              setManualMonth(month || 1);
+              setManualStudent("");
+              setManualForm(emptyForm());
+              setManualOpen(true);
+            }}
+            className="rounded-xl bg-violet-600 hover:bg-violet-500"
+          >
+            <FilePlus2 className="h-4 w-4" />
+            تقرير يدوي
+          </Button>
         </div>
 
         {/* المرشحات */}
@@ -570,7 +678,8 @@ const Submissions = () => {
                 <Inbox className="mx-auto h-8 w-8 text-white/20" />
                 <p className="mt-2 text-sm font-bold text-white/50">لا توجد ترسيلات بهذا التصفية</p>
                 <p className="mt-1 text-xs text-white/30">
-                  أنشئي روابط للمعلمات من صفحة «روابط المعلمات» واطلبي منهن إرسال المتابعة.
+                  أنشئ روابط للمعلمين والمعلمات من صفحة «روابط المعلمين والمعلمات» واطلب منهم إرسال
+                  المتابعة.
                 </p>
               </div>
             ) : (
@@ -604,7 +713,7 @@ const Submissions = () => {
               <div className="grid grid-cols-2 gap-2 text-center">
                 <div className="rounded-xl bg-white/5 p-3 ring-1 ring-white/10">
                   <p className="text-lg font-black text-white">{students.length}</p>
-                  <p className="text-[10px] font-bold text-white/40">طالبة رسمية</p>
+                  <p className="text-[10px] font-bold text-white/40">طالب مسجّل</p>
                 </div>
                 <div className="rounded-xl bg-amber-400/10 p-3 ring-1 ring-amber-400/30">
                   <p className="text-lg font-black text-amber-300">{pending}</p>
@@ -625,10 +734,10 @@ const Submissions = () => {
               <div className="rounded-2xl bg-white/5 p-4 ring-1 ring-white/10">
                 <h3 className="mb-2 flex items-center gap-2 text-xs font-black text-white">
                   <AlertCircle className="h-3.5 w-3.5 text-amber-300" />
-                  لم يرسلن بعد ({notSubmitted.length})
+                  لم يرسلوا بعد ({notSubmitted.length})
                 </h3>
                 {notSubmitted.length === 0 ? (
-                  <p className="text-xs text-emerald-300">أرسلن كل طالبات الشهر 🎉</p>
+                  <p className="text-xs text-emerald-300">أرسلوا كل طلاب الشهر 🎉</p>
                 ) : (
                   <ul className="space-y-1">
                     {notSubmitted.slice(0, 12).map((s) => (
@@ -638,7 +747,7 @@ const Submissions = () => {
                     ))}
                     {notSubmitted.length > 12 && (
                       <li className="text-[10px] font-bold text-white/30">
-                        +{notSubmitted.length - 12} أخريات
+                        +{notSubmitted.length - 12} آخرين
                       </li>
                     )}
                   </ul>
@@ -649,6 +758,138 @@ const Submissions = () => {
         </div>
       </div>
 
+      {/* التقرير اليدوي — إدخال نيابة عن معلم/ة بلا رابط */}
+      <Dialog open={manualOpen} onOpenChange={setManualOpen}>
+        <DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto bg-slate-900 text-white">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FilePlus2 className="h-4 w-4 text-violet-300" />
+              تقرير يدوي — متابعة شهرية نيابة عن معلم/ة
+            </DialogTitle>
+            <p className="text-xs leading-relaxed text-white/50">
+              لمن لا يملك جوالاً أو لا يستخدم الإنترنت: انقل بيانات ورقته هنا، ثم احفظها «للمراجعة»
+              أو «اعتمدها» لتُكتب مباشرة في المتابعة الشهرية.
+            </p>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div className="grid gap-2 sm:grid-cols-3">
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-white/50">المعلم/ة</label>
+                <Select
+                  value={manualTeacher || undefined}
+                  onValueChange={(v) => {
+                    setManualTeacher(v);
+                    setManualStudent("");
+                  }}
+                  disabled={teachers.length === 0}
+                >
+                  <SelectTrigger className="h-9 bg-white/5 text-sm">
+                    <SelectValue
+                      placeholder={
+                        teachers.length === 0 ? "لا يوجد معلمون مضافون لهذا العام" : "اختر"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-72">
+                    {teachers.map((t) => (
+                      <SelectItem key={t} value={t}>
+                        {t}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-white/50">الشهر</label>
+                <Select
+                  value={String(manualMonth)}
+                  onValueChange={(v) => setManualMonth(parseInt(v))}
+                >
+                  <SelectTrigger className="h-9 bg-white/5 text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TRACKING_MONTHS.map((m) => (
+                      <SelectItem key={m.value} value={String(m.value)}>
+                        {m.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-white/50">العام</label>
+                <div className="flex h-9 items-center rounded-md bg-white/5 px-3 text-sm font-bold text-white/70 ring-1 ring-white/10">
+                  {year ? formatYearKey(year) : "—"}
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[11px] font-bold text-white/50">
+                الطالب/ة ({manualStudents.length})
+              </label>
+              <Select value={manualStudent || undefined} onValueChange={setManualStudent}>
+                <SelectTrigger className="h-9 bg-white/5 text-sm">
+                  <SelectValue placeholder="اختر الطالب/ة" />
+                </SelectTrigger>
+                <SelectContent className="max-h-72">
+                  {manualStudents.map((s) => (
+                    <SelectItem key={s.id} value={String(s.id)}>
+                      {s.name}
+                      {s.teacher ? ` — ${s.teacher}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {manualTeacher && manualStudents.length > 0 && (
+                <p className="text-[10px] text-white/35">
+                  تظهر قائمة طلاب هذا المعلم/ة في العام المختار.
+                </p>
+              )}
+            </div>
+
+            <PortalFormFields form={manualForm} onChange={setManualForm} compact />
+          </div>
+
+          <DialogFooter className="flex-wrap gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => setManualOpen(false)}
+              className="rounded-lg text-white/60 hover:bg-white/10 hover:text-white"
+            >
+              إلغاء
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => saveManual(false)}
+              disabled={savingManual}
+              className="rounded-lg border-white/15 bg-transparent text-white/80 hover:bg-white/10"
+            >
+              {savingManual ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              حفظ للمراجعة
+            </Button>
+            <Button
+              onClick={() => saveManual(true)}
+              disabled={savingManual}
+              className="rounded-lg bg-emerald-600 hover:bg-emerald-500"
+            >
+              {savingManual ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <BadgeCheck className="h-4 w-4" />
+              )}
+              حفظ واعتماد
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* حوار الرفض */}
       <Dialog open={!!rejectTarget} onOpenChange={(o) => !o && setRejectTarget(null)}>
         <DialogContent className="bg-slate-900 text-white">
@@ -658,8 +899,8 @@ const Submissions = () => {
           {rejectTarget && (
             <div className="space-y-3">
               <p className="text-xs text-white/50">
-                متابعة <b className="text-white">{rejectTarget.student_name}</b> — سيُطلب من المعلمة
-                إعادة الإرسال بعد معرفة السبب.
+                متابعة <b className="text-white">{rejectTarget.student_name}</b> — سيُطلب من
+                المعلم/ة إعادة الإرسال بعد معرفة السبب.
               </p>
               <Textarea
                 value={rejectNote}

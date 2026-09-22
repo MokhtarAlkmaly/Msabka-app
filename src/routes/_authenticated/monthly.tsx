@@ -8,7 +8,7 @@ export const Route = createFileRoute("/_authenticated/monthly")({
       {
         name: "description",
         content:
-          "تسجيل الحفظ الجديد والمواظبة والسلوك شهرياً لكل طالبة، وتحديث النتيجة السنوية تلقائياً.",
+          "تسجيل الحفظ الجديد والمواظبة والسلوك شهرياً لكل طالب/ة، وتحديث النتيجة السنوية تلقائياً.",
       },
       { property: "og:title", content: "المتابعة الشهرية - نظام إدارة مركز إنماء الأهلي الخيري" },
       { property: "og:type", content: "website" },

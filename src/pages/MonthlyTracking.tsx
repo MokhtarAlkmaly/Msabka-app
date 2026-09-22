@@ -199,7 +199,7 @@ const MonthlyTracking = () => {
 
   const isDirty = Object.keys(dirty).length > 0;
 
-  // يحسب عدد الأوجه تلقائياً (بالخلفية) لكل طالبة مفتوحة حالياً، كلما
+  // يحسب عدد الأوجه تلقائياً (بالخلفية) لكل طالب/ة مفتوحة حالياً، كلما
   // تغيّرت نقطة "من" أو "إلى" لقسم الحفظ الجديد
   useEffect(() => {
     expanded.forEach((studentId) => {
@@ -266,7 +266,7 @@ const MonthlyTracking = () => {
     if (successCount === entries.length) {
       toast({
         title: "تم الحفظ بنجاح",
-        description: `تم حفظ متابعة ${successCount} طالبة، وتحديث النتيجة السنوية تلقائياً`,
+        description: `تم حفظ متابعة ${successCount} طالب/ة، وتحديث النتيجة السنوية تلقائياً`,
       });
       await loadData();
     } else {
@@ -280,13 +280,13 @@ const MonthlyTracking = () => {
 
   const monthLabel = TRACKING_MONTHS.find((m) => m.value === month)?.label || "";
 
-  // قائمة المعلمات (فريدة، مرتبة أبجدياً) لتصفية الطالبات حسب المعلمة
+  // قائمة المعلمين والمعلمات (فريدة، مرتبة أبجدياً) لتصفية الطلاب حسب المعلم/ة
   const teacherOptions = useMemo(() => {
     const names = Array.from(new Set(students.map((s) => s.teacher).filter((t) => t && t.trim())));
     return names.sort((a, b) => a.localeCompare(b, "ar"));
   }, [students]);
 
-  // الطالبات المعروضات: مصفّاة حسب المعلمة المختارة، ومرتبة أبجدياً بالاسم
+  // الطلاب المعروضون: مصفّون حسب المعلم/ة المختار، ومرتبة أبجدياً بالاسم
   const visibleStudents = useMemo(() => {
     const filtered =
       selectedTeacher === "الكل" ? students : students.filter((s) => s.teacher === selectedTeacher);
@@ -346,11 +346,11 @@ const MonthlyTracking = () => {
         <div class="header">
           <img src="${logo}" alt="الشعار" />
           <h1>مركز إنماء الأهلي الخيري</h1>
-          <h2>التقرير الشهري لمتابعة الطالبة</h2>
+          <h2>التقرير الشهري لمتابعة الطالب/ة</h2>
         </div>
         <div class="info">
-          <span><strong>الطالبة:</strong> ${reportStudent.name}</span>
-          <span><strong>المعلمة:</strong> ${reportStudent.teacher || "-"}</span>
+          <span><strong>الطالب/ة:</strong> ${reportStudent.name}</span>
+          <span><strong>المعلم/ة:</strong> ${reportStudent.teacher || "-"}</span>
           <span><strong>الشهر:</strong> ${monthLabel} ${year}هـ</span>
         </div>
 
@@ -385,11 +385,11 @@ const MonthlyTracking = () => {
 
         <div class="total">المجموع الكلي هذا الشهر: ${total.toFixed(1)} من 100</div>
 
-        ${reportNote ? `<div class="note"><div class="note-title">رسالة من المعلمة لولي الأمر:</div>${reportNote.replace(/\n/g, "<br/>")}</div>` : ""}
+        ${reportNote ? `<div class="note"><div class="note-title">رسالة من المعلم/ة لولي الأمر:</div>${reportNote.replace(/\n/g, "<br/>")}</div>` : ""}
 
         <div class="signatures">
-          <div class="sig">توقيع المعلمة<div class="line">.......................</div></div>
-          <div class="sig">توقيع المشرفة<div class="line">.......................</div></div>
+          <div class="sig">توقيع المعلم/ة<div class="line">.......................</div></div>
+          <div class="sig">توقيع المشرف/ة<div class="line">.......................</div></div>
         </div>
 
         <div class="footer">${new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" })}</div>
@@ -476,13 +476,13 @@ const MonthlyTracking = () => {
           </div>
 
           <div className="flex items-center gap-2 rounded-2xl bg-emerald-50 px-3 py-2 text-sm ring-1 ring-primary/10">
-            <span className="font-semibold text-emerald-800">المعلمة</span>
+            <span className="font-semibold text-emerald-800">المعلم/ة</span>
             <Select value={selectedTeacher} onValueChange={setSelectedTeacher}>
               <SelectTrigger className="h-9 w-36 rounded-xl border-primary/20 bg-background font-bold">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="الكل">كل المعلمات</SelectItem>
+                <SelectItem value="الكل">كل المعلمين والمعلمات</SelectItem>
                 {teacherOptions.map((t) => (
                   <SelectItem key={t} value={t}>
                     {t}
@@ -528,8 +528,8 @@ const MonthlyTracking = () => {
           ) : visibleStudents.length === 0 ? (
             <Card className="border-primary/20 p-10 text-center text-muted-foreground">
               {selectedTeacher === "الكل"
-                ? `لا توجد طالبات مسجّلات بعام ${year}هـ (سجّلهن أولاً بالجدول الرئيسي)`
-                : `لا توجد طالبات لدى المعلمة ${selectedTeacher} بعام ${year}هـ`}
+                ? `لا يوجد طلاب مسجّلون بعام ${year}هـ (سجّلهم أولاً بالجدول الرئيسي)`
+                : `لا يوجد طلاب لدى المعلم/ة ${selectedTeacher} بعام ${year}هـ`}
             </Card>
           ) : (
             visibleStudents.map((student) => {
@@ -723,7 +723,7 @@ const MonthlyTracking = () => {
           </DialogHeader>
           <div className="space-y-2">
             <label className="text-sm font-semibold text-muted-foreground">
-              رسالة من المعلمة لولي الأمر (اختياري)
+              رسالة من المعلم/ة لولي الأمر (اختياري)
             </label>
             <Textarea
               value={reportNote}

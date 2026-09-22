@@ -1024,7 +1024,7 @@ CREATE TRIGGER update_monthly_tracking_updated_at
 
 
 -- ============================================================
--- روابط المعلمات (بوابة المعلمة) + وارد المعلمات
+-- روابط المعلمين والمعلمات (بوابة المعلم/ة) + وارد المعلمين والمعلمات
 -- (مطابق للترحيل 20260922120000_teacher_portal_and_submissions.sql)
 -- ============================================================
 
@@ -1048,8 +1048,13 @@ CREATE INDEX IF NOT EXISTS idx_teacher_portals_user_year
 CREATE TABLE IF NOT EXISTS public.monthly_submissions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  portal_id UUID NOT NULL REFERENCES public.teacher_portals(id) ON DELETE CASCADE,
-  code TEXT NOT NULL,
+  -- فارغ في «التقرير اليدوي» (إدخال المالك نيابة عن معلم/ة بلا رابط)
+  portal_id UUID REFERENCES public.teacher_portals(id) ON DELETE CASCADE,
+  code TEXT,
+  -- اسم المعلم/ة (من رابطه، أو مكتوب يدوياً في الإدخال اليدوي)
+  teacher_name TEXT,
+  -- 'portal' = عبر رابط المعلم/ة، 'manual' = إدخال يدوي (تقرير ورقي)
+  source TEXT NOT NULL DEFAULT 'portal' CHECK (source IN ('portal', 'manual')),
   student_id BIGINT NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
   student_name TEXT NOT NULL,
   year TEXT NOT NULL,
@@ -1078,10 +1083,16 @@ CREATE TABLE IF NOT EXISTS public.monthly_submissions (
 
 CREATE UNIQUE INDEX IF NOT EXISTS monthly_submissions_portal_student_key
   ON public.monthly_submissions(portal_id, student_id);
+-- الإدخال اليدوي (بلا رابط): ترسيل واحد لكل (مستخدم، طالب، عام، شهر)
+CREATE UNIQUE INDEX IF NOT EXISTS monthly_submissions_manual_key
+  ON public.monthly_submissions(user_id, student_id, year, month)
+  WHERE portal_id IS NULL;
 CREATE INDEX IF NOT EXISTS idx_monthly_submissions_user_status
   ON public.monthly_submissions(user_id, status);
 CREATE INDEX IF NOT EXISTS idx_monthly_submissions_user_year_month
   ON public.monthly_submissions(user_id, year, month);
+CREATE INDEX IF NOT EXISTS idx_monthly_submissions_user_source
+  ON public.monthly_submissions(user_id, source);
 
 -- ------------------------------------------------------------
 -- RLS — teacher_portals
@@ -1112,7 +1123,7 @@ CREATE POLICY "Users can delete their own teacher_portals"
   ON public.teacher_portals FOR DELETE TO authenticated
   USING (auth.uid() = user_id);
 
--- صلاحية المعلمة (دون حساب): قراءة البوابات النشطة فقط.
+-- صلاحية المعلم/ة (دون حساب): قراءة البوابات النشطة فقط.
 DROP POLICY IF EXISTS "open_teacher_portal" ON public.teacher_portals;
 CREATE POLICY "open_teacher_portal"
   ON public.teacher_portals FOR SELECT TO anon
@@ -1152,7 +1163,7 @@ CREATE POLICY "Users can delete their own monthly_submissions"
   ON public.monthly_submissions FOR DELETE TO authenticated
   USING (auth.uid() = user_id);
 
--- صلاحية المعلمة (دون حساب): إرسال فقط وبشرط مطابقة كود البوابة النشطة.
+-- صلاحية المعلم/ة (دون حساب): إرسال فقط وبشرط مطابقة كود البوابة النشطة.
 DROP POLICY IF EXISTS "submit_teacher_monthly" ON public.monthly_submissions;
 CREATE POLICY "submit_teacher_monthly"
   ON public.monthly_submissions FOR INSERT TO anon
@@ -1173,8 +1184,8 @@ CREATE POLICY "Shared read through access grants"
 -- ------------------------------------------------------------
 -- الدالتان العامتان (بدون تسجيل دخول)
 -- ------------------------------------------------------------
--- فتح البوابة: تعيد بيانات الرابط وطالباته (المسجلات بالعام) مع نقطة نهاية
--- الشهر السابق لكل طالبة (لتعبئة "ابدأ من نهاية الشهر السابق") وآخر
+-- فتح البوابة: تعيد بيانات الرابط وطلابه (المسجلات بالعام) مع نقطة نهاية
+-- الشهر السابق لكل طالب/ة (لتعبئة "ابدأ من نهاية الشهر السابق") وآخر
 -- ترسيل لها إن وجد.
 CREATE OR REPLACE FUNCTION public.open_teacher_portal(p_code TEXT)
 RETURNS TABLE (
@@ -1247,8 +1258,8 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.open_teacher_portal(TEXT) TO anon, authenticated;
 
--- إرسال/تحديث ترسيل المعلمة. كل الفحوصات تتم داخل الدالة (SECURITY DEFINER)
--- مهما كان الرمز المستخدم. إعادة الإرسال لنفس الطالبة تحدّث الصف نفسه
+-- إرسال/تحديث ترسيل المعلم/ة. كل الفحوصات تتم داخل الدالة (SECURITY DEFINER)
+-- مهما كان الرمز المستخدم. إعادة الإرسال لنفس الطالب/ة تحدّث الصف نفسه
 -- وتعيده لحالة "قيد المراجعة".
 CREATE OR REPLACE FUNCTION public.submit_teacher_monthly(
   p_code TEXT,
@@ -1302,7 +1313,7 @@ BEGIN
     SELECT 1 FROM public.students s
     WHERE s.id = p_student_id AND s.user_id = v_portal.user_id
   ) THEN
-    RAISE EXCEPTION 'الطالبة غير موجودة في قائمتك' USING ERRCODE = 'P0001';
+    RAISE EXCEPTION 'الطالب/ة غير موجود في قائمتك' USING ERRCODE = 'P0001';
   END IF;
 
   INSERT INTO public.monthly_submissions (
@@ -1312,7 +1323,7 @@ BEGIN
     memorization_hifz_score, memorization_recitation_score,
     review_from_surah, review_from_ayah, review_to_surah, review_to_ayah,
     review_hifz_score, review_recitation_score,
-    attendance_score, behavior_score, notes, status
+    attendance_score, behavior_score, notes, status, teacher_name, source
   ) VALUES (
     v_portal.user_id, v_portal.id, v_portal.code, p_student_id, p_student_name,
     p_year, p_month,
@@ -1322,7 +1333,7 @@ BEGIN
     p_review_from_surah, p_review_from_ayah, p_review_to_surah, p_review_to_ayah,
     COALESCE(p_review_hifz_score, 0), COALESCE(p_review_recitation_score, 0),
     COALESCE(p_attendance_score, 0), COALESCE(p_behavior_score, 0),
-    p_notes, 'pending'
+    p_notes, 'pending', v_portal.teacher_name, 'portal'
   )
   ON CONFLICT (portal_id, student_id) DO UPDATE SET
     student_name = EXCLUDED.student_name,
@@ -1344,6 +1355,7 @@ BEGIN
     status = 'pending',
     review_note = NULL,
     reviewed_at = NULL,
+    teacher_name = v_portal.teacher_name,
     updated_at = now()
   RETURNING * INTO v_sub;
 

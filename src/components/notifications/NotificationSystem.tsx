@@ -190,7 +190,7 @@ export const NotificationSystem = ({ students, currentYear }: Props) => {
                     </AlertTitle>
                     <AlertDescription>
                       <div className="text-sm">
-                        <div>المعلمة: {alert.teacher}</div>
+                        <div>المعلم/ة: {alert.teacher}</div>
                         <div className="mt-1 font-medium">{alert.message}</div>
                       </div>
                     </AlertDescription>

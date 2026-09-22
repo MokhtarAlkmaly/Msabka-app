@@ -48,7 +48,7 @@ export const ImportExport = ({ onDataImported, currentYear, displayYear }: Props
     if (students.length === 0) {
       toast({
         title: "لا توجد بيانات",
-        description: `لا توجد طالبات مسجّلات بعام ${labelYear}هـ لتصديرها`,
+        description: `لا يوجد طلاب مسجّلون بعام ${labelYear}هـ لتصديرها`,
         variant: "destructive",
       });
       return;
@@ -60,7 +60,7 @@ export const ImportExport = ({ onDataImported, currentYear, displayYear }: Props
       exportData.push({
         الاسم: student.name,
         الجنس: student.gender || "",
-        المعلمة: yearData.teacher || "",
+        "المعلم/ة": yearData.teacher || "",
         [yearCols.parts]: yearData.parts || "",
         [yearCols.annual]: yearData.annual || "",
         [yearCols.recitation]: yearData.recitation || "",
@@ -80,7 +80,7 @@ export const ImportExport = ({ onDataImported, currentYear, displayYear }: Props
       await saveWorkbook(workbook, `بيانات_المسابقة_${labelYear}.xlsx`);
       toast({
         title: "تم التصدير بنجاح",
-        description: `تم تصدير بيانات ${students.length} طالبة لعام ${labelYear}هـ`,
+        description: `تم تصدير بيانات ${students.length} طالب/ة لعام ${labelYear}هـ`,
       });
     } catch (e) {
       console.error("Export failed:", e);
@@ -188,8 +188,8 @@ export const ImportExport = ({ onDataImported, currentYear, displayYear }: Props
             yearData.memorization = String(row[kMem]);
             hasData = true;
           }
-          if (row["المعلمة"] !== undefined) {
-            yearData.teacher = String(row["المعلمة"]);
+          if (row["المعلم/ة"] !== undefined) {
+            yearData.teacher = String(row["المعلم/ة"]);
             hasData = true;
           }
           if (hasData) await saveYearData(currentYear, studentId, yearData);
@@ -231,7 +231,7 @@ export const ImportExport = ({ onDataImported, currentYear, displayYear }: Props
       {
         الاسم: "مثال: فاطمة أحمد",
         الجنس: "أنثى",
-        المعلمة: "",
+        "المعلم/ة": "",
         [yearCols.parts]: "5",
         [yearCols.annual]: "18",
         [yearCols.recitation]: "19",
@@ -256,7 +256,7 @@ export const ImportExport = ({ onDataImported, currentYear, displayYear }: Props
   };
 
   const handleMergeDuplicates = async () => {
-    if (!confirm("سيتم دمج الطالبات المكررة بنفس الاسم في سجل واحد. هل تريد المتابعة؟")) return;
+    if (!confirm("سيتم دمج الطلاب المكررة بنفس الاسم في سجل واحد. هل تريد المتابعة؟")) return;
     setMerging(true);
     try {
       const merged = await mergeDuplicateStudents();
@@ -349,8 +349,8 @@ export const ImportExport = ({ onDataImported, currentYear, displayYear }: Props
             {merging ? "جارٍ الدمج..." : "دمج الأسماء المكررة"}
           </Button>
           <p className="text-xs text-muted-foreground">
-            📝 نزّل القالب، عبّئ البيانات (الاسم إلزامي)، ثم استورده — الطالبات الجديدة تُضاف
-            تلقائياً إلى السجل الشامل لكل الأعوام وتُسجَّل بيانات مسابقتهن في عام {labelYear}هـ.
+            📝 نزّل القالب، عبّئ البيانات (الاسم إلزامي)، ثم استورده — الطلاب الجديدة تُضاف تلقائياً
+            إلى السجل الشامل لكل الأعوام وتُسجَّل بيانات مسابقتهن في عام {labelYear}هـ.
           </p>
         </div>
       )}

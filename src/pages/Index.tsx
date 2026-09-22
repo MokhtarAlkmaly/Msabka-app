@@ -83,7 +83,7 @@ const Index = () => {
     setLoading(true);
     try {
       // السجل الشامل لكل الأعوام: لا يرتبط بعام محدد. يُهيَّئ الكاش أولاً
-      // لتقرأ الإعدادات والمعلمات من نفس لقطة الحساب.
+      // لتقرأ الإعدادات والمعلمين والمعلمات من نفس لقطة الحساب.
       const allStudents = await loadGlobalStudentsWithYears();
       const [teachers, columns, statuses] = await Promise.all([
         loadTeachers(),
@@ -447,7 +447,7 @@ const Index = () => {
                 <div className="rounded-3xl bg-white/14 p-3.5 ring-1 ring-white/15 backdrop-blur">
                   <BookOpenCheck className="mb-2 h-5 w-5 text-amber-300" />
                   <div className="text-2xl font-black">{distinctTeachers}</div>
-                  <div className="text-xs text-white/70">حلقات ومعلمات مسجلات</div>
+                  <div className="text-xs text-white/70">حلقات المعلمين والمعلمات المسجلة</div>
                 </div>
               </div>
             </div>
@@ -573,7 +573,7 @@ const Index = () => {
                     htmlFor="new-student-teacher"
                     className="text-sm font-bold text-foreground"
                   >
-                    المعلمة / الحلقة
+                    المعلم/ة / الحلقة
                   </label>
                   <Input
                     id="new-student-teacher"
