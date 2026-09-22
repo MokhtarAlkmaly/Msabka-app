@@ -54,9 +54,9 @@ type RecipientType =
   "teacher" | "male_teacher" | "student" | "male_student" | "orphan" | "needy" | "other";
 
 const RECIPIENT_LABEL: Record<RecipientType, string> = {
-  teacher: "معلمة",
+  teacher: "معلم/ة",
   male_teacher: "معلم",
-  student: "طالبة",
+  student: "طالب/ة",
   male_student: "طالب",
   orphan: "يتيم/يتيمة",
   needy: "مسكين/مسكينة",
@@ -172,7 +172,7 @@ const Awards = () => {
     [students],
   );
 
-  // كل طالبات العام المسجّلات (مو الخاتمات فقط) — لاختيار المستفيدة بالبحث/القائمة
+  // كل طلاب العام المسجّلين (لا الخاتمين فقط) — لاختيار المستفيد بالبحث/القائمة
   const allStudentNames = useMemo(
     () =>
       students
@@ -352,20 +352,20 @@ const Awards = () => {
       <h1>تقرير الإكراميات والجوائز</h1>
       <div class="sub">عام ${esc(currentYear)}هـ</div>
 
-      <h2>إكراميات المعلمات</h2>
+      <h2>إكراميات المعلمين والمعلمات</h2>
       ${
         teachersHtml
           ? `<table><thead><tr>
-            <th>المعلمة</th><th>الشهرية</th><th>الخاتمات</th><th>حفل التكريم</th><th>السنوية</th><th>المجموع</th><th>الشهادات/الجوائز</th>
+            <th>المعلم/ة</th><th>الشهرية</th><th>الخاتمين</th><th>حفل التكريم</th><th>السنوية</th><th>المجموع</th><th>الشهادات/الجوائز</th>
           </tr></thead><tbody>${teachersHtml}</tbody></table>`
           : '<div style="text-align:center;color:#888">لا توجد بيانات</div>'
       }
 
-      <h2>شهادات وجوائز الطالبات الخاتمات</h2>
+      <h2>شهادات وجوائز الطلاب الخاتمين والخاتمات</h2>
       ${
         studentsHtml
           ? `<table><thead><tr>
-            <th>الطالبة</th><th>النوع</th><th>نقدية/عينية</th><th>المبلغ</th><th>الجائزة</th><th>ملاحظات</th>
+            <th>الطالب/ة</th><th>النوع</th><th>نقدية/عينية</th><th>المبلغ</th><th>الجائزة</th><th>ملاحظات</th>
           </tr></thead><tbody>${studentsHtml}</tbody></table>`
           : '<div style="text-align:center;color:#888">لا توجد بيانات</div>'
       }
@@ -400,7 +400,7 @@ const Awards = () => {
                 <th className="px-3 py-2 text-right">المستفيد</th>
                 <th className="px-3 py-2 text-center">الفئة</th>
                 {type === "khatm_bonus" && (
-                  <th className="px-3 py-2 text-right">الطالبة الخاتمة</th>
+                  <th className="px-3 py-2 text-right">الطالب/ة الخاتم/ة</th>
                 )}
                 <th className="px-3 py-2 text-center">نقدية/عينية</th>
                 <th className="px-3 py-2 text-center">المبلغ</th>
@@ -524,7 +524,7 @@ const Awards = () => {
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as AwardType)}>
             <TabsList className="grid grid-cols-2 md:grid-cols-5 w-full">
               <TabsTrigger value="khatm_bonus" className="gap-1">
-                <Sparkles className="h-4 w-4" /> الخاتمات
+                <Sparkles className="h-4 w-4" /> الخاتمين
               </TabsTrigger>
               <TabsTrigger value="ceremony" className="gap-1">
                 <Award className="h-4 w-4" /> حفل التكريم
@@ -655,7 +655,7 @@ const Awards = () => {
                   onValueChange={(v) => setForm({ ...form, recipient_name: v })}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="اختر المعلمة" />
+                    <SelectValue placeholder="اختر المعلم/ة" />
                   </SelectTrigger>
                   <SelectContent>
                     {teachers.map((t) => (
@@ -676,7 +676,7 @@ const Awards = () => {
                         setForm({ ...form, recipient_name: e.target.value });
                       }}
                       onFocus={() => setStudentQuery(form.recipient_name || "")}
-                      placeholder="ابحث عن الطالبة أو اختر من القائمة..."
+                      placeholder="ابحث عن الطالب/ة أو اختر من القائمة..."
                       className="pr-9"
                     />
                   </div>
@@ -699,7 +699,7 @@ const Awards = () => {
                   )}
                   {allStudentNames.length === 0 && (
                     <p className="mt-1 text-xs text-muted-foreground">
-                      لا توجد طالبات مسجّلات بهذا العام
+                      لا يوجد طلاب مسجّلون بهذا العام
                     </p>
                   )}
                 </div>
@@ -734,7 +734,7 @@ const Awards = () => {
 
             {form.award_type === "khatm_bonus" && form.recipient_type === "teacher" && (
               <div>
-                <label className="text-sm font-medium">الطالبة الخاتمة (اختياري)</label>
+                <label className="text-sm font-medium">الطالب/ة الخاتم/ة (اختياري)</label>
                 <Select
                   value={form.student_name || "__none__"}
                   onValueChange={(v) =>

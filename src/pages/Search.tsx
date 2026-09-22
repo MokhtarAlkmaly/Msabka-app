@@ -240,7 +240,7 @@ const Search = () => {
       return c.parts > 0 || c.totalScore > 0 || c.baseHifz > 0 || c.statusPrize > 0;
     });
 
-  // يحدد نطاق الأعوام الفعلي الذي يظهر للطالبة بالجدول التفصيلي:
+  // يحدد نطاق الأعوام الفعلي الذي يظهر للطالب/ة بالجدول التفصيلي:
   // يبدأ من أول عام له فيه أي سجل (حفظ جديد/درجات/حفظ سابق مستورد)
   // وينتهي بأول عام يصل فيه إجمالي الحفظ إلى 30 جزءاً (الختم)،
   // أو بآخر عام له فيه سجل إن لم يختم بعد.
@@ -280,14 +280,14 @@ const Search = () => {
         <img src="${logo}" class="logo" />
         <div>
           <h1>مركز إنماء لتحفيظ القرآن الكريم</h1>
-          <div class="sub">سجل الطالبة الشامل خلال جميع الأعوام</div>
+          <div class="sub">سجل الطالب/ة الشامل خلال جميع الأعوام</div>
         </div>
       </div>
-      <h2>الطالبة: ${esc(selected.name)}</h2>
+      <h2>الطالب/ة: ${esc(selected.name)}</h2>
       <table>
         <thead>
           <tr>
-            <th>العام</th><th>المعلمة</th><th>حفظ سابق</th><th>حفظ جديد</th><th>إجمالي الحفظ</th>
+            <th>العام</th><th>المعلم/ة</th><th>حفظ سابق</th><th>حفظ جديد</th><th>إجمالي الحفظ</th>
             <th>السنوية</th><th>التلاوة</th><th>الحفظ</th><th>المجموع</th><th>التقدير</th><th>المكافأة</th><th>مكافأة الحالة</th>
           </tr>
         </thead>
@@ -372,8 +372,8 @@ const Search = () => {
         </tbody>
       </table>
       <div class="signs">
-        <div><span>المعلمة</span><b>${esc(signatures.teacher)}</b><i>التوقيع: ..................</i></div>
-        <div><span>المشرفة</span><b>${esc(signatures.supervisor)}</b><i>التوقيع: ..................</i></div>
+        <div><span>المعلم/ة</span><b>${esc(signatures.teacher)}</b><i>التوقيع: ..................</i></div>
+        <div><span>المشرف/ة</span><b>${esc(signatures.supervisor)}</b><i>التوقيع: ..................</i></div>
         <div><span>المديرة</span><b>${esc(signatures.manager)}</b><i>التوقيع: ..................</i></div>
       </div>
 
@@ -399,7 +399,7 @@ const Search = () => {
       const c = computed(r);
       return {
         العام: `${r.year}هـ`,
-        المعلمة: r.data.teacher || "",
+        "المعلم/ة": r.data.teacher || "",
         "حفظ سابق": c.baseHifz,
         "حفظ جديد": c.parts,
         "إجمالي الحفظ": c.totalHifz,
@@ -416,7 +416,7 @@ const Search = () => {
     const ws = XLSX.utils.json_to_sheet(data);
     ws["!cols"] = Array(12).fill({ wch: 14 });
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "سجل الطالبة");
+    XLSX.utils.book_append_sheet(wb, ws, "سجل الطالب/ة");
 
     const statsSheet = stats.perYear.map((x) => ({
       العام: `${x.year}هـ`,
@@ -457,7 +457,7 @@ const Search = () => {
 
     const fileName = `سجل_${selected.name}.xlsx`;
     await saveWorkbook(wb, fileName);
-    toast({ title: "تم التصدير", description: "تم تصدير سجل الطالبة والإحصائيات إلى Excel" });
+    toast({ title: "تم التصدير", description: "تم تصدير سجل الطالب/ة والإحصائيات إلى Excel" });
   };
 
   const handleWhatsApp = async () => {
@@ -479,7 +479,7 @@ const Search = () => {
       ...certificates.map((c) => `شهادة تقدير ${c.year}هـ: ${c.title || c.cert_type || ""}`),
     ];
     const text = [
-      `سجل الطالبة: ${selected.name}`,
+      `سجل الطالب/ة: ${selected.name}`,
       ...lines,
       `إجمالي الأجزاء: ${totals.parts}`,
       `إجمالي المكافآت: ${(totals.prize + totals.statusPrize).toLocaleString()} ريال`,
@@ -504,7 +504,7 @@ const Search = () => {
           <div className="flex items-center gap-3">
             <img src={logo} alt="شعار المركز" className="h-12 w-12 object-contain" />
             <div>
-              <h1 className="text-lg font-bold text-primary">البحث عن طالبة</h1>
+              <h1 className="text-lg font-bold text-primary">البحث عن طالب/ة</h1>
               <p className="text-xs text-muted-foreground">
                 سجل شامل لكل الأعوام قابل للتعديل والطباعة والمشاركة
               </p>
@@ -524,7 +524,7 @@ const Search = () => {
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="اكتب اسم الطالبة..."
+              placeholder="اكتب اسم الطالب/ة..."
               className="h-11 rounded-xl pr-9"
             />
           </div>
@@ -556,7 +556,7 @@ const Search = () => {
         {selected && !loading && (
           <Card className="space-y-4 border-primary/20 p-4">
             <div className="flex flex-wrap items-center justify-between gap-2 print:hidden">
-              <h2 className="text-base font-bold text-primary">سجل الطالبة: {selected.name}</h2>
+              <h2 className="text-base font-bold text-primary">سجل الطالب/ة: {selected.name}</h2>
               <div className="flex flex-wrap gap-2">
                 <Button onClick={handleSave} disabled={saving} size="sm" className="gap-1">
                   <Save className="h-4 w-4" />
@@ -579,7 +579,7 @@ const Search = () => {
                 <thead>
                   <tr className="bg-primary text-primary-foreground">
                     <th className="border border-border p-2">العام</th>
-                    <th className="border border-border p-2">المعلمة</th>
+                    <th className="border border-border p-2">المعلم/ة</th>
                     <th className="border border-border p-2">حفظ العام (سجل)</th>
                     <th className="border border-border p-2">حفظ سابق</th>
                     <th className="border border-border p-2">حفظ جديد</th>
@@ -597,7 +597,7 @@ const Search = () => {
                   {displayRows.length === 0 ? (
                     <tr>
                       <td colSpan={13} className="border border-border p-4 text-muted-foreground">
-                        لا توجد بيانات مسجّلة لهذه الطالبة بعد
+                        لا توجد بيانات مسجّلة لهذا الطالب/ة بعد
                       </td>
                     </tr>
                   ) : (
@@ -872,7 +872,9 @@ const Search = () => {
                   <Gift className="h-4 w-4" /> الجوائز (نقدية وعينية)
                 </h3>
                 {awards.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">لا توجد جوائز مسجّلة لهذه الطالبة</p>
+                  <p className="text-sm text-muted-foreground">
+                    لا توجد جوائز مسجّلة لهذا الطالب/ة
+                  </p>
                 ) : (
                   <ul className="space-y-2">
                     {awards.map((a) => (
@@ -904,7 +906,7 @@ const Search = () => {
                 </h3>
                 {certificates.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
-                    لا توجد شهادات مسجّلة لهذه الطالبة
+                    لا توجد شهادات مسجّلة لهذا الطالب/ة
                   </p>
                 ) : (
                   <ul className="space-y-2">
@@ -924,8 +926,8 @@ const Search = () => {
             <div className="grid gap-3 border-t border-primary/20 pt-4 sm:grid-cols-3">
               {(
                 [
-                  ["teacher", "المعلمة"],
-                  ["supervisor", "المشرفة"],
+                  ["teacher", "المعلم/ة"],
+                  ["supervisor", "المشرف/ة"],
                   ["manager", "المديرة"],
                 ] as const
               ).map(([key, label]) => (

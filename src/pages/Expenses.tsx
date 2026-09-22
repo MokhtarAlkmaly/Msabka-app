@@ -328,7 +328,7 @@ const Expenses = () => {
               <Input
                 value={form.description}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
-                placeholder="مثال: شراء 100 هدية للطالبات"
+                placeholder="مثال: شراء 100 هدية للطلاب"
               />
             </div>
             <div className="grid grid-cols-2 gap-3">

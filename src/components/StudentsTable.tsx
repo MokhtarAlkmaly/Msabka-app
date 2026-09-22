@@ -68,7 +68,7 @@ const TABLE_COLUMNS: { key: string; label: string; width: string; align: "center
   { key: "index", label: "م", width: "3rem", align: "center" },
   { key: "name", label: "اسم الطالب", width: "19rem", align: "right" },
   { key: "gender", label: "الجنس", width: "5.5rem", align: "center" },
-  { key: "teacher", label: "المعلمة", width: "9rem", align: "center" },
+  { key: "teacher", label: "المعلم/ة", width: "9rem", align: "center" },
   { key: "hijri_join_date", label: "تاريخ هجري الالتحاق", width: "8.5rem", align: "center" },
   { key: "initial_hifz", label: "الحفظ قبل الالتحاق", width: "8.5rem", align: "center" },
   { key: "latest_total_hifz", label: "الحفظ التراكمي (آخر عام)", width: "8.5rem", align: "center" },
@@ -336,7 +336,7 @@ export const StudentsTable = ({
     if (selectedTeacher !== "all")
       chips.push({
         key: "teacher",
-        label: `المعلمة: ${selectedTeacher}`,
+        label: `المعلم/ة: ${selectedTeacher}`,
         onClear: () => setSelectedTeacher("all"),
       });
     if (selectedStatus !== "all")
@@ -392,7 +392,7 @@ export const StudentsTable = ({
         "رقم القيد": current.id,
         "اسم الطالب": current.name,
         الجنس: current.gender || "",
-        المعلمة: current.teacher || "",
+        "المعلم/ة": current.teacher || "",
         "تاريخ هجري الالتحاق": current.hijri_join_date || "",
         "الحفظ قبل الالتحاق": current.initial_hifz || "0",
         "الحفظ التراكمي (آخر عام)": current.latest_total_hifz || "0",
@@ -490,7 +490,7 @@ export const StudentsTable = ({
         <table>
           <thead>
             <tr>
-              <th>م</th><th>اسم الطالب</th><th>الجنس</th><th>المعلمة</th><th>تاريخ هجري الالتحاق</th>
+              <th>م</th><th>اسم الطالب</th><th>الجنس</th><th>المعلم/ة</th><th>تاريخ هجري الالتحاق</th>
               <th>الحفظ قبل الالتحاق</th><th>الحفظ التراكمي</th><th>عام أول مسابقة</th><th>الأعوام المسجل بها</th>
               <th>الحالة</th><th>السنة الدراسية</th>
               <th>رقم ولي الأمر</th><th>رقم الطالب</th>
@@ -523,7 +523,7 @@ export const StudentsTable = ({
                 سجل الطلاب الرسمي المعتمد — شامل لكل الأعوام
               </h2>
               <p className="text-xs text-muted-foreground">
-                جميع طلاب المركز عبر كل الأعوام في سجل واحد موحد — تُستدعى الطالبات منه إلى المسابقة
+                جميع طلاب المركز عبر كل الأعوام في سجل واحد موحد — يُستدعى الطلاب منه إلى المسابقة
                 الرمضانية والمتابعة الشهرية وأي صفحة أخرى
               </p>
             </div>
@@ -597,17 +597,17 @@ export const StudentsTable = ({
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="بحث بالاسم، رقم الهاتف، المعلمة..."
+              placeholder="بحث بالاسم، رقم الهاتف، المعلم/ة..."
               className="h-10 pr-9 rounded-xl border-border/80 bg-background/80 text-xs"
             />
           </div>
 
           <Select value={selectedTeacher} onValueChange={setSelectedTeacher}>
             <SelectTrigger className="h-10 rounded-xl bg-background/80 text-xs font-bold border-border/80">
-              <SelectValue placeholder="تصفية حسب المعلمة" />
+              <SelectValue placeholder="تصفية حسب المعلم/ة" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">كل المعلمات</SelectItem>
+              <SelectItem value="all">كل المعلمين والمعلمات</SelectItem>
               {teacherNames.map((t) => (
                 <SelectItem key={t} value={t}>
                   {t}
@@ -901,7 +901,7 @@ export const StudentsTable = ({
                           }
                         >
                           <SelectTrigger className={cn(CELL_SELECT, "font-normal")}>
-                            <SelectValue placeholder="المعلمة" />
+                            <SelectValue placeholder="المعلم/ة" />
                           </SelectTrigger>
                           <SelectContent className="max-h-[60vh]">
                             <SelectItem value={NONE_VALUE}>— بدون —</SelectItem>

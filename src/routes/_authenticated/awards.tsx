@@ -7,7 +7,7 @@ export const Route = createFileRoute("/_authenticated/awards")({
       { title: "الجوائز والإكراميات - نظام إدارة مركز إنماء الأهلي الخيري" },
       {
         name: "description",
-        content: "متابعة جوائز وإكراميات الطالبات والمعلمات في المسابقة الرمضانية.",
+        content: "متابعة جوائز وإكراميات الطلاب والمعلمين والمعلمات في المسابقة الرمضانية.",
       },
       {
         property: "og:title",
@@ -15,7 +15,7 @@ export const Route = createFileRoute("/_authenticated/awards")({
       },
       {
         property: "og:description",
-        content: "متابعة جوائز وإكراميات الطالبات والمعلمات في المسابقة الرمضانية.",
+        content: "متابعة جوائز وإكراميات الطلاب والمعلمين والمعلمات في المسابقة الرمضانية.",
       },
     ],
   }),

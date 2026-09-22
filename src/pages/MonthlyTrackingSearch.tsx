@@ -194,7 +194,7 @@ const MonthlyTrackingSearch = () => {
           <div class="sub">سجل المتابعة الشهرية الشامل خلال عام ${year}هـ</div>
         </div>
       </div>
-      <h2>الطالبة: ${esc(selected?.name || "")}</h2>
+      <h2>الطالب/ة: ${esc(selected?.name || "")}</h2>
       <div class="cards">
         <div class="card"><span>متوسط مستوى الحفظ</span><b>${avgMemoPct}%</b></div>
         <div class="card"><span>متوسط مستوى المراجعة</span><b>${avgReviewPct}%</b></div>
@@ -208,7 +208,7 @@ const MonthlyTrackingSearch = () => {
         </tr></thead>
         <tbody>${monthRows || '<tr><td colspan="9" class="empty">لا توجد بيانات متابعة مسجّلة لهذا العام</td></tr>'}</tbody>
       </table>
-      <div class="thanks">بارك الله في الطالبة وثبّتها على حفظ كتابه الكريم</div>
+      <div class="thanks">بارك الله في الطالب/ة وثبّته على حفظ كتابه الكريم</div>
     `;
   };
 
@@ -258,7 +258,7 @@ const MonthlyTrackingSearch = () => {
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="اكتب اسم الطالبة..."
+                placeholder="اكتب اسم الطالب/ة..."
                 className="rounded-xl pr-9"
               />
               {results.length > 0 && (
@@ -409,7 +409,7 @@ const MonthlyTrackingSearch = () => {
           </>
         ) : (
           <Card className="border-primary/20 p-10 text-center text-muted-foreground">
-            ابحث عن طالبة لعرض متابعتها الشهرية
+            ابحث عن طالب/ة لعرض متابعتها الشهرية
           </Card>
         )}
       </div>

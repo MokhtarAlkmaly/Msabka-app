@@ -522,8 +522,8 @@ async function main() {
           YEAR,
         ]),
       ),
-    "طالبة لا تتبع المالك → رفض",
-    "غير موجودة في قائمتك",
+    "طالب/ة لا يتبع المالك → رفض",
+    "غير موجود في قائمتك",
   );
 
   // إعادة الإرسال تحدّث الصف نفسه
@@ -631,6 +631,60 @@ async function main() {
   );
   const direct = await one("SELECT id FROM public.monthly_submissions WHERE student_id = $1", [s3]);
   ok(!!direct, "INSERT مباشر يطابق البوابة النشطة → مسموح (سياسة anon)");
+
+  // ---------- التقرير اليدوي (manual) ----------
+  console.log("\nالتقرير اليدوي (إدخال المالك نيابة عن معلم/ة بلا رابط):");
+  const manual = await asUser(USER_A, () =>
+    q(
+      `INSERT INTO public.monthly_submissions
+         (user_id, portal_id, code, teacher_name, source, student_id, student_name,
+          year, month, memorization_to_surah, memorization_to_ayah,
+          memorization_hifz_score, attendance_score, status)
+       VALUES ($1, NULL, NULL, 'أبو عبدالله', 'manual', $2, 'فاطمة', $3, 3, 2, 5, 22, 9, 'approved')
+       RETURNING *`,
+      [USER_A, s1, YEAR],
+    ),
+  );
+  ok(
+    manual.length === 1 && manual[0].source === "manual" && manual[0].portal_id === null,
+    "إدخال يدوي يُحفظ بلا رابط ولا كود ومصدره manual",
+  );
+  ok(manual[0].teacher_name === "أبو عبدالله", "اسم المعلم/ة يُحفظ على الترسيل اليدوي");
+
+  await throws(
+    () =>
+      asUser(USER_A, () =>
+        db.query(
+          `INSERT INTO public.monthly_submissions
+             (user_id, portal_id, code, teacher_name, source, student_id, student_name, year, month)
+           VALUES ($1, NULL, NULL, 'أبو عبدالله', 'manual', $2, 'فاطمة', $3, 3)`,
+          [USER_A, s1, YEAR],
+        ),
+      ),
+    "إدخال يدوي مكرر لنفس (الطالب، العام، الشهر) → مرفوض",
+  );
+
+  await throws(
+    () =>
+      asRole("anon", () =>
+        db.query(
+          `INSERT INTO public.monthly_submissions
+             (user_id, portal_id, code, teacher_name, source, student_id, student_name, year, month)
+           VALUES ($1, NULL, NULL, 'متطفل', 'manual', $2, 'فاطمة', $3, 4)`,
+          [USER_A, s1, YEAR],
+        ),
+      ),
+    "anon لا يستطيع إنشاء إدخال يدوي (لا رابط نشط وراءه)",
+  );
+
+  const srcRow = await one("SELECT source FROM public.monthly_submissions WHERE id = $1", [
+    sub1[0].id,
+  ]);
+  ok(srcRow.source === "portal", "ترسيل الرابط يبقى مصدره portal");
+  const namedRow = await one("SELECT teacher_name FROM public.monthly_submissions WHERE id = $1", [
+    sub1[0].id,
+  ]);
+  ok(namedRow.teacher_name === "أم محمد 2", "ترسيل الرابط يرث اسم المعلم/ة من رابطه");
 
   // ---------- مقيّدات وسلوك عام ----------
   console.log("\nالمقيّدات والسلوك:");

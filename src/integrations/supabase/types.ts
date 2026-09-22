@@ -432,7 +432,7 @@ export type Database = {
         Row: {
           attendance_score: number;
           behavior_score: number;
-          code: string;
+          code: string | null;
           created_at: string;
           id: string;
           memorization_from_ayah: number | null;
@@ -443,7 +443,7 @@ export type Database = {
           memorization_to_surah: number | null;
           month: number;
           notes: string | null;
-          portal_id: string;
+          portal_id: string | null;
           reviewed_at: string | null;
           review_from_ayah: number | null;
           review_from_surah: number | null;
@@ -452,9 +452,11 @@ export type Database = {
           review_recitation_score: number;
           review_to_ayah: number | null;
           review_to_surah: number | null;
+          source: string;
           status: string;
           student_id: number;
           student_name: string;
+          teacher_name: string | null;
           updated_at: string;
           user_id: string;
           year: string;
@@ -462,7 +464,7 @@ export type Database = {
         Insert: {
           attendance_score?: number;
           behavior_score?: number;
-          code: string;
+          code?: string | null;
           created_at?: string;
           id?: string;
           memorization_from_ayah?: number | null;
@@ -473,7 +475,7 @@ export type Database = {
           memorization_to_surah?: number | null;
           month: number;
           notes?: string | null;
-          portal_id: string;
+          portal_id?: string | null;
           reviewed_at?: string | null;
           review_from_ayah?: number | null;
           review_from_surah?: number | null;
@@ -482,9 +484,11 @@ export type Database = {
           review_recitation_score?: number;
           review_to_ayah?: number | null;
           review_to_surah?: number | null;
+          source?: string;
           status?: string;
           student_id: number;
           student_name: string;
+          teacher_name?: string | null;
           updated_at?: string;
           user_id: string;
           year: string;
@@ -492,7 +496,7 @@ export type Database = {
         Update: {
           attendance_score?: number;
           behavior_score?: number;
-          code?: string;
+          code?: string | null;
           created_at?: string;
           id?: string;
           memorization_from_ayah?: number | null;
@@ -503,7 +507,7 @@ export type Database = {
           memorization_to_surah?: number | null;
           month?: number;
           notes?: string | null;
-          portal_id?: string;
+          portal_id?: string | null;
           reviewed_at?: string | null;
           review_from_ayah?: number | null;
           review_from_surah?: number | null;
@@ -512,9 +516,11 @@ export type Database = {
           review_recitation_score?: number;
           review_to_ayah?: number | null;
           review_to_surah?: number | null;
+          source?: string;
           status?: string;
           student_id?: number;
           student_name?: string;
+          teacher_name?: string | null;
           updated_at?: string;
           user_id?: string;
           year?: string;

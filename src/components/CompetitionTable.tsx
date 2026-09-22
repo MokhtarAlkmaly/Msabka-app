@@ -322,7 +322,7 @@ export const CompetitionTable = ({
 
   const getFilterDescription = () => {
     const parts: string[] = [];
-    if (selectedTeacher !== "all") parts.push(`المعلمة: ${selectedTeacher}`);
+    if (selectedTeacher !== "all") parts.push(`المعلم/ة: ${selectedTeacher}`);
     if (statusFilter !== "all")
       parts.push(`الحالة: ${statusFilter === "active" ? "نشط" : "منقطع"}`);
     if (gradeFilter !== "all") parts.push(`التقدير: ${gradeFilter}`);
@@ -400,10 +400,10 @@ export const CompetitionTable = ({
           <h2>كشف ${competitionLabel} - ${currentYear}هـ</h2>
         </div>
         <div class="filter-info"><strong>التصفية:</strong> ${getFilterDescription()}</div>
-        <div class="count">عدد الطالبات: <strong>${filteredStudents.length}</strong></div>
+        <div class="count">عدد الطلاب: <strong>${filteredStudents.length}</strong></div>
         <table>
           <thead><tr>
-            <th>م</th><th>الاسم</th><th>المعلمة</th><th>الحفظ السابق</th><th>حفظ جديد</th>
+            <th>م</th><th>الاسم</th><th>المعلم/ة</th><th>الحفظ السابق</th><th>حفظ جديد</th>
             <th>الإجمالي</th><th>سنة</th><th>تلاوة</th><th>حفظ</th><th>المجموع</th>
             <th>الحالة</th><th>التقدير</th><th>المكافأة</th><th>المكافأة حسب الحالة</th>
           </tr></thead>
@@ -443,13 +443,13 @@ export const CompetitionTable = ({
       <div className="relative overflow-hidden rounded-[1.75rem] border border-white/70 bg-card/90 shadow-2xl shadow-primary/10 backdrop-blur">
         <div className="flex items-center justify-between gap-3 border-b border-border/60 bg-background/55 px-4 py-3 print:hidden">
           <div>
-            <h3 className="font-black text-foreground">كشف الطالبات</h3>
+            <h3 className="font-black text-foreground">كشف الطلاب</h3>
             <p className="text-xs text-muted-foreground">
               اسحب يمين/يسار لرؤية كل الأعمدة على الجوال
             </p>
           </div>
           <div className="rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
-            {filteredStudents.length} طالبة
+            {filteredStudents.length} طالب/ة
           </div>
         </div>
         <div className="table-scroll max-h-[60vh] overflow-auto md:max-h-[72vh]">

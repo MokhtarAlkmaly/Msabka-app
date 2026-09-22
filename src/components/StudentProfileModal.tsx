@@ -488,7 +488,7 @@ export const StudentProfileModal = ({
         <div class="info-grid">
           <div><strong>اسم الطالب:</strong> ${esc(studentData.name)}</div>
           <div><strong>الجنس:</strong> ${esc(studentData.gender || "-")}</div>
-          <div><strong>المعلمة:</strong> ${esc(studentData.teacher || "-")}</div>
+          <div><strong>المعلم/ة:</strong> ${esc(studentData.teacher || "-")}</div>
           <div><strong>الحالة:</strong> ${esc(studentData.status || "طبيعي")}</div>
           <div><strong>تاريخ الالتحاق:</strong> ${esc(studentData.hijri_join_date || "-")}</div>
           <div><strong>السنة الدراسية وقت الالتحاق:</strong> ${esc(studentData.school_grade || "-")}</div>
@@ -599,7 +599,7 @@ export const StudentProfileModal = ({
                     </>
                   )}
                   <span>
-                    المعلمة:{" "}
+                    المعلم/ة:{" "}
                     <strong className="text-foreground">
                       {studentData?.teacher || student.teacher || "غير محدد"}
                     </strong>
@@ -788,7 +788,7 @@ export const StudentProfileModal = ({
                   />
                 </div>
                 <div>
-                  <label className="font-bold text-foreground">المعلمة</label>
+                  <label className="font-bold text-foreground">المعلم/ة</label>
                   <Input
                     value={studentData.teacher || ""}
                     onChange={(e) => setStudentData({ ...studentData, teacher: e.target.value })}
@@ -1476,7 +1476,7 @@ export const StudentProfileModal = ({
                     </div>
                   </Card>
                   <Card className="p-3 bg-secondary/40 text-center">
-                    <div className="text-xs text-muted-foreground">ترتيبه بحلقة المعلمة</div>
+                    <div className="text-xs text-muted-foreground">ترتيبه بحلقة المعلم/ة</div>
                     <div className="text-xl font-black text-teal-700">
                       {classRank > 0 ? `#${classRank}` : "—"} / {classStudents.length}
                     </div>

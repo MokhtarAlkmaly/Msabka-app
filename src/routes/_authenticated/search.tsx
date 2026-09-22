@@ -4,15 +4,15 @@ import Search from "@/pages/Search";
 export const Route = createFileRoute("/_authenticated/search")({
   head: () => ({
     meta: [
-      { title: "بحث عن طالبة - نظام إدارة مركز إنماء الأهلي الخيري" },
+      { title: "بحث عن طالب/ة - نظام إدارة مركز إنماء الأهلي الخيري" },
       {
         name: "description",
-        content: "بحث عن الطالبة وعرض سجلها الشامل لكل الأعوام مع الطباعة والتصدير والمشاركة.",
+        content: "بحث عن الطالب/ة وعرض سجلها الشامل لكل الأعوام مع الطباعة والتصدير والمشاركة.",
       },
-      { property: "og:title", content: "بحث عن طالبة - نظام إدارة مركز إنماء الأهلي الخيري" },
+      { property: "og:title", content: "بحث عن طالب/ة - نظام إدارة مركز إنماء الأهلي الخيري" },
       {
         property: "og:description",
-        content: "سجل الطالبة الكامل لجميع الأعوام قابل للتعديل والطباعة والتصدير.",
+        content: "سجل الطالب/ة الكامل لجميع الأعوام قابل للتعديل والطباعة والتصدير.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

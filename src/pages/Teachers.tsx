@@ -228,7 +228,10 @@ const Teachers = () => {
     }
     await syncToCloud();
     setEditTeacher(null);
-    toast({ title: "تم التعديل", description: `تم تحديث اسم المعلمة (${affected.length} طالبة)` });
+    toast({
+      title: "تم التعديل",
+      description: `تم تحديث اسم المعلم/ة (${affected.length} طالب/ة)`,
+    });
     await loadAll();
   };
 
@@ -248,8 +251,8 @@ const Teachers = () => {
     const studentCount = t.students.length;
     const msg =
       studentCount > 0
-        ? `حذف "${t.name}" من قائمة معلمات ${currentYear}هـ؟ (يوجد ${studentCount} طالبة مرتبطة، سيتم تفريغ خانة المعلمة لديهن)`
-        : `حذف "${t.name}" من قائمة معلمات ${currentYear}هـ؟`;
+        ? `حذف "${t.name}" من قائمة المعلمين والمعلمات ${currentYear}هـ؟ (يوجد ${studentCount} طالب/ة مرتبطين، سيتم تفريغ خانة المعلم/ة لديهم)`
+        : `حذف "${t.name}" من قائمة المعلمين والمعلمات ${currentYear}هـ؟`;
     if (!confirm(msg)) return;
     if (t.registeredId) {
       await deleteTeacherLocal(t.registeredId);
@@ -288,10 +291,10 @@ const Teachers = () => {
           <div className="text-center">
             <h1 className="text-2xl font-bold flex items-center justify-center gap-2">
               <Users className="h-6 w-6" />
-              المعلمات
+              المعلمين والمعلمات
             </h1>
             <p className="text-sm opacity-90 mt-1">
-              عام {currentYear}هـ — عدد المعلمات: {teachers.length}
+              عام {currentYear}هـ — عدد المعلمين والمعلمات: {teachers.length}
             </p>
           </div>
         </div>
@@ -329,7 +332,7 @@ const Teachers = () => {
               </Button>
             </Link>
             <Button onClick={() => setAddOpen(true)} className="gap-2">
-              <Plus className="h-4 w-4" /> إضافة معلمة
+              <Plus className="h-4 w-4" /> إضافة معلم/ة
             </Button>
           </div>
         </div>
@@ -337,7 +340,7 @@ const Teachers = () => {
           <div className="text-center py-12 text-muted-foreground">جارٍ التحميل...</div>
         ) : teachers.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
-            لا توجد معلمات مسجلات لعام {currentYear}هـ
+            لا يوجد معلمون ومعلمات مسجلون لعام {currentYear}هـ
           </div>
         ) : (
           <div className="overflow-hidden rounded-[1.5rem] border border-white/70 bg-card/90 shadow-xl shadow-primary/5">
@@ -346,9 +349,9 @@ const Teachers = () => {
                 <thead className="bg-primary text-primary-foreground">
                   <tr>
                     <th className="px-3 py-3 text-right">#</th>
-                    <th className="px-3 py-3 text-right">اسم المعلمة</th>
+                    <th className="px-3 py-3 text-right">اسم المعلم/ة</th>
                     <th className="px-3 py-3 text-center">الحالة</th>
-                    <th className="px-3 py-3 text-center">عدد الطالبات</th>
+                    <th className="px-3 py-3 text-center">عدد الطلاب</th>
                     <th className="px-3 py-3 text-center">إجمالي إكراميات {currentYear}هـ</th>
                     <th className="px-3 py-3 text-center">الإجراءات</th>
                   </tr>
@@ -360,9 +363,9 @@ const Teachers = () => {
                       <td className="px-3 py-3 text-right font-semibold">{t.name}</td>
                       <td className="px-3 py-3 text-center">
                         {t.registered ? (
-                          <span className="text-success font-semibold">مسجلة</span>
+                          <span className="text-success font-semibold">مسجل</span>
                         ) : (
-                          <span className="text-amber-600 font-semibold">من بيانات الطالبات</span>
+                          <span className="text-amber-600 font-semibold">من بيانات الطلاب</span>
                         )}
                       </td>
                       <td className="px-3 py-3 text-center">{t.students.length}</td>
@@ -378,7 +381,7 @@ const Teachers = () => {
                             onClick={() => setViewTeacher(t.name)}
                           >
                             <Eye className="h-4 w-4" />
-                            عرض الطالبات
+                            عرض الطلاب
                           </Button>
                           <Button
                             size="sm"
@@ -421,10 +424,10 @@ const Teachers = () => {
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent className="max-w-md" dir="rtl">
           <DialogHeader>
-            <DialogTitle>إضافة معلمة لعام {currentYear}هـ</DialogTitle>
+            <DialogTitle>إضافة معلم/ة لعام {currentYear}هـ</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            <label className="text-sm font-medium">اسم المعلمة</label>
+            <label className="text-sm font-medium">اسم المعلم/ة</label>
             <Input
               autoFocus
               value={newTeacherName}
@@ -432,7 +435,7 @@ const Teachers = () => {
               onKeyDown={(e) => {
                 if (e.key === "Enter") addTeacher();
               }}
-              placeholder="مثال: أم عبدالله"
+              placeholder="مثال: عبدالله أحمد"
             />
           </div>
           <DialogFooter className="gap-2">
@@ -451,7 +454,7 @@ const Teachers = () => {
       <Dialog open={!!viewTeacher} onOpenChange={(o) => !o && setViewTeacher(null)}>
         <DialogContent className="max-w-xl" dir="rtl">
           <DialogHeader>
-            <DialogTitle>طالبات المعلمة: {viewTeacher}</DialogTitle>
+            <DialogTitle>طلاب المعلم/ة: {viewTeacher}</DialogTitle>
           </DialogHeader>
           <div className="max-h-[60vh] overflow-y-auto">
             <table className="w-full text-sm">
@@ -484,13 +487,13 @@ const Teachers = () => {
       <Dialog open={!!editTeacher} onOpenChange={(o) => !o && setEditTeacher(null)}>
         <DialogContent className="max-w-md" dir="rtl">
           <DialogHeader>
-            <DialogTitle>تعديل اسم المعلمة</DialogTitle>
+            <DialogTitle>تعديل اسم المعلم/ة</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <label className="text-sm font-medium">الاسم الجديد</label>
             <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
             <p className="text-xs text-muted-foreground">
-              سيتم تحديث الاسم لجميع الطالبات والإكراميات المرتبطة.
+              سيتم تحديث الاسم لجميع الطلاب والإكراميات المرتبطة.
             </p>
           </div>
           <DialogFooter className="gap-2">

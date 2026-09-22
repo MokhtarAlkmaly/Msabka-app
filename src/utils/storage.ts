@@ -413,7 +413,7 @@ const runSyncFromCloud = async (onProgress?: ProgressCb): Promise<boolean> => {
     if (expensesRes.error) throw expensesRes.error;
     if (certificatesRes.error) throw certificatesRes.error;
 
-    onProgress?.(1, 13, "حفظ الطالبات");
+    onProgress?.(1, 13, "حفظ الطلاب");
     await cacheStudents(
       (studentsRes.data || []).map((s) => ({
         id: s.id,
@@ -462,7 +462,7 @@ const runSyncFromCloud = async (onProgress?: ProgressCb): Promise<boolean> => {
       })),
     );
 
-    onProgress?.(4, 13, "حفظ المعلمات");
+    onProgress?.(4, 13, "حفظ المعلمين والمعلمات");
     await cacheTeachers((teachersRes.data || []) as CachedTeacher[]);
 
     onProgress?.(5, 13, "حفظ الإكراميات");
@@ -691,7 +691,7 @@ const yearRank = (key: string) => parseInt(key) * 10 + (key.endsWith("D") ? 5 : 
 
 /**
  * الحفظ السابق المرحَّل لطالب عند استدعائه إلى عام: مجموع أجزاء الأعوام
- * السابقة (أو آخر إجمالي تراكمي إن كان أكبر)، وآخر معلمة له.
+ * السابقة (أو آخر إجمالي تراكمي إن كان أكبر)، وآخر معلم/ة له.
  */
 const computeCarryOver = async (
   year: string,
@@ -728,7 +728,7 @@ const computeCarryOver = async (
   return { baseHifz, teacher: last?.teacher || student.teacher || "" };
 };
 
-// الطالبات الموجودات في السجل العام وغير مسجّلات في العام المختار
+// الطلاب الموجودون في السجل العام وغير المسجّلين في العام المختار
 export const listRecallCandidates = async (year: string): Promise<RecallCandidate[]> => {
   await ensureCache();
   const students = await getCachedStudents();
@@ -786,7 +786,7 @@ export const listRecallCandidates = async (year: string): Promise<RecallCandidat
   return candidates.sort((a, b) => (a.name || "").localeCompare(b.name || "", "ar"));
 };
 
-// استدعاء طالبات من السجل العام إلى العام المختار مع ترحيل الحفظ التراكمي
+// استدعاء طلاب من السجل العام إلى العام المختار مع ترحيل الحفظ التراكمي
 export const recallStudentsToYear = async (year: string, ids: number[]): Promise<number> => {
   guardWrite();
   const candidates = await listRecallCandidates(year);
@@ -808,7 +808,7 @@ export const recallStudentsToYear = async (year: string, ids: number[]): Promise
   return added;
 };
 
-// تسجيل طالبة في العام المختار مع ترحيل الحفظ التراكمي من الأعوام السابقة
+// تسجيل طالب/ة في العام المختار مع ترحيل الحفظ التراكمي من الأعوام السابقة
 export const registerStudentInYear = async (year: string, studentId: number, teacher = "") => {
   guardWrite();
   const carry = await computeCarryOver(year, studentId);
@@ -849,7 +849,7 @@ export const loadGlobalStudents = async (): Promise<Student[]> => {
 /**
  * السجل الشامل لكل الأعوام: كل طلاب السجل الرسمي (بدون ربط بعام محدد)
  * مع الأعوام المسجل بها كل طالب وآخر حفظ تراكمي حققه، لعرضه في صفحة
- * إدارة الطلاب واستدعاء الطالبات منها إلى أي عام/مسابقة.
+ * إدارة الطلاب واستدعاء الطلاب منها إلى أي عام/مسابقة.
  */
 export const loadGlobalStudentsWithYears = async (): Promise<Student[]> => {
   await ensureCache();
@@ -875,7 +875,7 @@ export const loadGlobalStudentsWithYears = async (): Promise<Student[]> => {
       return {
         id: s.id,
         name: s.name,
-        // معلمة السجل هي المرجع؛ وعند فراغها نستأنف بآخر معلمة في الأعوام
+        // معلم/ة السجل هي المرجع؛ وعند فراغها نستأنف بآخر معلم/ة في الأعوام
         teacher: s.teacher || last?.teacher || "",
         gender: s.gender || undefined,
         hijri_join_date: s.hijri_join_date || undefined,
@@ -975,7 +975,7 @@ export const deleteStudent = async (id: number) => {
 };
 
 /**
- * يفصل الطالبة عن عام واحد فقط مع إبقاء سجلها العام وبقية الأعوام كما هي.
+ * يفصل الطالب/ة عن عام واحد فقط مع إبقاء سجلها العام وبقية الأعوام كما هي.
  * يُستخدم من صفحات المسابقات ومن شاشة الحذف المتقدم في الإعدادات.
  */
 export const deleteStudentFromYear = async (year: string, studentId: number) => {
@@ -1056,7 +1056,7 @@ export const deleteStudentFromYear = async (year: string, studentId: number) => 
   queueCloudSync();
 };
 
-/** حذف عدة طالبات من عام واحد دون المساس بالسجل العام. */
+/** حذف عدة طلاب من عام واحد دون المساس بالسجل العام. */
 export const deleteStudentsFromYear = async (year: string, ids: number[]) => {
   guardWrite();
   for (const id of Array.from(new Set(ids))) {
@@ -2011,7 +2011,7 @@ const runSyncToCloud = async (onProgress?: ProgressCb): Promise<boolean> => {
     if (!hadError) {
       for (const p of studentDeletes) {
         await clearPending(p.key);
-        tick("حذف الطالبات");
+        tick("حذف الطلاب");
       }
     }
 
@@ -2020,7 +2020,7 @@ const runSyncToCloud = async (onProgress?: ProgressCb): Promise<boolean> => {
       const local = students.find((s) => s.id === p.ref.id);
       if (!local) {
         await clearPending(p.key);
-        tick("رفع الطالبات");
+        tick("رفع الطلاب");
         continue;
       }
 
@@ -2080,7 +2080,7 @@ const runSyncToCloud = async (onProgress?: ProgressCb): Promise<boolean> => {
         if (insertErr || !inserted) {
           console.error("Insert student failed:", insertErr);
           hadError = true;
-          tick("رفع الطالبات");
+          tick("رفع الطلاب");
           continue;
         }
 
@@ -2117,7 +2117,7 @@ const runSyncToCloud = async (onProgress?: ProgressCb): Promise<boolean> => {
         }
       }
       await clearPending(p.key);
-      tick("رفع الطالبات");
+      tick("رفع الطلاب");
     }
 
     const pendingAfter = await getPendingChanges();
@@ -2310,7 +2310,7 @@ const runSyncToCloud = async (onProgress?: ProgressCb): Promise<boolean> => {
         year: r.year,
         name: r.name,
       }),
-      "رفع المعلمات",
+      "رفع المعلمين والمعلمات",
     );
 
     await syncCachedEntity(

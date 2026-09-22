@@ -26,7 +26,7 @@ const Khatimat = () => {
     return entries.filter((e) => e.name.includes(q));
   }, [entries, query]);
 
-  // إحصائيات: عدد الخاتمات بكل عام
+  // إحصائيات: عدد الخاتمين بكل عام
   const byYear = useMemo(() => {
     const map = new Map<string, number>();
     entries.forEach((e) => map.set(e.year, (map.get(e.year) || 0) + 1));
@@ -38,11 +38,11 @@ const Khatimat = () => {
       <img src="${logo}" class="logo" />
       <div>
         <h1>مركز إنماء الأهلي الخيري</h1>
-        <div class="sub">كشف الخاتمات — إجمالي ${entries.length} طالبة</div>
+        <div class="sub">كشف الخاتمين والخاتمات — إجمالي ${entries.length} طالب/ة</div>
       </div>
     </div>
     <table>
-      <thead><tr><th>م</th><th>الاسم</th><th>المعلمة</th><th>عام الختم</th><th>المجموع</th><th>التقدير</th></tr></thead>
+      <thead><tr><th>م</th><th>الاسم</th><th>المعلم/ة</th><th>عام الختم</th><th>المجموع</th><th>التقدير</th></tr></thead>
       <tbody>
         ${filtered
           .map(
@@ -59,14 +59,14 @@ const Khatimat = () => {
           .join("")}
       </tbody>
     </table>
-    <div class="thanks">بارك الله في الطالبات الخاتمات، وجعل القرآن حجّة لهن لا عليهن</div>
+    <div class="thanks">بارك الله في الخاتمين والخاتمات، وجعل القرآن حجّة لهم لا عليهم</div>
   `;
 
-  const handlePrint = () => printHtml("كشف الخاتمات", buildBody());
+  const handlePrint = () => printHtml("كشف الخاتمين والخاتمات", buildBody());
 
   const handleShare = async () => {
     const { printHtmlDocument } = await import("@/utils/nativePrint");
-    const html = `<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>كشف الخاتمات</title>
+    const html = `<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>كشف الخاتمين والخاتمات</title>
       <style>
         body{font-family:Tahoma,Arial,sans-serif;padding:20px;color:#222}
         h1{text-align:center;color:#0e6b3a}
@@ -74,7 +74,7 @@ const Khatimat = () => {
         th,td{border:1px solid #999;padding:5px;text-align:center}
         th{background:#0e6b3a;color:#fff}
       </style></head><body>${buildBody()}</body></html>`;
-    await printHtmlDocument(html, "كشف_الخاتمات");
+    await printHtmlDocument(html, "كشف_الخاتمين");
   };
 
   return (
@@ -85,10 +85,10 @@ const Khatimat = () => {
             <img src={logo} alt="شعار المركز" className="h-12 w-12 object-contain" />
             <div>
               <h1 className="flex items-center gap-1.5 text-lg font-bold text-primary">
-                <Sparkles className="h-4 w-4 text-amber-500" /> كشف الخاتمات
+                <Sparkles className="h-4 w-4 text-amber-500" /> كشف الخاتمين والخاتمات
               </h1>
               <p className="text-xs text-muted-foreground">
-                يتحدّث تلقائياً كل ما طالبة تختم القرآن الكريم بأي عام
+                يتحدّث تلقائياً كل ما طالب/ة يختم القرآن الكريم بأي عام
               </p>
             </div>
           </div>
@@ -128,7 +128,7 @@ const Khatimat = () => {
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="ابحث عن طالبة..."
+              placeholder="ابحث عن طالب/ة..."
               className="rounded-xl pr-9"
             />
           </div>
@@ -141,7 +141,7 @@ const Khatimat = () => {
             </div>
           ) : filtered.length === 0 ? (
             <div className="p-10 text-center text-muted-foreground">
-              {query ? "لا توجد نتائج مطابقة" : "لا توجد طالبات خاتمات مسجّلات بعد"}
+              {query ? "لا توجد نتائج مطابقة" : "لا يوجد خاتمون مسجّلون بعد"}
             </div>
           ) : (
             <table className="w-full min-w-[600px] border-collapse text-sm">
@@ -149,7 +149,7 @@ const Khatimat = () => {
                 <tr className="bg-primary text-primary-foreground">
                   <th className="border border-border p-2">م</th>
                   <th className="border border-border p-2">الاسم</th>
-                  <th className="border border-border p-2">المعلمة</th>
+                  <th className="border border-border p-2">المعلم/ة</th>
                   <th className="border border-border p-2">عام الختم</th>
                   <th className="border border-border p-2">المجموع</th>
                   <th className="border border-border p-2">التقدير</th>

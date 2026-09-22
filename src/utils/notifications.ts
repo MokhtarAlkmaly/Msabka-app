@@ -13,13 +13,13 @@ export interface StudentAlert {
 export const analyzeStudents = (students: Student[]): StudentAlert[] => {
   const alerts: StudentAlert[] = [];
 
-  // تصفية الطالبات النشطات فقط
+  // تصفية الطلاب النشطات فقط
   const activeStudents = students.filter((s) => {
     const total = parseFloat(s.yearData?.total || "0");
     return total > 0;
   });
 
-  // الطالبات المتميزات (درجة 90 فأكثر)
+  // الطلاب المتميزات (درجة 90 فأكثر)
   activeStudents.forEach((student) => {
     const total = parseFloat(student.yearData?.total || "0");
     const rank = parseInt(student.yearData?.rank || "0");
@@ -58,7 +58,7 @@ export const analyzeStudents = (students: Student[]): StudentAlert[] => {
     }
   });
 
-  // الطالبات غير النشطات
+  // الطلاب غير النشطات
   const inactiveStudents = students.filter((s) => {
     const total = parseFloat(s.yearData?.total || "0");
     return total === 0 && s.name; // لها اسم لكن لا توجد درجات
