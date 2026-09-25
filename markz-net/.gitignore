@@ -1,0 +1,41 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+.output
+.vinxi
+.tanstack/**
+.nitro
+*.local
+
+# Wrangler / Cloudflare
+.wrangler/
+.dev.vars
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Vercel
+.vercel
+
+# ملف SQLite/WASM يُنسخ تلقائيًا عبر postinstall (scripts/copy-sqlite-wasm.mjs)
+public/assets/sql-wasm.wasm
+
+# ملف .env مُتتبَّع عمدًا: يحمل قيم VITE_ العامة فقط (تُضمَّن في حزمة المتصفح)
+# والنشر على Vercel يقرأها منه. للإعدادات السرية استعمل .env.local (غير مُتتبَّع)
