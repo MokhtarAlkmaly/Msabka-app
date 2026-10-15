@@ -8,6 +8,54 @@ export type Database = {
   };
   public: {
     Tables: {
+      exam_questions: {
+        Row: {
+          category: string;
+          choices: Json;
+          correct_answer: string | null;
+          created_at: string;
+          difficulty: string;
+          id: string;
+          notes: string | null;
+          question: string;
+          question_type: string;
+          subject: string;
+          updated_at: string;
+          user_id: string;
+          year: string;
+        };
+        Insert: {
+          category?: string;
+          choices?: Json;
+          correct_answer?: string | null;
+          created_at?: string;
+          difficulty?: string;
+          id?: string;
+          notes?: string | null;
+          question?: string;
+          question_type?: string;
+          subject?: string;
+          updated_at?: string;
+          user_id: string;
+          year?: string;
+        };
+        Update: {
+          category?: string;
+          choices?: Json;
+          correct_answer?: string | null;
+          created_at?: string;
+          difficulty?: string;
+          id?: string;
+          notes?: string | null;
+          question?: string;
+          question_type?: string;
+          subject?: string;
+          updated_at?: string;
+          user_id?: string;
+          year?: string;
+        };
+        Relationships: [];
+      };
       awards: {
         Row: {
           amount: number;

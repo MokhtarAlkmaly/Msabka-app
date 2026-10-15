@@ -19,6 +19,7 @@ import { Route as AuthenticatedAwardsRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedCertificatesRouteImport } from './routes/_authenticated/certificates'
 import { Route as AuthenticatedCompetitionRouteImport } from './routes/_authenticated/competition'
 import { Route as AuthenticatedDonorsRouteImport } from './routes/_authenticated/donors'
+import { Route as AuthenticatedExamQuestionsRouteImport } from './routes/_authenticated/exam-questions'
 import { Route as AuthenticatedExpensesRouteImport } from './routes/_authenticated/expenses'
 import { Route as AuthenticatedExternalCompetitionsRouteImport } from './routes/_authenticated/external-competitions'
 import { Route as AuthenticatedHalaqatRouteImport } from './routes/_authenticated/halaqat'
@@ -84,6 +85,12 @@ const AuthenticatedDonorsRoute = AuthenticatedDonorsRouteImport.update({
   path: '/donors',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedExamQuestionsRoute =
+  AuthenticatedExamQuestionsRouteImport.update({
+    id: '/exam-questions',
+    path: '/exam-questions',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedExpensesRoute = AuthenticatedExpensesRouteImport.update({
   id: '/expenses',
   path: '/expenses',
@@ -164,6 +171,7 @@ export interface FileRoutesByFullPath {
   '/certificates': typeof AuthenticatedCertificatesRoute
   '/competition': typeof AuthenticatedCompetitionRoute
   '/donors': typeof AuthenticatedDonorsRoute
+  '/exam-questions': typeof AuthenticatedExamQuestionsRoute
   '/expenses': typeof AuthenticatedExpensesRoute
   '/external-competitions': typeof AuthenticatedExternalCompetitionsRoute
   '/halaqat': typeof AuthenticatedHalaqatRoute
@@ -187,6 +195,7 @@ export interface FileRoutesByTo {
   '/certificates': typeof AuthenticatedCertificatesRoute
   '/competition': typeof AuthenticatedCompetitionRoute
   '/donors': typeof AuthenticatedDonorsRoute
+  '/exam-questions': typeof AuthenticatedExamQuestionsRoute
   '/expenses': typeof AuthenticatedExpensesRoute
   '/external-competitions': typeof AuthenticatedExternalCompetitionsRoute
   '/halaqat': typeof AuthenticatedHalaqatRoute
@@ -213,6 +222,7 @@ export interface FileRoutesById {
   '/_authenticated/certificates': typeof AuthenticatedCertificatesRoute
   '/_authenticated/competition': typeof AuthenticatedCompetitionRoute
   '/_authenticated/donors': typeof AuthenticatedDonorsRoute
+  '/_authenticated/exam-questions': typeof AuthenticatedExamQuestionsRoute
   '/_authenticated/expenses': typeof AuthenticatedExpensesRoute
   '/_authenticated/external-competitions': typeof AuthenticatedExternalCompetitionsRoute
   '/_authenticated/halaqat': typeof AuthenticatedHalaqatRoute
@@ -240,6 +250,7 @@ export interface FileRouteTypes {
     | '/certificates'
     | '/competition'
     | '/donors'
+    | '/exam-questions'
     | '/expenses'
     | '/external-competitions'
     | '/halaqat'
@@ -263,6 +274,7 @@ export interface FileRouteTypes {
     | '/certificates'
     | '/competition'
     | '/donors'
+    | '/exam-questions'
     | '/expenses'
     | '/external-competitions'
     | '/halaqat'
@@ -288,6 +300,7 @@ export interface FileRouteTypes {
     | '/_authenticated/certificates'
     | '/_authenticated/competition'
     | '/_authenticated/donors'
+    | '/_authenticated/exam-questions'
     | '/_authenticated/expenses'
     | '/_authenticated/external-competitions'
     | '/_authenticated/halaqat'
@@ -382,6 +395,13 @@ declare module '@tanstack/react-router' {
       path: '/donors'
       fullPath: '/donors'
       preLoaderRoute: typeof AuthenticatedDonorsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/exam-questions': {
+      id: '/_authenticated/exam-questions'
+      path: '/exam-questions'
+      fullPath: '/exam-questions'
+      preLoaderRoute: typeof AuthenticatedExamQuestionsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/expenses': {
@@ -483,6 +503,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCertificatesRoute: typeof AuthenticatedCertificatesRoute
   AuthenticatedCompetitionRoute: typeof AuthenticatedCompetitionRoute
   AuthenticatedDonorsRoute: typeof AuthenticatedDonorsRoute
+  AuthenticatedExamQuestionsRoute: typeof AuthenticatedExamQuestionsRoute
   AuthenticatedExpensesRoute: typeof AuthenticatedExpensesRoute
   AuthenticatedExternalCompetitionsRoute: typeof AuthenticatedExternalCompetitionsRoute
   AuthenticatedHalaqatRoute: typeof AuthenticatedHalaqatRoute
@@ -504,6 +525,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCertificatesRoute: AuthenticatedCertificatesRoute,
   AuthenticatedCompetitionRoute: AuthenticatedCompetitionRoute,
   AuthenticatedDonorsRoute: AuthenticatedDonorsRoute,
+  AuthenticatedExamQuestionsRoute: AuthenticatedExamQuestionsRoute,
   AuthenticatedExpensesRoute: AuthenticatedExpensesRoute,
   AuthenticatedExternalCompetitionsRoute:
     AuthenticatedExternalCompetitionsRoute,

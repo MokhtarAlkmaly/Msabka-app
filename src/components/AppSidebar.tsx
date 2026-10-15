@@ -5,6 +5,7 @@ import {
   Users,
   Trophy,
   BookOpen,
+  BookOpenCheck,
   CalendarDays,
   Search,
   Award,
@@ -69,6 +70,12 @@ export const AppSidebar = ({ online = true }: SidebarProps) => {
       label: "المسابقة الرمضانية",
       icon: BookOpen,
       color: "text-amber-400",
+    },
+    {
+      to: "/exam-questions",
+      label: "الأسئلة والاختبارات",
+      icon: BookOpenCheck,
+      color: "text-emerald-300",
     },
     {
       to: "/monthly",
