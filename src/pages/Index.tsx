@@ -25,7 +25,6 @@ import {
   WifiOff,
   LogOut,
   Users,
-  BookOpenCheck,
   Heart,
   Calendar,
   Sparkles,
@@ -39,7 +38,6 @@ import {
   getActiveYear,
   syncToCloud,
   syncFromCloud,
-  loadTeachers,
   loadCustomColumns,
   saveCustomColumns,
   loadStudentStatuses,
@@ -63,7 +61,6 @@ const Index = () => {
     label?: string;
   } | null>(null);
   const [online, setOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
-  const [teacherNames, setTeacherNames] = useState<string[]>([]);
   const [customColumns, setCustomColumns] = useState<CustomColumnDef[]>([]);
   const [studentStatuses, setStudentStatuses] = useState<string[]>(DEFAULT_STATUSES);
   const [dirtyMap, setDirtyMap] = useState<Record<number, Student>>({});
@@ -71,7 +68,6 @@ const Index = () => {
   const [addingStudent, setAddingStudent] = useState(false);
   const [newStudent, setNewStudent] = useState({
     name: "",
-    teacher: "",
     gender: "",
     school_grade: "",
   });
@@ -82,16 +78,11 @@ const Index = () => {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      // السجل الشامل لكل الأعوام: لا يرتبط بعام محدد. يُهيَّئ الكاش أولاً
-      // لتقرأ الإعدادات والمعلمين والمعلمات من نفس لقطة الحساب.
+      // السجل الشامل لكل الأعوام مستقل عن ربط الطالب بحلقة في عام محدد.
+      // تُحمَّل إعدادات أعمدة الجدول والحالات من كاش الحساب نفسه.
       const allStudents = await loadGlobalStudentsWithYears();
-      const [teachers, columns, statuses] = await Promise.all([
-        loadTeachers(),
-        loadCustomColumns(),
-        loadStudentStatuses(),
-      ]);
+      const [columns, statuses] = await Promise.all([loadCustomColumns(), loadStudentStatuses()]);
       setStudents(allStudents);
-      setTeacherNames(teachers.map((t) => t.name));
       setCustomColumns(columns);
       setStudentStatuses(statuses);
       setDirtyMap({});
@@ -160,10 +151,8 @@ const Index = () => {
 
     setAddingStudent(true);
     try {
-      const teacher = newStudent.teacher.trim();
       const id = await saveStudent({
         name,
-        teacher,
         gender: newStudent.gender || undefined,
         school_grade: newStudent.school_grade || undefined,
       });
@@ -172,7 +161,7 @@ const Index = () => {
       }
 
       await loadData();
-      setNewStudent({ name: "", teacher: "", gender: "", school_grade: "" });
+      setNewStudent({ name: "", gender: "", school_grade: "" });
       setAddStudentOpen(false);
       toast({
         title: "تمت إضافة الطالب",
@@ -338,10 +327,6 @@ const Index = () => {
   const orphansOrSpecialCount = students.filter(
     (s) => s.status && s.status !== "مستمر" && s.status !== "منتظم",
   ).length;
-  const distinctTeachers = useMemo(() => {
-    const set = new Set(students.map((s) => s.teacher?.trim()).filter(Boolean));
-    return set.size;
-  }, [students]);
   // عدد الأعوام التي يغطيها السجل (ذو الحجة تُحسب ضمن عامها)
   const yearsCoveredCount = useMemo(() => {
     const years = new Set<string>();
@@ -428,7 +413,7 @@ const Index = () => {
               </div>
 
               {/* Statistics Overview */}
-              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <div className="rounded-3xl bg-white/14 p-3.5 ring-1 ring-white/15 backdrop-blur">
                   <Users className="mb-2 h-5 w-5 text-amber-300" />
                   <div className="text-2xl font-black">{totalStudents}</div>
@@ -443,11 +428,6 @@ const Index = () => {
                   <Heart className="mb-2 h-5 w-5 text-amber-300" />
                   <div className="text-2xl font-black">{orphansOrSpecialCount}</div>
                   <div className="text-xs text-white/70">أيتام وحالات خاصة</div>
-                </div>
-                <div className="rounded-3xl bg-white/14 p-3.5 ring-1 ring-white/15 backdrop-blur">
-                  <BookOpenCheck className="mb-2 h-5 w-5 text-amber-300" />
-                  <div className="text-2xl font-black">{distinctTeachers}</div>
-                  <div className="text-xs text-white/70">حلقات المعلمين والمعلمات المسجلة</div>
                 </div>
               </div>
             </div>
@@ -514,7 +494,6 @@ const Index = () => {
                 onUpdate={loadData}
                 onSaveStudent={handleSaveStudent}
                 onDeleteStudent={handleDeleteStudent}
-                teacherNames={teacherNames}
                 customColumns={customColumns}
                 onAddCustomColumn={handleAddCustomColumn}
                 onDeleteCustomColumn={handleDeleteCustomColumn}
@@ -532,7 +511,7 @@ const Index = () => {
             onOpenChange={(open) => {
               if (addingStudent) return;
               setAddStudentOpen(open);
-              if (!open) setNewStudent({ name: "", teacher: "", gender: "", school_grade: "" });
+              if (!open) setNewStudent({ name: "", gender: "", school_grade: "" });
             }}
           >
             <DialogContent dir="rtl" className="max-w-md">
@@ -542,8 +521,8 @@ const Index = () => {
                   إضافة طالب جديد
                 </DialogTitle>
                 <DialogDescription>
-                  سيُضاف الطالب إلى السجل الشامل المشترك لكل الأعوام، ويمكن استدعاؤه بعد ذلك إلى
-                  المسابقة الرمضانية أو أي صفحة أخرى.
+                  سيُضاف الطالب إلى السجل الشامل المشترك لكل الأعوام. ربطه بمعلم/ة أو حلقة في عام
+                  محدد يتم من صفحة «الحلقات».
                 </DialogDescription>
               </DialogHeader>
 
@@ -566,31 +545,6 @@ const Index = () => {
                     disabled={addingStudent}
                     className="rounded-xl"
                   />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label
-                    htmlFor="new-student-teacher"
-                    className="text-sm font-bold text-foreground"
-                  >
-                    المعلم/ة / الحلقة
-                  </label>
-                  <Input
-                    id="new-student-teacher"
-                    value={newStudent.teacher}
-                    onChange={(event) =>
-                      setNewStudent((current) => ({ ...current, teacher: event.target.value }))
-                    }
-                    placeholder="اختياري"
-                    list="student-teacher-names"
-                    disabled={addingStudent}
-                    className="rounded-xl"
-                  />
-                  <datalist id="student-teacher-names">
-                    {teacherNames.map((teacher) => (
-                      <option key={teacher} value={teacher} />
-                    ))}
-                  </datalist>
                 </div>
 
                 <div className="space-y-1.5">

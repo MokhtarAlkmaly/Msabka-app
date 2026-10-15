@@ -69,7 +69,6 @@ const TABLE_COLUMNS: { key: string; label: string; width: string; align: "center
   { key: "index", label: "م", width: "3rem", align: "center" },
   { key: "name", label: "اسم الطالب", width: "19rem", align: "right" },
   { key: "gender", label: "الجنس", width: "5.5rem", align: "center" },
-  { key: "teacher", label: "المعلم/ة", width: "9rem", align: "center" },
   { key: "hijri_join_date", label: "تاريخ هجري الالتحاق", width: "8.5rem", align: "center" },
   { key: "initial_hifz", label: "الحفظ قبل الالتحاق", width: "8.5rem", align: "center" },
   { key: "latest_total_hifz", label: "الحفظ التراكمي (آخر عام)", width: "8.5rem", align: "center" },
@@ -112,7 +111,6 @@ interface Props {
   onUpdate: () => void;
   onSaveStudent: (student: Partial<Student> & { id?: number; name: string }) => Promise<unknown>;
   onDeleteStudent: (id: number) => Promise<unknown>;
-  teacherNames: string[];
   customColumns: CustomColumnDef[];
   onAddCustomColumn: (col: CustomColumnDef) => Promise<unknown>;
   onDeleteCustomColumn: (colId: string) => Promise<unknown>;
@@ -128,7 +126,6 @@ export const StudentsTable = ({
   onUpdate,
   onSaveStudent,
   onDeleteStudent,
-  teacherNames,
   customColumns,
   onAddCustomColumn,
   onDeleteCustomColumn,
@@ -142,7 +139,6 @@ export const StudentsTable = ({
 
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedTeacher, setSelectedTeacher] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [selectedGrade, setSelectedGrade] = useState<string>(ALL_GRADES_VALUE);
   const [selectedGender, setSelectedGender] = useState<string>("all");
@@ -268,7 +264,6 @@ export const StudentsTable = ({
   const filteredStudents = useMemo(() => {
     return students.filter((s) => {
       const current = dirtyMap[s.id] || s;
-      if (selectedTeacher !== "all" && (current.teacher || "") !== selectedTeacher) return false;
       if (duplicatesOnly && getDuplicateCountFor(current.name, duplicateNameCounts) < 2) {
         return false;
       }
@@ -291,7 +286,6 @@ export const StudentsTable = ({
           qDigits.length > 0 && phoneDigits(current.student_phone).includes(qDigits);
         const matchesText =
           arabicIncludes(current.name, q) ||
-          arabicIncludes(current.teacher, q) ||
           arabicIncludes(current.status, q) ||
           arabicIncludes(current.school_grade, q) ||
           arabicIncludes(current.gender, q);
@@ -305,7 +299,6 @@ export const StudentsTable = ({
   }, [
     students,
     dirtyMap,
-    selectedTeacher,
     selectedStatus,
     selectedGrade,
     selectedGender,
@@ -318,7 +311,6 @@ export const StudentsTable = ({
   // حتى يعرف المستخدم دائمًا أن قائمة "كل السنوات الدراسية" مُفعَّلة فعلًا.
   const hasActiveFilters =
     !!searchQuery.trim() ||
-    selectedTeacher !== "all" ||
     selectedStatus !== "all" ||
     selectedGrade !== ALL_GRADES_VALUE ||
     selectedGender !== "all" ||
@@ -331,12 +323,6 @@ export const StudentsTable = ({
         key: "search",
         label: `البحث: ${searchQuery.trim()}`,
         onClear: () => setSearchQuery(""),
-      });
-    if (selectedTeacher !== "all")
-      chips.push({
-        key: "teacher",
-        label: `المعلم/ة: ${selectedTeacher}`,
-        onClear: () => setSelectedTeacher("all"),
       });
     if (selectedStatus !== "all")
       chips.push({
@@ -365,7 +351,6 @@ export const StudentsTable = ({
     return chips;
   }, [
     searchQuery,
-    selectedTeacher,
     selectedStatus,
     selectedGrade,
     selectedGender,
@@ -375,7 +360,6 @@ export const StudentsTable = ({
 
   const clearAllFilters = () => {
     setSearchQuery("");
-    setSelectedTeacher("all");
     setSelectedStatus("all");
     setSelectedGrade(ALL_GRADES_VALUE);
     setSelectedGender("all");
@@ -391,7 +375,6 @@ export const StudentsTable = ({
         "رقم القيد": current.id,
         "اسم الطالب": current.name,
         الجنس: current.gender || "",
-        "المعلم/ة": current.teacher || "",
         "تاريخ هجري الالتحاق": current.hijri_join_date || "",
         "الحفظ قبل الالتحاق": current.initial_hifz || "0",
         "الحفظ التراكمي (آخر عام)": current.latest_total_hifz || "0",
@@ -445,7 +428,6 @@ export const StudentsTable = ({
           <td>${i + 1}</td>
           <td class="name font-bold">${esc(current.name)}</td>
           <td>${esc(current.gender || "—")}</td>
-          <td>${esc(current.teacher || "—")}</td>
           <td>${esc(current.hijri_join_date || "—")}</td>
           <td>${esc(current.initial_hifz || "0")} جزء</td>
           <td>${esc(current.latest_total_hifz || "0")} جزء</td>
@@ -489,7 +471,7 @@ export const StudentsTable = ({
         <table>
           <thead>
             <tr>
-              <th>م</th><th>اسم الطالب</th><th>الجنس</th><th>المعلم/ة</th><th>تاريخ هجري الالتحاق</th>
+              <th>م</th><th>اسم الطالب</th><th>الجنس</th><th>تاريخ هجري الالتحاق</th>
               <th>الحفظ قبل الالتحاق</th><th>الحفظ التراكمي</th><th>عام أول مسابقة</th><th>الأعوام المسجل بها</th>
               <th>الحالة</th><th>السنة الدراسية</th>
               <th>رقم ولي الأمر</th><th>رقم الطالب</th>
@@ -522,8 +504,8 @@ export const StudentsTable = ({
                 سجل الطلاب الرسمي المعتمد — شامل لكل الأعوام
               </h2>
               <p className="text-xs text-muted-foreground">
-                جميع طلاب المركز عبر كل الأعوام في سجل واحد موحد — يُستدعى الطلاب منه إلى المسابقة
-                الرمضانية والمتابعة الشهرية وأي صفحة أخرى
+                جميع طلاب المركز عبر كل الأعوام في سجل واحد موحد — أما ربط الطالب بمعلم/ة أو حلقة في
+                عام محدد فيتم من صفحة «الحلقات».
               </p>
             </div>
           </div>
@@ -590,30 +572,16 @@ export const StudentsTable = ({
         )}
 
         {/* Filter Bar */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-2 pt-2 border-t border-border/60">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2 pt-2 border-t border-border/60">
           <div className="relative">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="بحث بالاسم، رقم الهاتف، المعلم/ة..."
+              placeholder="بحث بالاسم أو رقم الهاتف..."
               className="h-10 pr-9 rounded-xl border-border/80 bg-background/80 text-xs"
             />
           </div>
-
-          <Select value={selectedTeacher} onValueChange={setSelectedTeacher}>
-            <SelectTrigger className="h-10 rounded-xl bg-background/80 text-xs font-bold border-border/80">
-              <SelectValue placeholder="تصفية حسب المعلم/ة" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">كل المعلمين والمعلمات</SelectItem>
-              {teacherNames.map((t) => (
-                <SelectItem key={t} value={t}>
-                  {t}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
 
           <Select value={selectedStatus} onValueChange={setSelectedStatus}>
             <SelectTrigger className="h-10 rounded-xl bg-background/80 text-xs font-bold border-border/80">
@@ -885,31 +853,6 @@ export const StudentsTable = ({
                             {GENDER_OPTIONS.map((g) => (
                               <SelectItem key={g} value={g}>
                                 {g}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </td>
-
-                      {/* Teacher */}
-                      <td className={BODY_CELL}>
-                        <Select
-                          value={current.teacher || NONE_VALUE}
-                          onValueChange={(v) =>
-                            updateStudentField(student, "teacher", v === NONE_VALUE ? "" : v)
-                          }
-                        >
-                          <SelectTrigger className={cn(CELL_SELECT, "font-normal")}>
-                            <SelectValue placeholder="المعلم/ة" />
-                          </SelectTrigger>
-                          <SelectContent className="max-h-[60vh]">
-                            <SelectItem value={NONE_VALUE}>— بدون —</SelectItem>
-                            {current.teacher && !teacherNames.includes(current.teacher) && (
-                              <SelectItem value={current.teacher}>{current.teacher}</SelectItem>
-                            )}
-                            {teacherNames.map((t) => (
-                              <SelectItem key={t} value={t}>
-                                {t}
                               </SelectItem>
                             ))}
                           </SelectContent>
