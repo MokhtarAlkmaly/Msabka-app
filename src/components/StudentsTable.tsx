@@ -40,6 +40,7 @@ import {
 } from "lucide-react";
 import { StudentProfileModal } from "./StudentProfileModal";
 import { getDuplicateNameCounts, getDuplicateCountFor } from "@/utils/studentNames";
+import { arabicIncludes } from "@/utils/arabicSearch";
 import {
   ALL_GRADES_VALUE,
   buildSchoolGradeOptions,
@@ -280,23 +281,21 @@ export const StudentsTable = ({
       if (selectedGender !== "all" && (current.gender || "") !== selectedGender) return false;
 
       if (searchQuery.trim()) {
-        const q = searchQuery.trim().toLowerCase();
-        const matchesName = (current.name || "").toLowerCase().includes(q);
-        const matchesGuardianPhone = (current.guardian_phone || "").includes(q);
-        const matchesStudentPhone = (current.student_phone || "").includes(q);
-        const matchesTeacher = (current.teacher || "").toLowerCase().includes(q);
-        const matchesStatus = (current.status || "").toLowerCase().includes(q);
-        const matchesGrade = (current.school_grade || "").toLowerCase().includes(q);
-        const matchesGender = (current.gender || "").toLowerCase().includes(q);
-        if (
-          !matchesName &&
-          !matchesGuardianPhone &&
-          !matchesStudentPhone &&
-          !matchesTeacher &&
-          !matchesStatus &&
-          !matchesGrade &&
-          !matchesGender
-        ) {
+        const q = searchQuery.trim();
+        // الأرقام تُقارَن بدون مسافات حتى يجد «050 12» الرقم المخزَّن «0501234567»
+        const qDigits = q.replace(/\s+/g, "");
+        const phoneDigits = (value?: string | null) => (value || "").replace(/\s+/g, "");
+        const matchesGuardianPhone =
+          qDigits.length > 0 && phoneDigits(current.guardian_phone).includes(qDigits);
+        const matchesStudentPhone =
+          qDigits.length > 0 && phoneDigits(current.student_phone).includes(qDigits);
+        const matchesText =
+          arabicIncludes(current.name, q) ||
+          arabicIncludes(current.teacher, q) ||
+          arabicIncludes(current.status, q) ||
+          arabicIncludes(current.school_grade, q) ||
+          arabicIncludes(current.gender, q);
+        if (!matchesText && !matchesGuardianPhone && !matchesStudentPhone) {
           return false;
         }
       }

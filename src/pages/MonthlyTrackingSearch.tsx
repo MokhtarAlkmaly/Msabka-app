@@ -36,6 +36,7 @@ import {
 } from "@/utils/storage";
 import { getSurahList, calcPagesBetweenAsync } from "@/utils/quranData";
 import { printHtml, esc } from "@/utils/report";
+import { arabicIncludes } from "@/utils/arabicSearch";
 import logo from "@/assets/logo.png";
 
 interface MonthRow {
@@ -65,9 +66,8 @@ const MonthlyTrackingSearch = () => {
   }, []);
 
   const results = useMemo(() => {
-    const q = query.trim().replace(/\s+/g, " ");
-    if (!q) return [];
-    return students.filter((s) => (s.name || "").includes(q)).slice(0, 12);
+    if (!query.trim()) return [];
+    return students.filter((s) => arabicIncludes(s.name, query)).slice(0, 12);
   }, [query, students]);
 
   const openStudent = async (student: Student, y = year) => {

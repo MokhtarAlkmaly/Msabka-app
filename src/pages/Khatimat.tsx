@@ -7,6 +7,7 @@ import { Home, Loader2, Printer, Share2, Sparkles, Search as SearchIcon } from "
 import logo from "@/assets/logo.png";
 import { loadKhatimat, KhatimEntry } from "@/utils/storage";
 import { printHtml, esc } from "@/utils/report";
+import { arabicIncludes } from "@/utils/arabicSearch";
 
 const Khatimat = () => {
   const [entries, setEntries] = useState<KhatimEntry[]>([]);
@@ -23,7 +24,7 @@ const Khatimat = () => {
   const filtered = useMemo(() => {
     const q = query.trim();
     if (!q) return entries;
-    return entries.filter((e) => e.name.includes(q));
+    return entries.filter((e) => arabicIncludes(e.name, q));
   }, [entries, query]);
 
   // إحصائيات: عدد الخاتمين بكل عام

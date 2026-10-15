@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "@/lib/router-compat";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -37,6 +37,8 @@ import {
 } from "@/utils/storage";
 import { resolveBaseHifz, calculateGrade, calculatePrize } from "@/utils/calculations";
 import { printHtml, esc } from "@/utils/report";
+import { arabicIncludes } from "@/utils/arabicSearch";
+import { normalizeStudentName } from "@/utils/studentNames";
 
 const YEARS = Array.from({ length: END_YEAR - START_YEAR + 1 }, (_, i) => START_YEAR + i);
 
@@ -78,9 +80,8 @@ const Search = () => {
   }, []);
 
   const results = useMemo(() => {
-    const q = query.trim().replace(/\s+/g, " ");
-    if (!q) return [];
-    return students.filter((s) => (s.name || "").includes(q)).slice(0, 12);
+    if (!query.trim()) return [];
+    return students.filter((s) => arabicIncludes(s.name, query)).slice(0, 12);
   }, [query, students]);
 
   const openStudent = async (student: Student) => {
@@ -96,8 +97,8 @@ const Search = () => {
       }
       setRows(loaded);
 
-      const name = (student.name || "").trim();
-      const matches = (v?: string | null) => (v || "").trim() === name;
+      const name = normalizeStudentName(student.name);
+      const matches = (v?: string | null) => normalizeStudentName(v) === name;
       const [allAwards, allCerts] = await Promise.all([loadAwards(), loadCertificates()]);
       setAwards(allAwards.filter((a) => matches(a.recipient_name) || matches(a.student_name)));
       setCertificates(allCerts.filter((c) => matches(c.recipient_name)));
@@ -106,30 +107,33 @@ const Search = () => {
     }
   };
 
-  const computed = (row: RowState) => {
-    const baseHifz = resolveBaseHifz(history, row.year, row.data.baseHifz);
-    const parts = parseFloat(row.data.parts) || 0;
-    const totalHifz = Math.min(baseHifz + parts, 30);
-    const annual = parseFloat(row.data.annual) || 0;
-    const recitation = parseFloat(row.data.recitation) || 0;
-    const memorization = parseFloat(row.data.memorization) || 0;
-    const totalScore = Math.min(annual + recitation + memorization, 100);
-    const { grade, pricePerPart } = calculateGrade(totalScore);
-    const prize = calculatePrize(parts, pricePerPart);
-    const statusPrize = parseFloat(row.data.statusPrize) || 0;
-    return {
-      baseHifz,
-      parts,
-      totalHifz,
-      annual,
-      recitation,
-      memorization,
-      totalScore,
-      grade,
-      prize,
-      statusPrize,
-    };
-  };
+  const computed = useCallback(
+    (row: RowState) => {
+      const baseHifz = resolveBaseHifz(history, row.year, row.data.baseHifz);
+      const parts = parseFloat(row.data.parts) || 0;
+      const totalHifz = Math.min(baseHifz + parts, 30);
+      const annual = parseFloat(row.data.annual) || 0;
+      const recitation = parseFloat(row.data.recitation) || 0;
+      const memorization = parseFloat(row.data.memorization) || 0;
+      const totalScore = Math.min(annual + recitation + memorization, 100);
+      const { grade, pricePerPart } = calculateGrade(totalScore);
+      const prize = calculatePrize(parts, pricePerPart);
+      const statusPrize = parseFloat(row.data.statusPrize) || 0;
+      return {
+        baseHifz,
+        parts,
+        totalHifz,
+        annual,
+        recitation,
+        memorization,
+        totalScore,
+        grade,
+        prize,
+        statusPrize,
+      };
+    },
+    [history],
+  );
 
   const totals = useMemo(() => {
     return rows.reduce(
@@ -142,7 +146,7 @@ const Search = () => {
       },
       { parts: 0, prize: 0, statusPrize: 0 },
     );
-  }, [rows, history]);
+  }, [rows, computed]);
 
   // إحصائيات النسب المئوية والتقدم بين الأعوام
   const stats = useMemo(() => {
@@ -197,7 +201,7 @@ const Search = () => {
       lastHifzPct,
       yearsCount: perYear.length,
     };
-  }, [rows, history]);
+  }, [rows, computed]);
 
   const updateRow = (year: number, field: keyof YearData, value: string) => {
     setRows((prev) =>
@@ -265,7 +269,7 @@ const Search = () => {
     }
     const end = Math.max(...withData.map((x) => x.row.year));
     return { start, end, completed: false };
-  }, [rows, history]);
+  }, [rows, computed]);
 
   const displayRows = useMemo(() => {
     if (visibleRange.start === null || visibleRange.end === null) return [];

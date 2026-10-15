@@ -30,6 +30,7 @@ import {
   renameTeacher,
   saveTeacher,
 } from "@/utils/storage";
+import { arabicIncludes } from "@/utils/arabicSearch";
 import {
   amount,
   annualTotalFor,
@@ -108,7 +109,7 @@ export function TeacherRegistryTab({
           inKindCount,
         };
       })
-      .filter((row) => !query.trim() || row.name.includes(query.trim()))
+      .filter((row) => !query.trim() || arabicIncludes(row.name, query))
       .sort((a, b) => a.name.localeCompare(b.name, "ar"));
   }, [awards, bonuses, certificates, query, studentsMap, teachers]);
 

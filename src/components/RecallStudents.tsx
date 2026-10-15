@@ -15,6 +15,7 @@ import { History, Loader2, Users } from "lucide-react";
 import { listRecallCandidates, recallStudentsToYear, RecallCandidate } from "@/utils/storage";
 import { formatYearKey, formatYearKeyShort } from "@/types/student";
 import { useToast } from "@/hooks/use-toast";
+import { arabicIncludes } from "@/utils/arabicSearch";
 
 interface Props {
   /** مفتاح العام المستهدف (قد يكون "1447" أو "1447D" لمسابقة ذي الحجة) */
@@ -52,7 +53,7 @@ export const RecallStudents = ({
   const filtered = useMemo(() => {
     const q = query.trim();
     if (!q) return candidates;
-    return candidates.filter((c) => (c.name || "").includes(q) || (c.teacher || "").includes(q));
+    return candidates.filter((c) => arabicIncludes(c.name, q) || arabicIncludes(c.teacher, q));
   }, [candidates, query]);
 
   const toggle = (id: number) => {
