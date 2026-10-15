@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { listAllUsers, grantAccess, revokeAccess, setUserRole, type AppUser } from "@/utils/users";
+import { arabicIncludes } from "@/utils/arabicSearch";
 
 /** قراءة رسالة/رمز الخطأ بأمان دون استعمال any. */
 const errInfo = (error: unknown): { message: string; code: string } => {
@@ -82,13 +83,9 @@ const Users = () => {
   }, [authLoading, isAdmin, load]);
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = query.trim();
     if (!q) return users;
-    return users.filter(
-      (u) =>
-        (u.display_name || "").toLowerCase().includes(q) ||
-        (u.email || "").toLowerCase().includes(q),
-    );
+    return users.filter((u) => arabicIncludes(u.display_name, q) || arabicIncludes(u.email, q));
   }, [users, query]);
 
   const stats = useMemo(

@@ -6,27 +6,14 @@
  * والياء والتاء المربوطة) دون تغيير الاسم المعروض للمستخدم.
  */
 
-/** التشكيل والعلامات القرآنية (تنوين/مد/سكون/مد/كان..) */
-const ARABIC_DIACRITICS = /[ؐ-ًؚ-ٰٟۖ-ۭ࣓-ࣿ]/g;
-/** التطويل (كشيدة) */
-const TATWEEL = /ـ/g;
-/** أي تسلسل من المسافات بما فيها المسافة غير المنقسمة */
-const WHITESPACE_RUN = /\s+/g;
+import { normalizeArabic } from "./arabicSearch";
 
 /**
  * يُعيد الصيغة الموحّدة للاسم لاستخدامها في المقارنة فقط.
  * مثال: "  أحمد  محمَّد "  →  "احمد محمد"
  */
 export function normalizeStudentName(name: string | null | undefined): string {
-  if (!name) return "";
-  return name
-    .replace(ARABIC_DIACRITICS, "")
-    .replace(TATWEEL, "")
-    .replace(/[أإآٱﺎ]/g, "ا") // توحيد صور الألف
-    .replace(/ى/g, "ي") // توحيد الألف المقصورة
-    .replace(/ة/g, "ه") // توحيد التاء المربوطة (شائع في الإدخال اليدوي)
-    .replace(WHITESPACE_RUN, " ")
-    .trim();
+  return normalizeArabic(name);
 }
 
 /**

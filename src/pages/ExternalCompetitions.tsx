@@ -42,6 +42,7 @@ import {
   deleteExternalCompetitionLocal,
 } from "@/utils/storage";
 import { esc } from "@/utils/report";
+import { arabicIncludesAny } from "@/utils/arabicSearch";
 
 const ExternalCompetitions = () => {
   const { toast } = useToast();
@@ -165,14 +166,14 @@ const ExternalCompetitions = () => {
 
   const filteredRows = useMemo(() => {
     if (!searchQuery.trim()) return rows;
-    const q = searchQuery.trim().toLowerCase();
-    return rows.filter(
-      (r) =>
-        r.student_name.toLowerCase().includes(q) ||
-        r.competition_name.toLowerCase().includes(q) ||
-        r.organizer.toLowerCase().includes(q) ||
-        r.category.toLowerCase().includes(q) ||
-        r.rank.toLowerCase().includes(q),
+    return rows.filter((r) =>
+      arabicIncludesAny(searchQuery, [
+        r.student_name,
+        r.competition_name,
+        r.organizer,
+        r.category,
+        r.rank,
+      ]),
     );
   }, [rows, searchQuery]);
 

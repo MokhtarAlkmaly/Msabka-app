@@ -45,6 +45,7 @@ import {
   setActiveYear,
   syncToCloud,
 } from "@/utils/storage";
+import { arabicIncludes } from "@/utils/arabicSearch";
 
 const YEARS = Array.from({ length: END_YEAR - START_YEAR + 1 }, (_, index) =>
   String(START_YEAR + index),
@@ -132,12 +133,10 @@ const Halaqat = () => {
 
   const availableStudents = useMemo(() => {
     const assignedIds = new Set(students.map((student) => student.id));
-    const query = studentQuery.trim().toLowerCase();
+    const query = studentQuery.trim();
     return globalStudents
       .filter((student) => !assignedIds.has(student.id))
-      .filter(
-        (student) => !query || `${student.name} ${student.teacher}`.toLowerCase().includes(query),
-      )
+      .filter((student) => !query || arabicIncludes(`${student.name} ${student.teacher}`, query))
       .sort((a, b) => a.name.localeCompare(b.name, "ar"));
   }, [globalStudents, studentQuery, students]);
 

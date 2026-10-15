@@ -47,6 +47,7 @@ import {
   deleteAwardLocal,
   loadTeacherBonuses,
 } from "@/utils/storage";
+import { arabicIncludes } from "@/utils/arabicSearch";
 
 type AwardType = "khatm_bonus" | "ceremony" | "annual" | "certificate" | "guardian_contribution";
 type AwardKind = "cash" | "in_kind";
@@ -184,7 +185,7 @@ const Awards = () => {
   const filteredStudentNames = useMemo(() => {
     const q = studentQuery.trim();
     if (!q) return allStudentNames.slice(0, 30);
-    return allStudentNames.filter((n) => n.includes(q)).slice(0, 30);
+    return allStudentNames.filter((n) => arabicIncludes(n, q)).slice(0, 30);
   }, [allStudentNames, studentQuery]);
 
   const yearAwards = useMemo(

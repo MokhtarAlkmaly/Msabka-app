@@ -1,4 +1,3 @@
-/* eslint-disable */
 /**
  * Service Worker — Markz Net (النسخة المستقلة بدون إنترنت)
  *
