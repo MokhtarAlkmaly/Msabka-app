@@ -9,6 +9,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import type { Database, Json } from "@/integrations/supabase/types";
 import { resolveBaseHifz } from "./calculations";
+import { dedupeTeachersByName, GLOBAL_TEACHER_YEAR } from "@/lib/teacher-registry";
 
 /** أسماء جداول public في Supabase — تُستعمل في الحلقات الديناميكية على اسم الجدول. */
 export type TableName = keyof Database["public"]["Tables"];
@@ -1483,38 +1484,60 @@ export type InternalCompetitionRow = CachedInternalCompetition;
 export type ExternalCompetitionRow = CachedExternalCompetition;
 export type MediaMetadataRow = CachedMedia;
 
-export const loadTeachers = async (year?: string): Promise<TeacherRow[]> => {
+/**
+ * المعلمون والمعلمات سجل عام مستقل تماماً عن الأعوام: يُحفظ الاسم مرة واحدة
+ * (بقيمة GLOBAL_TEACHER_YEAR في عمود year) ويظهر في كل الأعوام والمسابقات وما
+ * يتبعها من إكراميات وشهادات ومساعدات. أما ربط الطالب بحلقة معلم/ة فيبقى لكل
+ * عام على حدة عبر بيانات العام (year_data.teacher) وصفحة الحلقات.
+ */
+export { GLOBAL_TEACHER_YEAR };
+
+/** كل صفوف المعلمين/المعلمات للمستخدم الحالي كما هي مخزنة (بلا تجميع). */
+const getAllTeacherRows = async (userId: string): Promise<TeacherRow[]> =>
+  (await getCachedTeachers()).filter((r) => belongsToUser(r, userId));
+
+/**
+ * سجل المعلمين والمعلمات العام: اسم واحد لكل معلم/ة مهما كانت الأعوام
+ * المخزّنة له (توافقاً مع البيانات القديمة المرتبطة بعام). الوسيط `year`
+ * مُبقى للتوافق مع الاستدعاءات القديمة ولا يقيّد النتيجة، لأن السجل عام.
+ */
+export const loadTeachers = async (_year?: string): Promise<TeacherRow[]> => {
   await ensureCache();
   const userId = await getUserId();
   if (!userId) return [];
-  const rows = await getCachedTeachers();
-  return byYear(
-    rows.filter((r) => belongsToUser(r, userId)),
-    year,
-  ).sort((a, b) => a.name.localeCompare(b.name, "ar"));
+
+  return dedupeTeachersByName(await getAllTeacherRows(userId));
 };
 
 export const saveTeacher = async (
-  teacher: Partial<TeacherRow> & { name: string; year: string },
+  teacher: Partial<TeacherRow> & { name: string; year?: string },
 ): Promise<TeacherRow | null> => {
   guardWrite();
   const userId = await getUserId();
   if (!userId) return null;
-  const existing = teacher.id
-    ? undefined
-    : (await getCachedTeachers()).find(
-        (t) => t.user_id === userId && t.year === teacher.year && t.name === teacher.name,
-      );
+  const name = teacher.name.trim();
+  if (!name) return null;
+
+  const rows = await getAllTeacherRows(userId);
+  const existing = teacher.id ? undefined : rows.find((t) => (t.name || "").trim() === name);
+  const keepId = teacher.id || existing?.id;
+  // صفوف قديمة مكرّرة لنفس الاسم (كانت لكل عام صف) — تُدمج في صف واحد.
+  const duplicates = rows.filter((t) => t.id !== keepId && (t.name || "").trim() === name);
+
   const row: TeacherRow = {
-    id: teacher.id || existing?.id || newLocalId(),
+    id: keepId || newLocalId(),
     user_id: userId,
-    year: teacher.year,
-    name: teacher.name,
-    created_at: teacher.created_at || existing?.created_at,
+    year: GLOBAL_TEACHER_YEAR,
+    name,
+    created_at: teacher.created_at || existing?.created_at || new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
   await putCachedTeacher(row);
   await markDirty("teacher", "upsert", { id: row.id });
+  for (const duplicate of duplicates) {
+    await deleteCachedTeacher(duplicate.id);
+    await markDirty("teacher", "delete", { id: duplicate.id });
+  }
   queueCloudSync();
   return row;
 };
@@ -1524,6 +1547,157 @@ export const deleteTeacherLocal = async (id: string) => {
   await deleteCachedTeacher(id);
   await markDirty("teacher", "delete", { id });
   queueCloudSync();
+};
+
+/**
+ * حذف معلم/ة من السجل العام بكل صفوفه (يشمل أي صفوف قديمة لنفس الاسم كانت
+ * مسجّلة لعام معيّن)، حتى لا يعود الاسم للظهور من بيانات سابقة.
+ */
+export const deleteTeacherByName = async (name: string) => {
+  guardWrite();
+  const userId = await getUserId();
+  if (!userId) return;
+  const target = name.trim();
+  if (!target) return;
+  const rows = (await getAllTeacherRows(userId)).filter(
+    (row) => (row.name || "").trim() === target,
+  );
+  for (const row of rows) {
+    await deleteCachedTeacher(row.id);
+    await markDirty("teacher", "delete", { id: row.id });
+  }
+  queueCloudSync();
+};
+
+/**
+ * توحيد السجل: يحوّل صفوف المعلمين/المعلمات القديمة المرتبطة بعام إلى صف
+ * عام واحد لكل اسم، ويعيد عدد الأسماء التي تم توحيدها. تُستدعى مرة عند فتح
+ * صفحة المعلمين والمعلمات لتنظيف البيانات السابقة تلقائياً.
+ */
+export const consolidateTeachers = async (): Promise<number> => {
+  const userId = await getUserId();
+  if (!userId) return 0;
+  const rows = await getAllTeacherRows(userId);
+  const needsWork = rows.some((row) => row.year !== GLOBAL_TEACHER_YEAR);
+  if (!needsWork) return 0;
+
+  const groups = new Map<string, TeacherRow[]>();
+  for (const row of rows) {
+    const name = (row.name || "").trim();
+    if (!name) continue;
+    const list = groups.get(name) || [];
+    list.push(row);
+    groups.set(name, list);
+  }
+
+  let touched = 0;
+  for (const [name, list] of groups) {
+    if (list.length === 1 && list[0].year === GLOBAL_TEACHER_YEAR) continue;
+    const sorted = [...list].sort((a, b) => (b.updated_at || "").localeCompare(a.updated_at || ""));
+    const keep = sorted[0];
+    await putCachedTeacher({ ...keep, name, year: GLOBAL_TEACHER_YEAR });
+    await markDirty("teacher", "upsert", { id: keep.id });
+    for (const row of sorted.slice(1)) {
+      await deleteCachedTeacher(row.id);
+      await markDirty("teacher", "delete", { id: row.id });
+    }
+    touched += 1;
+  }
+  if (touched > 0) queueCloudSync();
+  return touched;
+};
+
+/**
+ * تغيير اسم معلم/ة في كل مكان: السجل العام، أسماء الطلاب في السجل الشامل،
+ * إكرامياتهم الشهرية، جوائزهم السنوية ومساعداتهم العينية وشهاداتهم، وربط
+ * الحلقات في كل الأعوام. يعيد عدد الطلاب الذين تأثروا بالتعديل.
+ */
+export const renameTeacher = async (oldName: string, newName: string): Promise<number> => {
+  guardWrite();
+  const userId = await getUserId();
+  if (!userId) return 0;
+  const from = oldName.trim();
+  const to = newName.trim();
+  if (!from || !to || from === to) return 0;
+
+  // 1) السجل العام (وإن لم يكن للاسم صف مسجّل، نضيف جديداً بالاسم الجديد).
+  const teacherRows = (await getAllTeacherRows(userId)).filter(
+    (row) => (row.name || "").trim() === from,
+  );
+  for (const row of teacherRows) {
+    await saveTeacher({ id: row.id, name: to, created_at: row.created_at });
+  }
+  if (teacherRows.length === 0) await saveTeacher({ name: to });
+
+  // 2) الطلاب في السجل الشامل.
+  const affectedStudents = (await loadGlobalStudentsWithYears()).filter(
+    (student) => (student.teacher || "").trim() === from,
+  );
+  for (const student of affectedStudents) {
+    await saveStudent({ ...student, teacher: to });
+  }
+
+  // 3) ربط الطلاب بالحلقات في كل الأعوام.
+  const yearRows = (await getCachedYearData()).filter((row) => (row.teacher || "").trim() === from);
+  for (const row of yearRows) {
+    const data = await loadYearData(row.year, row.student_id);
+    await saveYearData(row.year, row.student_id, { ...data, teacher: to });
+  }
+
+  // 4) الإكراميات الشهرية.
+  const bonuses = (await loadTeacherBonuses()).filter(
+    (bonus) => (bonus.teacher_name || "").trim() === from,
+  );
+  for (const bonus of bonuses) {
+    await saveTeacherBonus({ ...bonus, teacher_name: to });
+  }
+
+  // 5) الجوائز (السنوية والمساعدات العينية وغيرها).
+  const awards = (await loadAwards()).filter(
+    (award) => (award.recipient_name || "").trim() === from,
+  );
+  for (const award of awards) {
+    await saveAward({ ...award, recipient_name: to });
+  }
+
+  // 6) شهادات التقدير.
+  const certificates = (await loadCertificates()).filter(
+    (certificate) => (certificate.recipient_name || "").trim() === from,
+  );
+  for (const certificate of certificates) {
+    await saveCertificate({ ...certificate, recipient_name: to });
+  }
+
+  return affectedStudents.length;
+};
+
+/**
+ * إزالة معلم/ة من خانة «المعلم/ة» عند الطلاب ومن ربط الحلقات في كل الأعوام
+ * (يُستعمل عند حذف الاسم من السجل العام). يعيد عدد الطلاب المتأثرين.
+ */
+export const clearTeacherFromStudents = async (name: string): Promise<number> => {
+  guardWrite();
+  const userId = await getUserId();
+  if (!userId) return 0;
+  const target = name.trim();
+  if (!target) return 0;
+
+  const students = (await loadGlobalStudentsWithYears()).filter(
+    (student) => (student.teacher || "").trim() === target,
+  );
+  for (const student of students) {
+    await saveStudent({ ...student, teacher: "" });
+  }
+
+  const yearRows = (await getCachedYearData()).filter(
+    (row) => (row.teacher || "").trim() === target,
+  );
+  for (const row of yearRows) {
+    const data = await loadYearData(row.year, row.student_id);
+    await saveYearData(row.year, row.student_id, { ...data, teacher: "" });
+  }
+
+  return students.length;
 };
 
 export const loadTeacherBonuses = async (year?: string): Promise<TeacherBonusRow[]> => {

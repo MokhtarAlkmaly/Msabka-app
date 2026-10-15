@@ -30,6 +30,7 @@ import { Route as AuthenticatedMediaRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedMonthlyRouteImport } from './routes/_authenticated/monthly'
 import { Route as AuthenticatedSearchRouteImport } from './routes/_authenticated/search'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedStudentsRouteImport } from './routes/_authenticated/students'
 import { Route as AuthenticatedSubmissionsRouteImport } from './routes/_authenticated/submissions'
 import { Route as AuthenticatedTeacherLinksRouteImport } from './routes/_authenticated/teacher-links'
 import { Route as AuthenticatedTeachersRouteImport } from './routes/_authenticated/teachers'
@@ -145,6 +146,11 @@ const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedStudentsRoute = AuthenticatedStudentsRouteImport.update({
+  id: '/students',
+  path: '/students',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedSubmissionsRoute =
   AuthenticatedSubmissionsRouteImport.update({
     id: '/submissions',
@@ -194,6 +200,7 @@ export interface FileRoutesByFullPath {
   '/monthly': typeof AuthenticatedMonthlyRoute
   '/search': typeof AuthenticatedSearchRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/students': typeof AuthenticatedStudentsRoute
   '/submissions': typeof AuthenticatedSubmissionsRoute
   '/teacher-links': typeof AuthenticatedTeacherLinksRoute
   '/teachers': typeof AuthenticatedTeachersRoute
@@ -220,6 +227,7 @@ export interface FileRoutesByTo {
   '/monthly': typeof AuthenticatedMonthlyRoute
   '/search': typeof AuthenticatedSearchRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/students': typeof AuthenticatedStudentsRoute
   '/submissions': typeof AuthenticatedSubmissionsRoute
   '/teacher-links': typeof AuthenticatedTeacherLinksRoute
   '/teachers': typeof AuthenticatedTeachersRoute
@@ -249,6 +257,7 @@ export interface FileRoutesById {
   '/_authenticated/monthly': typeof AuthenticatedMonthlyRoute
   '/_authenticated/search': typeof AuthenticatedSearchRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/_authenticated/students': typeof AuthenticatedStudentsRoute
   '/_authenticated/submissions': typeof AuthenticatedSubmissionsRoute
   '/_authenticated/teacher-links': typeof AuthenticatedTeacherLinksRoute
   '/_authenticated/teachers': typeof AuthenticatedTeachersRoute
@@ -279,6 +288,7 @@ export interface FileRouteTypes {
     | '/monthly'
     | '/search'
     | '/settings'
+    | '/students'
     | '/submissions'
     | '/teacher-links'
     | '/teachers'
@@ -305,6 +315,7 @@ export interface FileRouteTypes {
     | '/monthly'
     | '/search'
     | '/settings'
+    | '/students'
     | '/submissions'
     | '/teacher-links'
     | '/teachers'
@@ -333,6 +344,7 @@ export interface FileRouteTypes {
     | '/_authenticated/monthly'
     | '/_authenticated/search'
     | '/_authenticated/settings'
+    | '/_authenticated/students'
     | '/_authenticated/submissions'
     | '/_authenticated/teacher-links'
     | '/_authenticated/teachers'
@@ -498,6 +510,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/students': {
+      id: '/_authenticated/students'
+      path: '/students'
+      fullPath: '/students'
+      preLoaderRoute: typeof AuthenticatedStudentsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/submissions': {
       id: '/_authenticated/submissions'
       path: '/submissions'
@@ -552,6 +571,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedMonthlyRoute: typeof AuthenticatedMonthlyRoute
   AuthenticatedSearchRoute: typeof AuthenticatedSearchRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedStudentsRoute: typeof AuthenticatedStudentsRoute
   AuthenticatedSubmissionsRoute: typeof AuthenticatedSubmissionsRoute
   AuthenticatedTeacherLinksRoute: typeof AuthenticatedTeacherLinksRoute
   AuthenticatedTeachersRoute: typeof AuthenticatedTeachersRoute
@@ -578,6 +598,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedMonthlyRoute: AuthenticatedMonthlyRoute,
   AuthenticatedSearchRoute: AuthenticatedSearchRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedStudentsRoute: AuthenticatedStudentsRoute,
   AuthenticatedSubmissionsRoute: AuthenticatedSubmissionsRoute,
   AuthenticatedTeacherLinksRoute: AuthenticatedTeacherLinksRoute,
   AuthenticatedTeachersRoute: AuthenticatedTeachersRoute,

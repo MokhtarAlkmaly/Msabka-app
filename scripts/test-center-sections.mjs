@@ -16,7 +16,15 @@ try {
   for (const section of centerSections) {
     assert.equal(getCenterSection(section.to).id, section.id);
   }
-  for (const path of ["/", "/monthly", "/competition", "/settings", "/users", "/teachers"]) {
+  for (const path of [
+    "/",
+    "/students",
+    "/monthly",
+    "/competition",
+    "/settings",
+    "/users",
+    "/teachers",
+  ]) {
     assert.equal(getCenterSection(path).id, "quran");
   }
   assert.equal(getCenterSection("/training/").id, "training");

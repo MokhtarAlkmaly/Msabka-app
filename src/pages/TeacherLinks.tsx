@@ -57,8 +57,8 @@ const TeacherLinks = () => {
 
   const [portals, setPortals] = useState<TeacherPortal[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
-  /** أسماء المعلمين والمعلمات المضافين في صفحة «المعلمين والمعلمات» لكل عام. */
-  const [teachersByYear, setTeachersByYear] = useState<Record<string, string[]>>({});
+  /** أسماء السجل العام للمعلمين والمعلمات (سجل واحد لكل الأعوام). */
+  const [registryNames, setRegistryNames] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   // نموذج الإنشاء
@@ -92,19 +92,11 @@ const TeacherLinks = () => {
       ]);
       setPortals(p);
       setSubmissions(s);
-      const byYear: Record<string, Set<string>> = {};
-      for (const row of t) {
-        const name = (row.name || "").trim();
-        if (!name || !row.year) continue;
-        (byYear[row.year] ??= new Set()).add(name);
-      }
-      setTeachersByYear(
-        Object.fromEntries(
-          Object.entries(byYear).map(([year, set]) => [
-            year,
-            Array.from(set).sort((a, b) => a.localeCompare(b, "ar")),
-          ]),
-        ),
+      setRegistryNames(
+        t
+          .map((row) => (row.name || "").trim())
+          .filter(Boolean)
+          .sort((a, b) => a.localeCompare(b, "ar")),
       );
     } catch (err) {
       console.error("تعذّر تحميل روابط المعلمين والمعلمات", err);
@@ -130,18 +122,10 @@ const TeacherLinks = () => {
     void load();
   }, [load]);
 
-  // عند تغيير العام: لا يُترك اسم غير مضاف في ذلك العام.
-  useEffect(() => {
-    if (newTeacher && !(teachersByYear[newYear] ?? []).includes(newTeacher)) setNewTeacher("");
-  }, [newYear, teachersByYear, newTeacher]);
-
-  /** أسماء المعلمين والمعلمات المضافين للعام المختار في نموذج الإنشاء. */
-  const yearTeachers = useMemo(() => teachersByYear[newYear] ?? [], [teachersByYear, newYear]);
-
-  /** هل الاسم مضاف فعلاً في صفحة المعلمين والمعلمات لهذا العام؟ */
+  /** هل الاسم مضاف فعلاً في السجل العام للمعلمين والمعلمات؟ */
   const isRegisteredTeacher = useCallback(
-    (name: string, year: string) => (teachersByYear[year] ?? []).includes(name.trim()),
-    [teachersByYear],
+    (name: string) => registryNames.includes(name.trim()),
+    [registryNames],
   );
 
   const yearOptions = useMemo(() => {
@@ -176,13 +160,11 @@ const TeacherLinks = () => {
       });
       return;
     }
-    // لا يُرسل رابط إلا لمعلم/ة مضاف في صفحة «المعلمين والمعلمات» لهذا العام.
-    if (!isRegisteredTeacher(name, year)) {
+    // لا يُرسل رابط إلا لاسم مضاف في السجل العام للمعلمين والمعلمات.
+    if (!isRegisteredTeacher(name)) {
       toast({
         title: "غير مسموح",
-        description: `«${name}» غير مضاف في صفحة المعلمين والمعلمات لعام ${formatYearKey(
-          year,
-        )}. أضفه هناك أولاً ثم أنشئ الرابط.`,
+        description: `«${name}» غير مضاف في سجل المعلمين والمعلمات. أضفه هناك أولاً ثم أنشئ الرابط.`,
         variant: "destructive",
       });
       return;
@@ -303,7 +285,7 @@ const TeacherLinks = () => {
             </h1>
             <p className="mt-1 text-xs text-white/50">
               كل رابط يقود معلم/ة إلى بطاقات طلابه لعام وشهر محددين — بدون تسجيل دخول. يُنشأ الرابط
-              فقط للمعلمين والمعلمات المضافين في صفحة «المعلمين والمعلمات».
+              فقط لاسم مضاف في السجل العام للمعلمين والمعلمات.
             </p>
           </div>
           <Button
@@ -325,34 +307,33 @@ const TeacherLinks = () => {
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-1">
               <label className="text-[11px] font-bold text-white/50">
-                اسم المعلم/ة (من صفحة المعلمين والمعلمات)
+                اسم المعلم/ة (من السجل العام للمعلمين والمعلمات)
               </label>
               <Select
                 value={newTeacher || undefined}
                 onValueChange={setNewTeacher}
-                disabled={yearTeachers.length === 0}
+                disabled={registryNames.length === 0}
               >
                 <SelectTrigger className="h-9 bg-white/5 text-sm">
                   <SelectValue
                     placeholder={
-                      yearTeachers.length === 0
-                        ? "لا يوجد معلمون مضافون لهذا العام"
+                      registryNames.length === 0
+                        ? "لا يوجد معلمون مضافون في السجل"
                         : "اختر المعلم/ة"
                     }
                   />
                 </SelectTrigger>
                 <SelectContent className="max-h-72">
-                  {yearTeachers.map((t) => (
+                  {registryNames.map((t) => (
                     <SelectItem key={t} value={t}>
                       {t}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {yearTeachers.length === 0 && (
+              {registryNames.length === 0 && (
                 <p className="text-[10px] font-bold text-amber-300">
-                  أضف المعلمين والمعلمات لعام {formatYearKey(newYear)} من صفحة «المعلمين والمعلمات
-                  والإكراميات» أولاً.
+                  أضف المعلمين والمعلمات في صفحة «المعلمين والمعلمات» (سجل عام لكل الأعوام) أولاً.
                 </p>
               )}
             </div>
@@ -446,10 +427,10 @@ const TeacherLinks = () => {
                             {c.pending} قيد المراجعة
                           </span>
                         )}
-                        {!isRegisteredTeacher(p.teacher_name, p.year) && (
+                        {!isRegisteredTeacher(p.teacher_name) && (
                           <span
                             className="rounded-full bg-rose-400/15 px-2 py-0.5 text-[10px] font-bold text-rose-300 ring-1 ring-rose-400/30"
-                            title="أضف هذا الاسم في صفحة المعلمين والمعلمات، أو احذف الرابط"
+                            title="أضف هذا الاسم في سجل المعلمين والمعلمات، أو احذف الرابط"
                           >
                             غير مضاف في صفحة المعلمين
                           </span>
@@ -505,11 +486,11 @@ const TeacherLinks = () => {
         </div>
 
         <p className="text-[11px] leading-relaxed text-white/40">
-          · لا يُنشأ رابط إلا لمعلم/ة مضاف في صفحة «المعلمين والمعلمات والإكراميات» لنفس العام —
-          الروابط التي اسمها غير مضاف تظهر بشارة تحذير حمراء. · «تغيير الكود» ينشئ رمزاً جديداً —
-          الروابط القديمة تتوقف عن العمل، لذا أرسل الجديد للمعلم/ة. · «نسخ روابط الكل» يجمع روابط كل
-          الأعوام بنص واحد جاهز للإرسال على واتساب. · إيقاف الرابط يبقي ترسيالاته السابقة محفوظة. ·
-          من لا يملك جوالاً أو إنترنت: أدخل بياناته يدوياً من صفحة «وارد المعلمين والمعلمات».
+          · لا يُنشأ رابط إلا لاسم مضاف في سجل «المعلمين والمعلمات» العام (لكل الأعوام) — الروابط
+          التي اسمها غير مضاف تظهر بشارة تحذير حمراء. · «تغيير الكود» ينشئ رمزاً جديداً — الروابط
+          القديمة تتوقف عن العمل، لذا أرسل الجديد للمعلم/ة. · «نسخ روابط الكل» يجمع روابط كل الأعوام
+          بنص واحد جاهز للإرسال على واتساب. · إيقاف الرابط يبقي ترسيالاته السابقة محفوظة. · من لا
+          يملك جوالاً أو إنترنت: أدخل بياناته يدوياً من صفحة «وارد المعلمين والمعلمات».
         </p>
       </div>
 
