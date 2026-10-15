@@ -8,6 +8,72 @@ export type Database = {
   };
   public: {
     Tables: {
+      community_records: {
+        Row: {
+          id: string;
+          user_id: string;
+          department: "training" | "care";
+          program_id: string;
+          beneficiary_name: string;
+          beneficiary_type: "individual" | "child" | "family" | "orphan";
+          phone: string | null;
+          guardian_name: string | null;
+          address: string | null;
+          service_date: string;
+          status: "registered" | "in_progress" | "completed" | "cancelled";
+          group_name: string | null;
+          sponsor_name: string | null;
+          amount: number | null;
+          currency: "YER" | "SAR" | "USD" | null;
+          quantity: number | null;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          department: "training" | "care";
+          program_id: string;
+          beneficiary_name: string;
+          beneficiary_type: "individual" | "child" | "family" | "orphan";
+          phone?: string | null;
+          guardian_name?: string | null;
+          address?: string | null;
+          service_date: string;
+          status?: "registered" | "in_progress" | "completed" | "cancelled";
+          group_name?: string | null;
+          sponsor_name?: string | null;
+          amount?: number | null;
+          currency?: "YER" | "SAR" | "USD" | null;
+          quantity?: number | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          department?: "training" | "care";
+          program_id?: string;
+          beneficiary_name?: string;
+          beneficiary_type?: "individual" | "child" | "family" | "orphan";
+          phone?: string | null;
+          guardian_name?: string | null;
+          address?: string | null;
+          service_date?: string;
+          status?: "registered" | "in_progress" | "completed" | "cancelled";
+          group_name?: string | null;
+          sponsor_name?: string | null;
+          amount?: number | null;
+          currency?: "YER" | "SAR" | "USD" | null;
+          quantity?: number | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       exam_questions: {
         Row: {
           category: string;

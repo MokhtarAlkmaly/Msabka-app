@@ -1197,6 +1197,7 @@ export const deleteEntireDatabase = async () => {
     // نحذف الجداول الابنة أولاً ثم الطلاب لتفادي أي تعارض مفاتيح خارجية في
     // المشاريع القديمة التي لم تُفعّل فيها cascade بعد.
     const childTables = [
+      "community_records",
       "monthly_tracking",
       "hifz_history",
       "year_data",

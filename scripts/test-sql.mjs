@@ -301,15 +301,15 @@ async function main() {
   console.log("البنية والفهارس:");
   const tables = await q(
     `SELECT tablename FROM pg_tables WHERE schemaname = 'public'
-      AND tablename IN ('teacher_portals', 'monthly_submissions', 'exam_questions')`,
+      AND tablename IN ('teacher_portals', 'monthly_submissions', 'exam_questions', 'community_records')`,
   );
-  ok(tables.length === 3, "جداول الروابط والترسيلات والأسئلة موجودة");
+  ok(tables.length === 4, "جداول الروابط والترسيلات والأسئلة والمستفيدين موجودة");
 
   const rlson = await q(
     `SELECT relname, relrowsecurity FROM pg_class
-      WHERE relname IN ('teacher_portals', 'monthly_submissions', 'exam_questions')`,
+      WHERE relname IN ('teacher_portals', 'monthly_submissions', 'exam_questions', 'community_records')`,
   );
-  ok(rlson.length === 3 && rlson.every((r) => r.relrowsecurity), "RLS مفعّل على الجداول الثلاثة");
+  ok(rlson.length === 4 && rlson.every((r) => r.relrowsecurity), "RLS مفعّل على الجداول الأربعة");
 
   const idx = await q(
     `SELECT indexdef FROM pg_indexes WHERE schemaname = 'public'
@@ -836,6 +836,200 @@ async function main() {
   );
   ok((await q("SELECT * FROM public.exam_questions")).length === 0, "المالك يحذف سؤاله");
 
+  // Community beneficiaries: constraints and real PostgreSQL row-level security.
+  const community = await asUser(USER_A, () =>
+    one(
+      `INSERT INTO public.community_records
+      (user_id, department, program_id, beneficiary_name, beneficiary_type, service_date)
+      VALUES ($1, 'training', 'sewing', 'مستفيد من المجتمع', 'individual', '2026-10-15') RETURNING *`,
+      [USER_A],
+    ),
+  );
+  ok(community.status === "registered", "إنشاء سجل مجتمعي مستقل عن الطلاب");
+  ok(
+    (await asUser(USER_A, () => q("SELECT * FROM public.community_records"))).length === 1,
+    "المالك يرى سجلات المجتمع",
+  );
+  ok(
+    (await asUser(USER_B, () => q("SELECT * FROM public.community_records"))).length === 0,
+    "عزل سجلات المستفيدين بين الحسابات",
+  );
+  await throws(
+    () => asRole("anon", () => q("SELECT * FROM public.community_records")),
+    "منع الزائر من قراءة سجلات المجتمع",
+  );
+  await throws(
+    () =>
+      asUser(USER_B, () =>
+        q(
+          `INSERT INTO public.community_records (user_id, department, program_id, beneficiary_name, beneficiary_type, service_date)
+     VALUES ($1, 'training', 'sewing', 'محاولة غير مسموحة', 'individual', '2026-10-15')`,
+          [USER_A],
+        ),
+      ),
+    "منع إضافة سجلات باسم حساب آخر",
+  );
+  await throws(
+    () =>
+      asUser(USER_A, () =>
+        q("UPDATE public.community_records SET user_id = $1 WHERE id = $2", [USER_B, community.id]),
+      ),
+    "منع نقل ملكية سجل المجتمع",
+  );
+
+  await db.query("INSERT INTO public.profiles (id) VALUES ($1), ($2) ON CONFLICT (id) DO NOTHING", [
+    USER_A,
+    USER_B,
+  ]);
+  await asUser(USER_A, () =>
+    db.query("INSERT INTO public.data_access_grants (owner_id, grantee_id) VALUES ($1, $2)", [
+      USER_A,
+      USER_B,
+    ]),
+  );
+  ok(
+    (await asUser(USER_B, () => q("SELECT * FROM public.community_records"))).length === 1,
+    "إذن الاطلاع يتيح قراءة سجلات المجتمع",
+  );
+  ok(
+    (
+      await asUser(USER_B, () =>
+        q(
+          "UPDATE public.community_records SET beneficiary_name = 'تغيير' WHERE id = $1 RETURNING id",
+          [community.id],
+        ),
+      )
+    ).length === 0,
+    "المطّلع لا يعدّل سجلات المجتمع",
+  );
+  ok(
+    (
+      await asUser(USER_B, () =>
+        q("DELETE FROM public.community_records WHERE id = $1 RETURNING id", [community.id]),
+      )
+    ).length === 0,
+    "المطّلع لا يحذف سجلات المجتمع",
+  );
+  await asUser(USER_A, () =>
+    db.query("DELETE FROM public.data_access_grants WHERE owner_id = $1 AND grantee_id = $2", [
+      USER_A,
+      USER_B,
+    ]),
+  );
+  ok(
+    (await asUser(USER_B, () => q("SELECT * FROM public.community_records"))).length === 0,
+    "سحب الإذن يحجب سجلات المجتمع فورًا",
+  );
+
+  for (const [label, changes] of [
+    ["برنامج في القسم الخطأ", { department: "care" }],
+    ["برنامج غير معروف", { program_id: "unknown" }],
+    ["اسم فارغ", { beneficiary_name: "  " }],
+    ["حالة غير معروفة", { status: "unknown" }],
+    ["مبلغ لبرنامج غير نقدي", { amount: 100, currency: "YER" }],
+    ["سلال لبرنامج غير غذائي", { quantity: 1 }],
+    ["طفل دون ولي أمر", { beneficiary_type: "child" }],
+    ["تاريخ غير صحيح", { service_date: "2026-02-30" }],
+    ["نقد دون مبلغ", { department: "care", program_id: "cash-assistance" }],
+    [
+      "مبلغ سالب",
+      { department: "care", program_id: "cash-assistance", amount: -1, currency: "YER" },
+    ],
+    [
+      "عملة غير مدعومة",
+      { department: "care", program_id: "cash-assistance", amount: 100, currency: "INVALID" },
+    ],
+    ["سلال دون كمية", { department: "care", program_id: "food-baskets" }],
+    ["كمية سالبة", { department: "care", program_id: "food-baskets", quantity: -1 }],
+    ["روضة دون تصنيف طفل", { program_id: "kindergarten" }],
+    ["رعاية أيتام دون تصنيف يتيم", { department: "care", program_id: "orphan-education" }],
+  ]) {
+    const entries = Object.entries(changes);
+    await throws(
+      () =>
+        asUser(USER_A, () =>
+          db.query(
+            `UPDATE public.community_records SET ${entries.map(([key], index) => `${key} = $${index + 1}`).join(", ")} WHERE id = $${entries.length + 1}`,
+            [...entries.map(([, value]) => value), community.id],
+          ),
+        ),
+      `رفض ${label}`,
+    );
+  }
+  for (const program of [
+    "kindergarten",
+    "preschool",
+    "sewing",
+    "embroidery",
+    "naqsh",
+    "design",
+    "first-aid",
+    "food-baskets",
+    "cash-assistance",
+    "orphan-education",
+    "orphan-sponsorship",
+  ]) {
+    const training = [
+      "kindergarten",
+      "preschool",
+      "sewing",
+      "embroidery",
+      "naqsh",
+      "design",
+      "first-aid",
+    ].includes(program);
+    const child = ["kindergarten", "preschool"].includes(program);
+    const orphan = program.startsWith("orphan-");
+    const money = ["cash-assistance", "orphan-sponsorship"].includes(program);
+    const inserted = await asUser(USER_A, () =>
+      one(
+        `INSERT INTO public.community_records (user_id, department, program_id, beneficiary_name, beneficiary_type, guardian_name, service_date, amount, currency, quantity)
+       VALUES ($1, $2, $3, 'مستفيد تجريبي', $4, $5, '2026-10-15', $6, $7, $8) RETURNING id`,
+        [
+          USER_A,
+          training ? "training" : "care",
+          program,
+          child ? "child" : orphan ? "orphan" : "individual",
+          child || orphan ? "ولي الأمر" : null,
+          money ? 200 : null,
+          money ? "YER" : null,
+          program === "food-baskets" ? 2 : null,
+        ],
+      ),
+    );
+    ok(Boolean(inserted.id), `حفظ برنامج ${program}`);
+  }
+  await db.query("UPDATE public.community_records SET updated_at = '2000-01-01' WHERE id = $1", [
+    community.id,
+  ]);
+  await asUser(USER_A, () =>
+    db.query("UPDATE public.community_records SET status = 'completed' WHERE id = $1", [
+      community.id,
+    ]),
+  );
+  ok(
+    (
+      await one("SELECT status, updated_at FROM public.community_records WHERE id = $1", [
+        community.id,
+      ])
+    ).status === "completed",
+    "المالك يحدّث حالة الخدمة",
+  );
+  ok(
+    new Date(
+      (await one("SELECT updated_at FROM public.community_records WHERE id = $1", [community.id]))
+        .updated_at,
+    ).getUTCFullYear() > 2000,
+    "تحديث تاريخ تعديل سجل المجتمع",
+  );
+  await asUser(USER_A, () =>
+    db.query("DELETE FROM public.community_records WHERE id = $1", [community.id]),
+  );
+  ok(
+    !(await one("SELECT id FROM public.community_records WHERE id = $1", [community.id])),
+    "المالك يحذف سجل المجتمع",
+  );
+
   // full-schema.sql (النسخة الموحدة) تشغَّل كما هي من الصفر
   const db2 = new PGlite();
   await applyStubs(db2);
@@ -852,10 +1046,16 @@ async function main() {
     await db2.query(
       `SELECT tablename FROM pg_tables
         WHERE schemaname = 'public'
-          AND tablename IN ('teacher_portals', 'monthly_submissions', 'exam_questions')`,
+          AND tablename IN ('teacher_portals', 'monthly_submissions', 'exam_questions', 'community_records')`,
     )
   ).rows;
-  ok(fsTables.length === 3, "full-schema.sql تشغَّل من الصفر وتنشئ جداول الروابط والأسئلة");
+  ok(
+    fsTables.length === 4,
+    "full-schema.sql تشغَّل من الصفر وتنشئ جداول الروابط والأسئلة والمستفيدين",
+  );
+  const communitySchema = full.slice(full.indexOf("-- Community records (20261015100000)"));
+  for (const stmt of splitStatements(communitySchema)) await db2.query(stmt);
+  ok(true, "يمكن إعادة تنفيذ جزء community_records من الملف الموحد");
   await db2.close();
 
   console.log(`\n✅ نجحت ${passed} اختباراً خلال ${Date.now() - t0}ms.\n`);
