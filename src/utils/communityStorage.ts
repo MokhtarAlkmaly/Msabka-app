@@ -1,100 +1,148 @@
+/**
+ * سجل المجتمع — تخزين **محلي أولاً** (المرحلة 5).
+ *
+ * قبل هذه المرحلة كان كل شيء هنا سحابياً: أي محاولة حفظ بلا إنترنت ترمي
+ * «يتطلب هذا السجل اتصالًا بالإنترنت». الآن:
+ *
+ *  1) القراءة من SQLite دائماً (تعمل بلا نت، وفورية).
+ *  2) تحديث **محصور بالقسم المطلوب فقط** من السحابة عند الاتصال — لا تنزيل
+ *     كامل لكل الأقسام عند فتح تبويب واحد. الصفوف ذات التعديل المعلّق محمية:
+ *     لا تُستبدل ولا تُحذف حتى تُرفع.
+ *  3) الكتابة محلية + `markDirty` + `queueCloudSync` — تعمل بلا نت وتُرفع
+ *     لاحقاً من تلقاء نفسها.
+ *  4) فشل السحابة (جدول غير موجود / صلاحية / انقطاع) **تحذير في الطرفية**،
+ *     لا شاشة خطأ: البيانات محلية والعمل مستمر.
+ *
+ * استثناء واحد مقصود: **وضع الاطلاع** يبقى سحابياً (بيانات صاحب الحساب ليست
+ * على جهازنا) والكتابة فيه مرفوضة. و«وضع الجهاز» لا يلمس السحابة إطلاقاً.
+ */
+
 import { supabase } from "@/integrations/supabase/client";
-import { getViewAsId, isViewingOtherUser } from "./viewAs";
+import { fetchAllPages } from "@/lib/cloud-pages";
+import type { CommunityDepartment } from "@/lib/center-programs";
 import {
   communityRecordSchema,
+  newCommunityRecordId,
+  normalizeCommunityRecord,
+  sortCommunityRecords,
   type CommunityRecord,
   type CommunityRecordInput,
+  type CommunityRecordRow,
 } from "@/lib/community-records";
-import type { CommunityDepartment } from "@/lib/center-programs";
+import {
+  deleteCachedCommunityRecord,
+  getCachedCommunityRecord,
+  getCachedCommunityRecordsForDepartment,
+  putCachedCommunityRecord,
+  replaceScopedRows,
+} from "./localDB";
+import {
+  assertWritableOwner,
+  canRefreshFromCloud,
+  isViewingOtherUser,
+  markLocalChange,
+  pendingIdsFor,
+  resolveOwnerId,
+} from "./pendingIds";
 
-export function communityErrorMessage(error: unknown): string {
-  const code = (error as { code?: string })?.code;
-  if (["42P01", "PGRST205", "42703", "PGRST204"].includes(code ?? "")) {
-    return "قاعدة البيانات تحتاج تحديثًا: طبّق ملف 20261015100000_community_records.sql ثم أعد المحاولة.";
-  }
-  if (code === "42501") return "ليست لديك صلاحية لهذه العملية. تحقق من الحساب وإذن الاطلاع.";
-  return "تعذرت العملية. تحقق من اتصال الإنترنت والصلاحيات ثم أعد المحاولة. لم يتم تأكيد الحفظ.";
-}
+const TABLE = "community_records";
 
-async function currentUserId() {
-  const { data, error } = await supabase.auth.getSession();
-  if (error || !data.session?.user) throw new Error("يلزم تسجيل الدخول");
-  return data.session.user.id;
-}
-function requireConnection() {
-  if (typeof navigator !== "undefined" && navigator.onLine === false)
-    throw new Error("يتطلب هذا السجل اتصالًا بالإنترنت");
-}
-async function writableUserId(expectedUserId: string) {
-  requireConnection();
-  if (isViewingOtherUser()) throw new Error("وضع الاطلاع للقراءة فقط");
-  const id = await currentUserId();
-  if (isViewingOtherUser() || id !== expectedUserId)
-    throw new Error("تغيّر الحساب؛ أعد فتح الصفحة");
-  return id;
-}
+/** تنزيل كل صفوف قسم واحد من السحابة (بلا اقتطاع عند 1000 صف). */
+const fetchDepartmentFromCloud = async (
+  ownerId: string,
+  department: CommunityDepartment,
+  signal?: AbortSignal,
+): Promise<CommunityRecordRow[]> => {
+  const rows = await fetchAllPages<CommunityRecord>(async (from, to) => {
+    let query = supabase
+      .from(TABLE)
+      .select("*")
+      .eq("user_id", ownerId)
+      .eq("department", department)
+      .order("service_date", { ascending: false })
+      .order("id")
+      .range(from, to);
+    if (signal) query = query.abortSignal(signal);
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data ?? []) as CommunityRecord[];
+  });
+  return rows.map((row) => normalizeCommunityRecord(row));
+};
 
+/**
+ * كل سجلات قسم واحد: محلية فوراً، ثم تحديث محصور من السحابة إن توفّر الاتصال.
+ *
+ * @param signal إلغاء اختياري (يُمرَّر من react-query عند إلغاء الطلب).
+ */
 export async function loadCommunityRecords(
   department: CommunityDepartment,
   signal?: AbortSignal,
 ): Promise<CommunityRecord[]> {
-  requireConnection();
-  const owner = getViewAsId() ?? (await currentUserId());
-  const rows: CommunityRecord[] = [];
-  // Supabase caps each response at 1000 rows; never silently truncate the registry.
-  for (let offset = 0; ; offset += 500) {
-    let query = supabase
-      .from("community_records")
-      .select("*")
-      .eq("user_id", owner)
-      .eq("department", department)
-      .order("service_date", { ascending: false })
-      .order("id")
-      .range(offset, offset + 499);
-    if (signal) query = query.abortSignal(signal);
-    const { data, error } = await query;
-    if (error) throw error;
-    rows.push(...data);
-    if (data.length < 500) break;
+  const ownerId = await resolveOwnerId();
+
+  // وضع الاطلاع: القراءة من السحابة مباشرة — بيانات المالك ليست على الجهاز.
+  if (isViewingOtherUser()) {
+    return sortCommunityRecords(await fetchDepartmentFromCloud(ownerId, department, signal));
   }
-  return rows;
+
+  let rows = await getCachedCommunityRecordsForDepartment(ownerId, department);
+
+  if (canRefreshFromCloud(ownerId)) {
+    try {
+      const cloudRows = await fetchDepartmentFromCloud(ownerId, department, signal);
+      const protectedIds = await pendingIdsFor("community_record");
+      await replaceScopedRows<CommunityRecordRow>(
+        TABLE,
+        { user_id: ownerId, department },
+        cloudRows,
+        protectedIds,
+      );
+      rows = await getCachedCommunityRecordsForDepartment(ownerId, department);
+    } catch (err) {
+      // انقطاع أو جدول غير محدَّث: نكتفي بالبيانات المحلية (تحذير لا خطأ).
+      console.warn("communityStorage: تعذّر تحديث سجل المجتمع من السحابة", err);
+    }
+  }
+
+  return sortCommunityRecords(rows);
 }
 
+/** حفظ سجل (إضافة أو تعديل) — محلي أولاً ثم الرفع في الخلفية. */
 export async function saveCommunityRecord(
   input: CommunityRecordInput,
   id: string | undefined,
   expectedUserId: string,
 ): Promise<CommunityRecord> {
+  const ownerId = await assertWritableOwner(expectedUserId);
   const values = communityRecordSchema.parse(input);
-  const user_id = await writableUserId(expectedUserId);
-  // Updates do not use upsert: a deleted/missing record must not be recreated.
-  const query = id
-    ? supabase
-        .from("community_records")
-        .update(values)
-        .eq("id", id)
-        .eq("user_id", user_id)
-        .eq("department", values.department)
-    : supabase.from("community_records").insert({ ...values, user_id });
-  const { data, error } = await query.select("*").single();
-  if (error) throw error;
-  return data;
+  const stamp = new Date().toISOString();
+  const recordId = id ?? newCommunityRecordId();
+  const previous = id ? await getCachedCommunityRecord(id) : undefined;
+
+  const record: CommunityRecordRow = {
+    ...values,
+    id: recordId,
+    user_id: ownerId,
+    created_at: previous?.created_at ?? stamp,
+    updated_at: stamp,
+    local_updated_at: stamp,
+  };
+  await putCachedCommunityRecord(record);
+  await markLocalChange("community_record", "upsert", { id: recordId });
+  return record;
 }
 
+/** حذف سجل — محلياً، والحذف السحابي يمرّ بالطابور. */
 export async function deleteCommunityRecord(
   id: string,
-  department: CommunityDepartment,
+  _department: CommunityDepartment,
   expectedUserId: string,
-) {
-  const owner = await writableUserId(expectedUserId);
-  const { data, error } = await supabase
-    .from("community_records")
-    .delete()
-    .eq("id", id)
-    .eq("user_id", owner)
-    .eq("department", department)
-    .select("id")
-    .single();
-  if (error) throw error;
-  return data;
+): Promise<{ id: string }> {
+  await assertWritableOwner(expectedUserId);
+  await deleteCachedCommunityRecord(id);
+  await markLocalChange("community_record", "delete", { id });
+  return { id };
 }
+
+export { communityErrorMessage } from "@/lib/community-records";
