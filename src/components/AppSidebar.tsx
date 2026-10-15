@@ -30,20 +30,29 @@ import {
   Inbox,
   UsersRound,
   BellRing,
+  CloudUpload,
+  DatabaseBackup,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { getCenterSection } from "@/lib/center-sections";
 import { useAuth } from "@/hooks/useAuth";
+import { useSyncStatus } from "@/hooks/useSyncStatus";
 
 interface SidebarProps {
   online?: boolean;
 }
 
-export const AppSidebar = ({ online = true }: SidebarProps) => {
+export const AppSidebar = ({ online: onlineProp }: SidebarProps) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
-  const { signOut, isAdmin, sharedWithMe, viewAs, setViewAs } = useAuth();
+  const { signOut, isAdmin, sharedWithMe, viewAs, setViewAs, authMode } = useAuth();
+  /**
+   * حالة الاتصال تُقرأ فعلياً من الجهاز (كانت في السابق افتراضاً `true`
+   * دائماً لأن أحداً لا يمرر الخاصية) + عدد التغييرات المنتظرة للترحيل.
+   */
+  const { online: connected, pendingCount } = useSyncStatus();
+  const online = onlineProp ?? connected;
   const pathname = location.pathname || "/";
   const section = getCenterSection(pathname);
 
@@ -316,7 +325,7 @@ export const AppSidebar = ({ online = true }: SidebarProps) => {
           <h2 className="mt-1.5 text-base font-black tracking-tight text-white">{section.title}</h2>
           <p className="text-[11px] text-white/60">{section.description}</p>
 
-          <div className="mt-2.5 flex items-center gap-2">
+          <div className="mt-2.5 flex flex-wrap items-center justify-center gap-1.5">
             <span
               className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
                 online
@@ -325,8 +334,26 @@ export const AppSidebar = ({ online = true }: SidebarProps) => {
               }`}
             >
               {online ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-              {online ? "متصل" : "أوفلاين"}
+              {online ? "متصل" : "بدون نت"}
             </span>
+
+            {!online && authMode !== "cloud" && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/20 px-2 py-0.5 text-[11px] font-medium text-amber-200 ring-1 ring-amber-400/30">
+                <DatabaseBackup className="h-3 w-3" />
+                حفظ محلي
+              </span>
+            )}
+
+            {pendingCount > 0 && (
+              <a
+                href="/settings"
+                className="inline-flex items-center gap-1 rounded-full bg-sky-400/20 px-2 py-0.5 text-[11px] font-medium text-sky-200 ring-1 ring-sky-400/30 transition-colors hover:bg-sky-400/30"
+                title="افتح الإعدادات لترحيل البيانات إلى السحابة"
+              >
+                <CloudUpload className="h-3 w-3" />
+                {pendingCount} بانتظار الترحيل
+              </a>
+            )}
           </div>
         </div>
 

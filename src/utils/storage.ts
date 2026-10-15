@@ -120,9 +120,21 @@ import {
   CachedMedia,
   CachedInternalCompetition,
   CachedExternalCompetition,
+  cacheMonthlyTracking,
+  getCachedMonthlyTracking,
+  getCachedMonthlyForPeriod,
+  getCachedMonthlyForStudent,
+  getLatestCachedMonthlyPeriod,
+  putCachedMonthly,
+  getCachedMonthlyItem,
+  deleteCachedMonthly,
+  deleteCachedMonthlyForStudent,
+  CachedMonthly,
 } from "./localDB";
 import { markDirty, getPendingChanges, clearPending, remapPendingStudentId } from "./localDB";
 import { getViewAsId, isViewingOtherUser, subscribeViewAs } from "./viewAs";
+import { getLocalOwnerId, saveOfflineIdentity } from "./localAuth";
+import { DEVICE_OWNER_ID } from "@/lib/offline-auth";
 
 // ===== Helper: get cached user =====
 const CACHE_USER_SETTING = "cache_user_id";
@@ -158,6 +170,15 @@ const getAuthUserId = async (): Promise<string | null> => {
     cachedAuthUserId = user?.id || null;
   }
 
+  /**
+   * بدون نت (أو بعد انتهاء صلاحية رمز الوصول) نرجع إلى الجلسة المحلية:
+   * إما هوية الحساب المحفوظة من آخر دخول ناجح، أو «وضع الجهاز».
+   * بهذا تبقى كل الكتابات منسوبة لمالك واحد معروف ولا تتعطّل الطبقة المحلية.
+   */
+  if (!cachedAuthUserId) {
+    cachedAuthUserId = await getLocalOwnerId();
+  }
+
   if (cachedAuthUserId) knownUserId = cachedAuthUserId;
   return cachedAuthUserId;
 };
@@ -167,7 +188,7 @@ const getAuthUserId = async (): Promise<string | null> => {
  * في الوضع الطبيعي هو الحساب نفسه، وفي وضع الاطلاع هو المستخدم المعروض
  * (قراءة فقط — كل دوال الكتابة محمية بـ guardWrite).
  */
-const getUserId = async (): Promise<string | null> => {
+export const getUserId = async (): Promise<string | null> => {
   const viewing = getViewAsId();
   if (viewing) return viewing;
   return getAuthUserId();
@@ -189,6 +210,21 @@ const guardWrite = () => {
 supabase.auth.onAuthStateChange((event, session) => {
   const newUserId = session?.user?.id || null;
   cachedAuthUserId = newUserId;
+
+  /**
+   * كل دخول/تجديد ناجح يحفظ هوية الحساب محلياً — هذه هي البذرة التي يعتمد
+   * عليها «الدخول بدون نت» لاحقاً (`src/utils/localAuth.ts`).
+   */
+  if (newUserId && session?.user) {
+    const email = session.user.email ?? null;
+    const name =
+      (session.user.user_metadata?.full_name as string | undefined) ??
+      (session.user.user_metadata?.name as string | undefined) ??
+      null;
+    void saveOfflineIdentity({ user_id: newUserId, email, name }).catch((error) => {
+      console.warn("تعذّر حفظ الهوية المحلية للعمل بدون نت:", error);
+    });
+  }
 
   const identityChanged = knownUserId !== null && newUserId !== null && knownUserId !== newUserId;
   const signedOut = event === "SIGNED_OUT";
@@ -212,7 +248,13 @@ subscribeViewAs(() => {
 // ===== Online check =====
 const isOnline = () => typeof navigator !== "undefined" && navigator.onLine;
 
-const canUseCloud = (userId: string | null): userId is string => !!userId && isOnline();
+/**
+ * هل يمكن الحديث إلى السحابة الآن؟
+ * «وضع الجهاز» (بلا حساب) يُستثنى صراحةً: معرّفه المحلي ليس UUID صالحاً في
+ * Supabase، فأي استعلام به سيرفضه الخادم — نوفّر الجولة ونعمل محلياً فقط.
+ */
+const canUseCloud = (userId: string | null): userId is string =>
+  !!userId && userId !== DEVICE_OWNER_ID && isOnline();
 
 type UserSettingsRecord = Record<string, unknown> | null;
 type SettingsQuery = Promise<{ data: UserSettingsRecord; error: unknown }> & {
@@ -375,7 +417,7 @@ const runSyncFromCloud = async (onProgress?: ProgressCb): Promise<boolean> => {
       }
     }
 
-    onProgress?.(0, 13, "تحميل البيانات");
+    onProgress?.(0, 14, "تحميل البيانات");
     const [
       studentsRes,
       historyRes,
@@ -389,6 +431,7 @@ const runSyncFromCloud = async (onProgress?: ProgressCb): Promise<boolean> => {
       internalCompRes,
       externalCompRes,
       mediaRes,
+      monthlyRes,
     ] = await Promise.all([
       supabase.from("students").select("*").eq("user_id", userId).order("id"),
       supabase.from("hifz_history").select("*").eq("user_id", userId),
@@ -402,6 +445,7 @@ const runSyncFromCloud = async (onProgress?: ProgressCb): Promise<boolean> => {
       supabase.from("internal_competitions").select("*").eq("user_id", userId),
       supabase.from("external_competitions").select("*").eq("user_id", userId),
       supabase.from("media").select("*").eq("user_id", userId),
+      supabase.from("monthly_tracking").select("*").eq("user_id", userId),
     ]);
 
     if (studentsRes.error) throw studentsRes.error;
@@ -414,7 +458,7 @@ const runSyncFromCloud = async (onProgress?: ProgressCb): Promise<boolean> => {
     if (expensesRes.error) throw expensesRes.error;
     if (certificatesRes.error) throw certificatesRes.error;
 
-    onProgress?.(1, 13, "حفظ الطلاب");
+    onProgress?.(1, 14, "حفظ الطلاب");
     await cacheStudents(
       (studentsRes.data || []).map((s) => ({
         id: s.id,
@@ -434,7 +478,7 @@ const runSyncFromCloud = async (onProgress?: ProgressCb): Promise<boolean> => {
       })),
     );
 
-    onProgress?.(2, 13, "حفظ سجل الحفظ");
+    onProgress?.(2, 14, "حفظ سجل الحفظ");
     await cacheHifzHistory(
       (historyRes.data || []).map((r) => ({
         student_id: r.student_id,
@@ -443,7 +487,7 @@ const runSyncFromCloud = async (onProgress?: ProgressCb): Promise<boolean> => {
       })),
     );
 
-    onProgress?.(3, 13, "حفظ بيانات الأعوام");
+    onProgress?.(3, 14, "حفظ بيانات الأعوام");
     await cacheYearData(
       (yearDataRes.data || []).map((r) => ({
         student_id: r.student_id,
@@ -463,41 +507,46 @@ const runSyncFromCloud = async (onProgress?: ProgressCb): Promise<boolean> => {
       })),
     );
 
-    onProgress?.(4, 13, "حفظ المعلمين والمعلمات");
+    onProgress?.(4, 14, "حفظ المعلمين والمعلمات");
     await cacheTeachers((teachersRes.data || []) as CachedTeacher[]);
 
-    onProgress?.(5, 13, "حفظ الإكراميات");
+    onProgress?.(5, 14, "حفظ الإكراميات");
     await cacheTeacherBonuses((teacherBonusesRes.data || []) as CachedTeacherBonus[]);
 
-    onProgress?.(6, 13, "حفظ الداعمين");
+    onProgress?.(6, 14, "حفظ الداعمين");
     await cacheDonors((donorsRes.data || []) as CachedDonor[]);
 
-    onProgress?.(7, 13, "حفظ الجوائز");
+    onProgress?.(7, 14, "حفظ الجوائز");
     await cacheAwards((awardsRes.data || []) as CachedAward[]);
 
-    onProgress?.(8, 13, "حفظ المصروفات");
+    onProgress?.(8, 14, "حفظ المصروفات");
     await cacheCeremonyExpenses((expensesRes.data || []) as CachedCeremonyExpense[]);
 
-    onProgress?.(9, 13, "حفظ الشهادات");
+    onProgress?.(9, 14, "حفظ الشهادات");
     await cacheCertificates((certificatesRes.data || []) as CachedCertificate[]);
 
-    onProgress?.(10, 13, "حفظ المسابقات الداخلية");
+    onProgress?.(10, 14, "حفظ المسابقات الداخلية");
     if (!internalCompRes.error && internalCompRes.data) {
       await cacheInternalCompetitions(
         (internalCompRes.data || []) as unknown as CachedInternalCompetition[],
       );
     }
 
-    onProgress?.(11, 13, "حفظ المسابقات الخارجية");
+    onProgress?.(11, 14, "حفظ المسابقات الخارجية");
     if (!externalCompRes.error && externalCompRes.data) {
       await cacheExternalCompetitions(
         (externalCompRes.data || []) as unknown as CachedExternalCompetition[],
       );
     }
 
-    onProgress?.(12, 13, "حفظ بيانات الوسائط");
+    onProgress?.(12, 14, "حفظ بيانات الوسائط");
     if (!mediaRes.error && mediaRes.data) {
       await cacheMedia((mediaRes.data || []) as CachedMedia[]);
+    }
+
+    onProgress?.(13, 14, "حفظ المتابعة الشهرية");
+    if (!monthlyRes.error && monthlyRes.data) {
+      await cacheMonthlyTracking(monthlyRes.data as unknown as CachedMonthly[]);
     }
 
     // Mark the cache owner only after all user-scoped records were downloaded.
@@ -515,7 +564,7 @@ const runSyncFromCloud = async (onProgress?: ProgressCb): Promise<boolean> => {
     }
 
     await setLastSyncTime();
-    onProgress?.(13, 13, "اكتمل");
+    onProgress?.(14, 14, "اكتمل");
     return true;
   } catch (err) {
     console.error("Sync from cloud failed:", err);
@@ -972,6 +1021,7 @@ export const deleteStudent = async (id: number) => {
   for (const row of allExternal.filter((r) => r.student_id === id)) {
     await deleteItem("external_competitions", row.id);
   }
+  await deleteCachedMonthlyForStudent(id);
   queueCloudSync();
 };
 
@@ -1173,6 +1223,19 @@ export const deleteFullYearData = async (year: string) => {
       await markDirty(group.entity, "delete", { id: row.id });
     }
   }
+
+  // المتابعة الشهرية محلية أيضاً الآن: نحذف صفوف العام ونُصفّ الحذف في الطابور
+  // حتى يصل السحابة عند عودة الاتصال (بدل الاعتماد على الاتصال اللحظي فقط).
+  const monthlyRows = await getCachedMonthlyTracking();
+  for (const row of monthlyRows.filter((item) => item.year === year)) {
+    await deleteCachedMonthly(row.student_id, row.year, row.month);
+    await markDirty("monthly", "delete", {
+      student_id: row.student_id,
+      year: row.year,
+      month: row.month,
+    });
+  }
+
   queueCloudSync();
 };
 
@@ -2641,6 +2704,63 @@ const runSyncToCloud = async (onProgress?: ProgressCb): Promise<boolean> => {
       "رفع بيانات الوسائط",
     );
 
+    // ===== المتابعة الشهرية (مفتاح مركّب: طالب + عام + شهر) =====
+    const monthlyDeletes = pending.filter((p) => p.entity === "monthly" && p.op === "delete");
+    const monthlyUpserts = pending.filter((p) => p.entity === "monthly" && p.op === "upsert");
+
+    for (const p of monthlyDeletes) {
+      try {
+        const { error } = await supabase
+          .from("monthly_tracking")
+          .delete()
+          .eq("user_id", userId)
+          .eq("student_id", p.ref.student_id)
+          .eq("year", p.ref.year)
+          .eq("month", p.ref.month);
+        if (error) {
+          console.error("monthly_tracking delete failed:", error);
+          hadError = true;
+        }
+      } catch {
+        /* ignore */
+      }
+      await clearPending(p.key);
+      tick("حذف المتابعة الشهرية");
+    }
+
+    if (monthlyUpserts.length > 0) {
+      const allMonthly = await getCachedMonthlyTracking();
+      const payload = monthlyUpserts
+        .map((p) =>
+          allMonthly.find(
+            (r) =>
+              r.student_id === p.ref.student_id && r.year === p.ref.year && r.month === p.ref.month,
+          ),
+        )
+        .filter(Boolean)
+        .map((row) => toMonthlyCloudPayload(row as CachedMonthly, userId));
+
+      for (let i = 0; i < payload.length; i += 500) {
+        const chunk = payload.slice(i, i + 500);
+        try {
+          const { error } = await supabase
+            .from("monthly_tracking")
+            .upsert(chunk, { onConflict: "student_id,year,month" });
+          if (error) {
+            console.error("monthly_tracking upsert failed:", error);
+            hadError = true;
+          }
+        } catch (err) {
+          console.error("monthly_tracking upsert threw:", err);
+          hadError = true;
+        }
+      }
+      for (const p of monthlyUpserts) {
+        await clearPending(p.key);
+        tick("رفع المتابعة الشهرية");
+      }
+    }
+
     await setLastSyncTime();
     tick("اكتمل");
     return !hadError;
@@ -2731,7 +2851,16 @@ const emptyMonthlyRecord = (): MonthlyRecord => ({
   behaviorScore: "",
 });
 
-const rowToRecord = (row: MonthlyRow): MonthlyRecord => ({
+/**
+ * المتابعة الشهرية أصبحت **محلية أولاً**: جدول `monthly_tracking` موجود في
+ * SQLite المحلي، فتُقرأ وتُكتب بالكامل بدون إنترنت، وتُرحَّل إلى السحابة عند
+ * توفر الاتصال (طابور `pending_changes` + زر «الترحيل الشامل»).
+ */
+
+/** صف متابعة من أي مصدر — الأعمدة متطابقة بين الجدول المحلي وجدول السحابة. */
+type MonthlyRowLike = CachedMonthly | MonthlyRow;
+
+const rowToRecord = (row: MonthlyRowLike): MonthlyRecord => ({
   memoFrom: {
     surah: row.memorization_from_surah ?? null,
     ayah: row.memorization_from_ayah ?? null,
@@ -2747,29 +2876,101 @@ const rowToRecord = (row: MonthlyRow): MonthlyRecord => ({
   behaviorScore: row.behavior_score?.toString() || "",
 });
 
+/** سجل الواجهة ← صف الجدول المحلي (مع الحفاظ على معرّف السحابة إن وُجد). */
+const recordToRow = (
+  record: MonthlyRecord,
+  base: { id: string; user_id: string; student_id: number; year: string; month: number },
+): CachedMonthly => ({
+  id: base.id,
+  user_id: base.user_id,
+  student_id: base.student_id,
+  year: base.year,
+  month: base.month,
+  memorization_from_surah: record.memoFrom.surah,
+  memorization_from_ayah: record.memoFrom.ayah,
+  memorization_to_surah: record.memoTo.surah,
+  memorization_to_ayah: record.memoTo.ayah,
+  memorization_hifz_score: parseFloat(record.memoHifzScore) || 0,
+  memorization_recitation_score: parseFloat(record.memoRecitationScore) || 0,
+  review_from_surah: record.reviewFrom.surah,
+  review_from_ayah: record.reviewFrom.ayah,
+  review_to_surah: record.reviewTo.surah,
+  review_to_ayah: record.reviewTo.ayah,
+  review_hifz_score: parseFloat(record.reviewHifzScore) || 0,
+  review_recitation_score: parseFloat(record.reviewRecitationScore) || 0,
+  attendance_score: parseFloat(record.attendanceScore) || 0,
+  behavior_score: parseFloat(record.behaviorScore) || 0,
+  created_at: null,
+  updated_at: new Date().toISOString(),
+});
+
+/**
+ * صف المتابعة المحلي ← حمولة السحابة.
+ * يُسقط عمود التدقيق المحلي `local_updated_at` (لا وجود له في Supabase)
+ * ويفرض `user_id` الصحيح. تُستعمل في المزامنة العادية وفي الترحيل الشامل.
+ */
+export const toMonthlyCloudPayload = (row: CachedMonthly, ownerId: string) => ({
+  id: row.id || undefined,
+  user_id: ownerId,
+  student_id: row.student_id,
+  year: row.year,
+  month: row.month,
+  memorization_from_surah: row.memorization_from_surah,
+  memorization_from_ayah: row.memorization_from_ayah,
+  memorization_to_surah: row.memorization_to_surah,
+  memorization_to_ayah: row.memorization_to_ayah,
+  memorization_hifz_score: Number(row.memorization_hifz_score) || 0,
+  memorization_recitation_score: Number(row.memorization_recitation_score) || 0,
+  review_from_surah: row.review_from_surah,
+  review_from_ayah: row.review_from_ayah,
+  review_to_surah: row.review_to_surah,
+  review_to_ayah: row.review_to_ayah,
+  review_hifz_score: Number(row.review_hifz_score) || 0,
+  review_recitation_score: Number(row.review_recitation_score) || 0,
+  attendance_score: Number(row.attendance_score) || 0,
+  behavior_score: Number(row.behavior_score) || 0,
+});
+
+/**
+ * تحديث الجدول المحلي من السحابة لنطاق محدد (شهر أو طالب).
+ * يفشل بصمت عند انقطاع الاتصال — القارئ يكمل من البيانات المحلية.
+ */
+const refreshMonthlyFromCloud = async (
+  userId: string,
+  scope: { year: string; month?: number; studentId?: number },
+): Promise<boolean> => {
+  if (!canUseCloud(userId)) return false;
+  try {
+    let query = supabase.from("monthly_tracking").select("*").eq("user_id", userId);
+    if (scope.studentId) query = query.eq("student_id", scope.studentId);
+    if (scope.year) query = query.eq("year", scope.year);
+    if (scope.month) query = query.eq("month", scope.month);
+    const { data, error } = await query;
+    if (error || !data) return false;
+    for (const row of data) await putCachedMonthly(row as unknown as CachedMonthly);
+    return true;
+  } catch (err) {
+    console.warn("تعذّر تحديث المتابعة الشهرية من السحابة — سنعتمد على المحلي:", err);
+    return false;
+  }
+};
+
 export const loadMonthlyTrackingForMonth = async (
   year: string,
   month: number,
 ): Promise<Record<number, MonthlyRecord>> => {
   const userId = await getUserId();
   const result: Record<number, MonthlyRecord> = {};
-  if (!canUseCloud(userId)) return result;
+  if (!userId) return result;
 
-  const { data, error } = await supabase
-    .from("monthly_tracking")
-    .select("*")
-    .eq("user_id", userId)
-    .eq("year", year)
-    .eq("month", month);
+  // متصل؟ نحدّث من السحابة أولاً. غير متصل؟ نكمل من المحلي مباشرة.
+  await refreshMonthlyFromCloud(userId, { year, month });
 
-  if (error) {
-    console.error("loadMonthlyTrackingForMonth failed:", error);
-    return result;
-  }
-
-  (data || []).forEach((row) => {
+  const rows = await getCachedMonthlyForPeriod(year, month);
+  for (const row of rows) {
+    if (!belongsToUser(row, userId)) continue;
     result[row.student_id] = rowToRecord(row);
-  });
+  }
   return result;
 };
 
@@ -2779,23 +2980,15 @@ export const loadMonthlyTrackingForStudent = async (
 ): Promise<Record<number, MonthlyRecord>> => {
   const userId = await getUserId();
   const result: Record<number, MonthlyRecord> = {};
-  if (!canUseCloud(userId)) return result;
+  if (!userId) return result;
 
-  const { data, error } = await supabase
-    .from("monthly_tracking")
-    .select("*")
-    .eq("user_id", userId)
-    .eq("year", year)
-    .eq("student_id", studentId);
+  await refreshMonthlyFromCloud(userId, { year, studentId });
 
-  if (error) {
-    console.error("loadMonthlyTrackingForStudent failed:", error);
-    return result;
-  }
-
-  (data || []).forEach((row) => {
+  const rows = await getCachedMonthlyForStudent(studentId, year);
+  for (const row of rows) {
+    if (!belongsToUser(row, userId)) continue;
     result[row.month] = rowToRecord(row);
-  });
+  }
   return result;
 };
 
@@ -2817,6 +3010,11 @@ export const getPreviousMonthEndPoints = async (
   return { memoFrom: emptyPoint(), reviewFrom: emptyPoint() };
 };
 
+/**
+ * حفظ متابعة شهر لطالب.
+ * يُكتب محلياً **دائماً** (حتى بدون نت) ثم يُصفّ في طابور الترحيل إلى السحابة.
+ * الرجوع `true` يعني «حُفظ على الجهاز وسيُرحَّل»، لا «وصل السحابة الآن».
+ */
 export const saveMonthlyRecord = async (
   year: string,
   studentId: number,
@@ -2825,54 +3023,36 @@ export const saveMonthlyRecord = async (
 ): Promise<boolean> => {
   guardWrite();
   const userId = await getUserId();
-  if (!canUseCloud(userId)) return false;
+  if (!userId) return false;
 
-  const { error } = await supabase.from("monthly_tracking").upsert(
-    {
-      user_id: userId,
-      student_id: studentId,
-      year,
-      month,
-      memorization_from_surah: record.memoFrom.surah,
-      memorization_from_ayah: record.memoFrom.ayah,
-      memorization_to_surah: record.memoTo.surah,
-      memorization_to_ayah: record.memoTo.ayah,
-      memorization_hifz_score: parseFloat(record.memoHifzScore) || 0,
-      memorization_recitation_score: parseFloat(record.memoRecitationScore) || 0,
-      review_from_surah: record.reviewFrom.surah,
-      review_from_ayah: record.reviewFrom.ayah,
-      review_to_surah: record.reviewTo.surah,
-      review_to_ayah: record.reviewTo.ayah,
-      review_hifz_score: parseFloat(record.reviewHifzScore) || 0,
-      review_recitation_score: parseFloat(record.reviewRecitationScore) || 0,
-      attendance_score: parseFloat(record.attendanceScore) || 0,
-      behavior_score: parseFloat(record.behaviorScore) || 0,
-    },
-    { onConflict: "student_id,year,month" },
-  );
-
-  if (error) {
-    console.error("saveMonthlyRecord failed:", error);
-    return false;
-  }
+  const existing = await getCachedMonthlyItem(studentId, year, month);
+  const row = recordToRow(record, {
+    id: existing?.id || newLocalId(),
+    user_id: userId,
+    student_id: studentId,
+    year,
+    month,
+  });
+  await putCachedMonthly({ ...row, created_at: existing?.created_at ?? null });
+  await markDirty("monthly", "upsert", { student_id: studentId, year, month });
 
   await recomputeAnnualFromMonthly(year, studentId);
+  queueCloudSync();
   return true;
 };
 
+/**
+ * إعادة حساب درجات العام من المتابعة الشهرية — من الجدول المحلي دائماً،
+ * فتعمل بدون نت وتعطي نفس النتيجة لأنها تقرأ ما حُفظ للتو.
+ */
 export const recomputeAnnualFromMonthly = async (year: string, studentId: number) => {
   guardWrite();
   const userId = await getUserId();
-  if (!canUseCloud(userId)) return;
+  if (!userId) return;
 
-  const { data, error } = await supabase
-    .from("monthly_tracking")
-    .select("*")
-    .eq("user_id", userId)
-    .eq("year", year)
-    .eq("student_id", studentId);
-
-  if (error || !data) return;
+  const data = (await getCachedMonthlyForStudent(studentId, year)).filter((row) =>
+    belongsToUser(row, userId),
+  );
 
   const pagesPerRow = await Promise.all(
     data.map(async (r) => {
@@ -2905,7 +3085,7 @@ export const recomputeAnnualFromMonthly = async (year: string, studentId: number
     parts: partsFromPages > 0 ? partsFromPages.toFixed(2).replace(/\.00$/, "") : existing.parts,
     annual: totalMonthlyOutOf20 > 0 ? annualScore.toFixed(2).replace(/\.00$/, "") : existing.annual,
   });
-  await syncToCloud();
+  queueCloudSync();
 };
 
 export interface MonthlyRanking {
@@ -2920,16 +3100,12 @@ export const getMonthlyRankings = async (
   month: number,
 ): Promise<MonthlyRanking[]> => {
   const userId = await getUserId();
-  if (!canUseCloud(userId)) return [];
+  if (!userId) return [];
 
-  const { data, error } = await supabase
-    .from("monthly_tracking")
-    .select("*")
-    .eq("user_id", userId)
-    .eq("year", year)
-    .eq("month", month);
-
-  if (error || !data) return [];
+  await refreshMonthlyFromCloud(userId, { year, month });
+  const data = (await getCachedMonthlyForPeriod(year, month)).filter((row) =>
+    belongsToUser(row, userId),
+  );
 
   return Promise.all(
     data.map(async (r) => ({
@@ -2950,8 +3126,13 @@ export const getMonthlyRankings = async (
   );
 };
 
+/** أحدث فترة متابعة مسجّلة — محلياً أولاً، ومن السحابة إذا كان المحلي فارغاً. */
 export const getLatestTrackedPeriod = async (): Promise<{ year: string; month: number } | null> => {
   const userId = await getUserId();
+  if (!userId) return null;
+
+  const local = await getLatestCachedMonthlyPeriod();
+  if (local) return local;
   if (!canUseCloud(userId)) return null;
 
   const { data, error } = await supabase
@@ -2965,6 +3146,9 @@ export const getLatestTrackedPeriod = async (): Promise<{ year: string; month: n
   if (error || !data || data.length === 0) return null;
   return { year: data[0].year, month: data[0].month };
 };
+
+/** سجل فارغ — يُستعمل كنقطة بداية عند إنشاء متابعة شهر جديد. */
+export const createEmptyMonthlyRecord = (): MonthlyRecord => emptyMonthlyRecord();
 
 export { TRACKING_MONTHS };
 
@@ -3011,29 +3195,29 @@ export const checkGlobalDuplicateName = async (
   return { studentId: match.id, years };
 };
 
+/**
+ * الخاتمون (من أتمّوا 30 جزءاً).
+ * تُحسب من البيانات المحلية دائماً — فهي موجودة في `year_data` المحلي — فتعمل
+ * الصفحة بدون إنترنت، وتُحدَّث من السحابة ضمن `syncFromCloud`.
+ */
 export const loadKhatimat = async (): Promise<KhatimEntry[]> => {
+  await ensureCache();
   const userId = await getUserId();
-  if (!canUseCloud(userId)) return [];
+  if (!userId) return [];
 
-  const { data, error } = await supabase
-    .from("year_data")
-    .select("student_id, year, total_hifz, total, grade, teacher, students(name)")
-    .eq("user_id", userId);
+  const [yearRows, students] = await Promise.all([getCachedYearData(), getCachedStudents()]);
+  const nameById = new Map(students.map((student) => [student.id, student.name]));
 
-  if (error || !data) {
-    console.error("loadKhatimat failed:", error);
-    return [];
-  }
-
-  return data
-    .filter((r) => (parseFloat(r.total_hifz) || 0) >= 30)
-    .map((r) => ({
-      studentId: r.student_id,
-      name: r.students?.name || "",
-      teacher: r.teacher || "",
-      year: r.year,
-      totalScore: r.total || "0",
-      grade: r.grade || "",
+  return yearRows
+    .filter((row) => (parseFloat(row.total_hifz) || 0) >= 30)
+    .map((row) => ({
+      studentId: row.student_id,
+      name: nameById.get(row.student_id) || "",
+      teacher: row.teacher || "",
+      year: row.year,
+      totalScore: row.total || "0",
+      grade: row.grade || "",
     }))
+    .filter((entry) => entry.name)
     .sort((a, b) => a.year.localeCompare(b.year) || a.name.localeCompare(b.name, "ar"));
 };

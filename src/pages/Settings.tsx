@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import SyncBackupPanel from "@/components/SyncBackupPanel";
 import logo from "@/assets/logo.png";
 import {
   AlertTriangle,
@@ -655,6 +656,9 @@ const Settings = () => {
                 </Card>
               </div>
             </div>
+
+            {/* ===== العمل بدون إنترنت: الترحيل الشامل + النسخ في مجلد ظاهر ===== */}
+            <SyncBackupPanel />
 
             <Card className="rounded-[1.75rem] border-destructive/25 bg-destructive/[0.03] shadow-xl shadow-destructive/5">
               <CardHeader>

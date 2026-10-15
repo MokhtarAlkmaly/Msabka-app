@@ -10,9 +10,30 @@ export const Route = createFileRoute("/_authenticated")({
   beforeLoad: async () => {
     // getSession reads the persisted session locally, so an authenticated user
     // can still open the offline-first registry without a network round trip.
-    const { data, error } = await supabase.auth.getSession();
-    if (error || !data.session?.user) throw redirect({ to: "/auth" });
-    return { user: data.session.user };
+    const { data, error } = await supabase.auth.getSession().catch(() => ({
+      data: { session: null },
+      error: null,
+    }));
+    if (!error && data.session?.user) return { user: data.session.user };
+
+    /**
+     * بدون نت (أو بعد انتهاء صلاحية رمز الوصول) تكفي الجلسة المحلية المفتوحة:
+     * إما هوية حساب محفوظة + رمز PIN، أو «وضع الجهاز». بهذا لا يُطرد المستخدم
+     * إلى شاشة الدخول وهو في منتصف الإدخال.
+     */
+    const { getLocalSession } = await import("@/utils/localAuth");
+    const local = await getLocalSession().catch(() => null);
+    if (local) {
+      return {
+        user: {
+          id: local.user_id,
+          email: local.email ?? undefined,
+          user_metadata: { full_name: local.name ?? "", offline: true, mode: local.mode },
+        },
+      };
+    }
+
+    throw redirect({ to: "/auth" });
   },
   component: AuthenticatedLayout,
 });

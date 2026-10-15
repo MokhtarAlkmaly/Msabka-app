@@ -5,7 +5,13 @@
  */
 
 import type { capSQLiteSet } from "@capacitor-community/sqlite";
-import { getDB, persist } from "./sqliteClient";
+import {
+  getDB,
+  persist,
+  LOCAL_AUDITED_TABLES,
+  countTableRows,
+  listTableColumns,
+} from "./sqliteClient";
 
 const STORES = {
   students: "students",
@@ -23,6 +29,7 @@ const STORES = {
   internalCompetitions: "internal_competitions",
   externalCompetitions: "external_competitions",
   media: "media",
+  monthly: "monthly_tracking",
 } as const;
 
 // ========== سجلّ الجداول ==========
@@ -261,7 +268,42 @@ const TABLES: Record<string, TableConfig> = {
     ],
     pk: ["id"],
   },
+  [STORES.monthly]: {
+    columns: [
+      "id",
+      "user_id",
+      "student_id",
+      "year",
+      "month",
+      "memorization_from_surah",
+      "memorization_from_ayah",
+      "memorization_to_surah",
+      "memorization_to_ayah",
+      "memorization_hifz_score",
+      "memorization_recitation_score",
+      "review_from_surah",
+      "review_from_ayah",
+      "review_to_surah",
+      "review_to_ayah",
+      "review_hifz_score",
+      "review_recitation_score",
+      "attendance_score",
+      "behavior_score",
+      "created_at",
+      "updated_at",
+    ],
+    pk: ["student_id", "year", "month"],
+  },
 };
+
+/**
+ * أعمدة `local_updated_at` تُضاف برمجياً لكل جداول البيانات (نفس القائمة التي
+ * تُرحَّل بـ ALTER TABLE في sqliteClient) حتى لا تُكرَّر يدوياً في كل تعريف.
+ */
+for (const tableName of LOCAL_AUDITED_TABLES) {
+  const cfg = TABLES[tableName];
+  if (cfg && !cfg.columns.includes("local_updated_at")) cfg.columns.push("local_updated_at");
+}
 
 const getTable = (storeName: string): TableConfig => {
   const cfg = TABLES[storeName];
@@ -272,7 +314,14 @@ const getTable = (storeName: string): TableConfig => {
 const toRow = (cfg: TableConfig, item: Row): Row => {
   const raw = cfg.toRow ? cfg.toRow(item) : item;
   const row: Row = {};
-  for (const col of cfg.columns) row[col] = raw[col] ?? null;
+  for (const col of cfg.columns) {
+    let value = raw[col] ?? null;
+    if (col === "local_updated_at" && (value === null || value === "")) {
+      // عند الكتابة المحلية: الآن. عند التنزيل من السحابة: تاريخ السحابة نفسه.
+      value = typeof raw.updated_at === "string" ? raw.updated_at : new Date().toISOString();
+    }
+    row[col] = value;
+  }
   return row;
 };
 
@@ -644,6 +693,16 @@ export const getLastSyncTime = async (): Promise<number | null> => {
   return item?.time || null;
 };
 
+/** طابع زمني عام في جدول meta (آخر ترحيل شامل، آخر نسخة احتياطية…). */
+export const setMetaTime = async (key: string, time = Date.now()) => {
+  await putItem(STORES.meta, { key, time });
+};
+
+export const getMetaTime = async (key: string): Promise<number | null> => {
+  const item = await getItem<{ key: string; time: number }>(STORES.meta, key);
+  return item?.time || null;
+};
+
 export const isCachePopulated = async (): Promise<boolean> => {
   const lastSync = await getLastSyncTime();
   return lastSync !== null;
@@ -676,7 +735,8 @@ export type PendingEntity =
   | "certificate"
   | "internal_competition"
   | "external_competition"
-  | "media";
+  | "media"
+  | "monthly";
 
 export type PendingChange = {
   key: string;
@@ -706,6 +766,7 @@ export const markDirty = (entity: PendingEntity, op: PendingOp, ref: any) => {
   else if (entity === "internal_competition") key = `internal_comp:${ref.id}`;
   else if (entity === "external_competition") key = `external_comp:${ref.id}`;
   else if (entity === "media") key = `media:${ref.id}`;
+  else if (entity === "monthly") key = `monthly:${ref.student_id}|${ref.year}|${ref.month}`;
   return putItem(STORES.pending, { key, entity, op, ref, ts: Date.now() });
 };
 
@@ -727,7 +788,9 @@ export const remapPendingStudentId = async (oldId: number, newId: number) => {
       p.ref.student_id = newId;
       touched = true;
     } else if (
-      (p.entity === "internal_competition" || p.entity === "external_competition") &&
+      (p.entity === "internal_competition" ||
+        p.entity === "external_competition" ||
+        p.entity === "monthly") &&
       p.ref?.student_id === oldId
     ) {
       p.ref.student_id = newId;
@@ -829,4 +892,234 @@ export const hasAnyCachedStudent = async (): Promise<boolean> => {
   const db = await getDB();
   const res = await db.query(`SELECT 1 FROM ${STORES.students} LIMIT 1`);
   return (res.values?.length ?? 0) > 0;
+};
+
+// ========== المتابعة الشهرية (monthly_tracking) ==========
+
+export type CachedMonthly = {
+  id: string;
+  user_id: string;
+  student_id: number;
+  year: string;
+  month: number;
+  memorization_from_surah: number | null;
+  memorization_from_ayah: number | null;
+  memorization_to_surah: number | null;
+  memorization_to_ayah: number | null;
+  memorization_hifz_score: number;
+  memorization_recitation_score: number;
+  review_from_surah: number | null;
+  review_from_ayah: number | null;
+  review_to_surah: number | null;
+  review_to_ayah: number | null;
+  review_hifz_score: number;
+  review_recitation_score: number;
+  attendance_score: number;
+  behavior_score: number;
+  created_at?: string | null;
+  updated_at?: string | null;
+  local_updated_at?: string | null;
+};
+
+/** استبدال كامل لجدول المتابعة (يُستعمل عند التنزيل من السحابة). */
+export const cacheMonthlyTracking = (rows: CachedMonthly[]) => cacheRecords(STORES.monthly, rows);
+
+export const getCachedMonthlyTracking = () => getAllItems<CachedMonthly>(STORES.monthly);
+
+export const putCachedMonthly = (row: CachedMonthly) => putItem(STORES.monthly, row);
+
+export const getCachedMonthlyItem = (studentId: number, year: string, month: number) =>
+  getItem<CachedMonthly>(STORES.monthly, [studentId, year, month]);
+
+export const deleteCachedMonthly = (studentId: number, year: string, month: number) =>
+  deleteItem(STORES.monthly, [studentId, year, month]);
+
+/** متابعة شهر معيّن لكل الطلاب — استعلام محلي مفهرس. */
+export const getCachedMonthlyForPeriod = async (
+  year: string,
+  month: number,
+): Promise<CachedMonthly[]> => {
+  const db = await getDB();
+  const res = await db.query(
+    `SELECT * FROM ${STORES.monthly} WHERE year = ? AND month = ? ORDER BY student_id`,
+    [year, month],
+  );
+  return (res.values ?? []).map((row) => fromRow(TABLES[STORES.monthly], row) as CachedMonthly);
+};
+
+/** متابعة طالب واحد (كل الأشهر أو عام محدد). */
+export const getCachedMonthlyForStudent = async (
+  studentId: number,
+  year?: string,
+): Promise<CachedMonthly[]> => {
+  const db = await getDB();
+  const res = year
+    ? await db.query(
+        `SELECT * FROM ${STORES.monthly} WHERE student_id = ? AND year = ? ORDER BY month`,
+        [studentId, year],
+      )
+    : await db.query(`SELECT * FROM ${STORES.monthly} WHERE student_id = ? ORDER BY year, month`, [
+        studentId,
+      ]);
+  return (res.values ?? []).map((row) => fromRow(TABLES[STORES.monthly], row) as CachedMonthly);
+};
+
+/** أحدث فترة متابعة مسجّلة محلياً (لصفحة المتابعة والتنبيهات). */
+export const getLatestCachedMonthlyPeriod = async (): Promise<{
+  year: string;
+  month: number;
+} | null> => {
+  const db = await getDB();
+  const res = await db.query(
+    `SELECT year, month FROM ${STORES.monthly} ORDER BY year DESC, month DESC LIMIT 1`,
+  );
+  const row = res.values?.[0];
+  if (!row) return null;
+  return { year: String(row.year), month: Number(row.month) };
+};
+
+/** حذف كل متابعة طالب (عند حذف الطالب نهائياً). */
+export const deleteCachedMonthlyForStudent = async (studentId: number) => {
+  const db = await getDB();
+  await db.run(`DELETE FROM ${STORES.monthly} WHERE student_id = ?`, [studentId], true);
+  await persist();
+};
+
+// ========== أدوات اللقطة والنسخ الاحتياطي والترحيل الشامل ==========
+
+/**
+ * جداول البيانات التي تدخل في اللقطة/الترحيل.
+ * `settings` و`meta` و`pending_changes` تُضمَّن في اللقطة (لأنها تحمل حالة
+ * الجهاز وطابور الحذف) لكنها لا تُرفع إلى السحابة كصفوف.
+ */
+export const SNAPSHOT_TABLES: string[] = [
+  "students",
+  "hifz_history",
+  "year_data",
+  "monthly_tracking",
+  "teachers",
+  "teacher_bonuses",
+  "donors",
+  "awards",
+  "ceremony_expenses",
+  "certificates",
+  "internal_competitions",
+  "external_competitions",
+  "media",
+];
+
+/** الجداول الإدارية المحلية (لا تُرحَّل إلى السحابة كصفوف). */
+export const SNAPSHOT_INTERNAL_TABLES: string[] = ["settings", "meta", "pending_changes"];
+
+/** عدد صفوف كل جدول محلي — للمعاينة قبل الترحيل أو الاستعادة. */
+export const getLocalRowCounts = async (
+  tables: string[] = [...SNAPSHOT_TABLES, ...SNAPSHOT_INTERNAL_TABLES],
+): Promise<Record<string, number>> => {
+  const counts: Record<string, number> = {};
+  for (const table of tables) counts[table] = await countTableRows(table);
+  return counts;
+};
+
+/** قراءة كل صفوف جدول ككائنات JSON (للقطة). */
+export const getTableRows = async <T = Row>(storeName: string): Promise<T[]> => {
+  getTable(storeName);
+  const db = await getDB();
+  const res = await db.query(`SELECT * FROM ${storeName}`);
+  return (res.values ?? []) as T[];
+};
+
+/** كتابة صفوف جدول دفعة واحدة (استبدال كامل) — للاستعادة من لقطة. */
+export const replaceTableRows = async <T extends Row>(storeName: string, rows: T[]) =>
+  cacheRecords(storeName, rows);
+
+/**
+ * إعادة نسب كل صفوف جدول من مالك إلى آخر (ربط «وضع الجهاز» بحساب سحابي).
+ * يُرجع عدد الصفوف التي تغيّرت.
+ */
+export const reassignTableOwner = async (
+  storeName: string,
+  fromUserId: string,
+  toUserId: string,
+): Promise<number> => {
+  getTable(storeName);
+  if (fromUserId === toUserId) return 0;
+
+  // جدولان محليان (hifz_history و year_data) لا يحملان user_id — ارتباطهما
+  // بالسحابة يمرّ عبر student_id، فلا شيء يُعاد نسبه فيهما.
+  const columns = await listTableColumns(storeName);
+  if (!columns.includes("user_id")) return 0;
+
+  const db = await getDB();
+  const setClause = columns.includes("local_updated_at")
+    ? "user_id = ?, local_updated_at = ?"
+    : "user_id = ?";
+  const values = columns.includes("local_updated_at")
+    ? [toUserId, new Date().toISOString(), fromUserId]
+    : [toUserId, fromUserId];
+  const result = await db.run(
+    `UPDATE ${storeName} SET ${setClause} WHERE user_id = ?`,
+    values,
+    true,
+  );
+  await persist();
+  return Number(result.changes?.changes ?? 0);
+};
+
+/** مفتاح أساسي لجدول (يُستعمل في دمج اللقطات). */
+export const getTablePk = (storeName: string): string[] => getTable(storeName).pk;
+
+/** هل الجدول معروفاً في الطبقة المحلية؟ */
+export const isKnownTable = (storeName: string): boolean => Boolean(TABLES[storeName]);
+
+/**
+ * إعادة ترقيم طالب أُنشئ بدون نت (معرّف مؤقت) بعد حصوله على معرّف السحابة.
+ * تُحدَّث كل الجداول المرتبطة به في عملية واحدة، ثم طابور التغييرات.
+ */
+export const remapLocalStudentId = async (oldId: number, newId: number): Promise<void> => {
+  if (oldId === newId) return;
+  const db = await getDB();
+  const stamped = new Date().toISOString();
+  const statements: { sql: string; values: Array<string | number> }[] = [
+    {
+      sql: `UPDATE students SET id = ?, local_updated_at = ? WHERE id = ?`,
+      values: [newId, stamped, oldId],
+    },
+    { sql: `UPDATE hifz_history SET student_id = ? WHERE student_id = ?`, values: [newId, oldId] },
+    { sql: `UPDATE year_data SET student_id = ? WHERE student_id = ?`, values: [newId, oldId] },
+    {
+      sql: `UPDATE monthly_tracking SET student_id = ? WHERE student_id = ?`,
+      values: [newId, oldId],
+    },
+    {
+      sql: `UPDATE internal_competitions SET student_id = ? WHERE student_id = ?`,
+      values: [newId, oldId],
+    },
+    {
+      sql: `UPDATE external_competitions SET student_id = ? WHERE student_id = ?`,
+      values: [newId, oldId],
+    },
+  ];
+  await db.beginTransaction();
+  try {
+    for (const { sql, values } of statements) await db.run(sql, values, false);
+    await db.commitTransaction();
+  } catch (err) {
+    await db.rollbackTransaction().catch(() => undefined);
+    throw err;
+  }
+  await persist();
+  await remapPendingStudentId(oldId, newId);
+};
+
+/** عدد الصفوف المحلية المنسوبة لمالك معيّن (يُستعمل لاكتشاف بيانات وضع الجهاز). */
+export const countRowsOwnedBy = async (userId: string): Promise<number> => {
+  const db = await getDB();
+  let total = 0;
+  for (const table of SNAPSHOT_TABLES) {
+    const columns = await listTableColumns(table);
+    if (!columns.includes("user_id")) continue;
+    const res = await db.query(`SELECT COUNT(*) AS n FROM ${table} WHERE user_id = ?`, [userId]);
+    total += Number(res.values?.[0]?.n ?? 0);
+  }
+  return total;
 };
