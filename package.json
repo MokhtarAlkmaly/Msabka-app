@@ -11,6 +11,7 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "test:exams": "node scripts/test-exams.mjs",
+    "test:community": "node scripts/test-center-sections.mjs && node scripts/test-community-records.mjs",
     "test:sql": "node scripts/test-sql.mjs",
     "format": "prettier --write .",
     "postinstall": "node scripts/copy-sqlite-wasm.mjs",

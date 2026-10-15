@@ -30,6 +30,7 @@ import {
   Inbox,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
+import { getCenterSection } from "@/lib/center-sections";
 import { useAuth } from "@/hooks/useAuth";
 
 interface SidebarProps {
@@ -41,6 +42,7 @@ export const AppSidebar = ({ online = true }: SidebarProps) => {
   const location = useLocation();
   const { signOut, isAdmin, sharedWithMe, viewAs, setViewAs } = useAuth();
   const pathname = location.pathname || "/";
+  const section = getCenterSection(pathname);
 
   // أصحاب البيانات الذين سمحوا لي بالاطلاع (يُستثنى حسابي أنا).
   const shareableOwners = sharedWithMe;
@@ -57,7 +59,7 @@ export const AppSidebar = ({ online = true }: SidebarProps) => {
     if (typeof window !== "undefined") window.location.reload();
   };
 
-  const navItems = [
+  const quranNavItems = [
     {
       to: "/",
       label: "سجل الطلاب الرسمي",
@@ -187,6 +189,25 @@ export const AppSidebar = ({ online = true }: SidebarProps) => {
       : []),
   ];
 
+  // Keep Quran registry tools separate from the new departments.
+  const navItems =
+    section.id === "quran"
+      ? quranNavItems
+      : [
+          {
+            to: section.to,
+            label: "سجل المستفيدين والبرامج",
+            icon: section.icon,
+            color: "text-emerald-300",
+          },
+          {
+            to: "/",
+            label: "العودة إلى قسم القرآن الكريم",
+            icon: BookOpen,
+            color: "text-amber-300",
+          },
+        ];
+
   const isActive = (path: string) => {
     if (path === "/" && (pathname === "/" || pathname === "")) return true;
     if (path !== "/" && pathname.startsWith(path)) return true;
@@ -232,10 +253,8 @@ export const AppSidebar = ({ online = true }: SidebarProps) => {
             <Sparkles className="h-3 w-3" />
             مركز إنماء الأهلي الخيري
           </div>
-          <h2 className="mt-1.5 text-base font-black tracking-tight text-white">
-            قسم القرآن الكريم
-          </h2>
-          <p className="text-[11px] text-white/60">نظام الإدارة وسجل الطلاب الشامل</p>
+          <h2 className="mt-1.5 text-base font-black tracking-tight text-white">{section.title}</h2>
+          <p className="text-[11px] text-white/60">{section.description}</p>
 
           <div className="mt-2.5 flex items-center gap-2">
             <span

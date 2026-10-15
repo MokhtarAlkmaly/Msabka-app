@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { useEffect } from "react";
+import { CenterSectionTabs } from "@/components/CenterSectionTabs";
 import { AppSidebar } from "@/components/AppSidebar";
 import { ViewAsBanner } from "@/components/ViewAsBanner";
 import { supabase } from "@/integrations/supabase/client";
@@ -45,6 +46,7 @@ function AuthenticatedLayout() {
       <main className="min-h-screen min-w-0 md:mr-72">
         {/* يظهر فقط أثناء الاطلاع على بيانات مستخدم آخر (قراءة فقط) */}
         <ViewAsBanner />
+        <CenterSectionTabs />
         <Outlet />
       </main>
     </div>
