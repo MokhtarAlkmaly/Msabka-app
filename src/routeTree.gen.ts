@@ -15,6 +15,7 @@ import { Route as InstallRouteImport } from './routes/install'
 import { Route as MonthlySearchRouteImport } from './routes/monthly-search'
 import { Route as TeacherRouteImport } from './routes/teacher'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as AuthenticatedAlertsRouteImport } from './routes/_authenticated/alerts'
 import { Route as AuthenticatedAwardsRouteImport } from './routes/_authenticated/awards'
 import { Route as AuthenticatedCareRouteImport } from './routes/_authenticated/care'
 import { Route as AuthenticatedCertificatesRouteImport } from './routes/_authenticated/certificates'
@@ -64,6 +65,11 @@ const TeacherRoute = TeacherRouteImport.update({
 const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAlertsRoute = AuthenticatedAlertsRouteImport.update({
+  id: '/alerts',
+  path: '/alerts',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedAwardsRoute = AuthenticatedAwardsRouteImport.update({
@@ -185,6 +191,7 @@ export interface FileRoutesByFullPath {
   '/install': typeof InstallRoute
   '/monthly-search': typeof MonthlySearchRoute
   '/teacher': typeof TeacherRoute
+  '/alerts': typeof AuthenticatedAlertsRoute
   '/awards': typeof AuthenticatedAwardsRoute
   '/care': typeof AuthenticatedCareRoute
   '/certificates': typeof AuthenticatedCertificatesRoute
@@ -212,6 +219,7 @@ export interface FileRoutesByTo {
   '/install': typeof InstallRoute
   '/monthly-search': typeof MonthlySearchRoute
   '/teacher': typeof TeacherRoute
+  '/alerts': typeof AuthenticatedAlertsRoute
   '/awards': typeof AuthenticatedAwardsRoute
   '/care': typeof AuthenticatedCareRoute
   '/certificates': typeof AuthenticatedCertificatesRoute
@@ -242,6 +250,7 @@ export interface FileRoutesById {
   '/install': typeof InstallRoute
   '/monthly-search': typeof MonthlySearchRoute
   '/teacher': typeof TeacherRoute
+  '/_authenticated/alerts': typeof AuthenticatedAlertsRoute
   '/_authenticated/awards': typeof AuthenticatedAwardsRoute
   '/_authenticated/care': typeof AuthenticatedCareRoute
   '/_authenticated/certificates': typeof AuthenticatedCertificatesRoute
@@ -273,6 +282,7 @@ export interface FileRouteTypes {
     | '/install'
     | '/monthly-search'
     | '/teacher'
+    | '/alerts'
     | '/awards'
     | '/care'
     | '/certificates'
@@ -300,6 +310,7 @@ export interface FileRouteTypes {
     | '/install'
     | '/monthly-search'
     | '/teacher'
+    | '/alerts'
     | '/awards'
     | '/care'
     | '/certificates'
@@ -329,6 +340,7 @@ export interface FileRouteTypes {
     | '/install'
     | '/monthly-search'
     | '/teacher'
+    | '/_authenticated/alerts'
     | '/_authenticated/awards'
     | '/_authenticated/care'
     | '/_authenticated/certificates'
@@ -403,6 +415,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/alerts': {
+      id: '/_authenticated/alerts'
+      path: '/alerts'
+      fullPath: '/alerts'
+      preLoaderRoute: typeof AuthenticatedAlertsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/awards': {
@@ -556,6 +575,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAlertsRoute: typeof AuthenticatedAlertsRoute
   AuthenticatedAwardsRoute: typeof AuthenticatedAwardsRoute
   AuthenticatedCareRoute: typeof AuthenticatedCareRoute
   AuthenticatedCertificatesRoute: typeof AuthenticatedCertificatesRoute
@@ -581,6 +601,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAlertsRoute: AuthenticatedAlertsRoute,
   AuthenticatedAwardsRoute: AuthenticatedAwardsRoute,
   AuthenticatedCareRoute: AuthenticatedCareRoute,
   AuthenticatedCertificatesRoute: AuthenticatedCertificatesRoute,

@@ -29,6 +29,7 @@ import {
   Link2,
   Inbox,
   UsersRound,
+  BellRing,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import logo from "@/assets/logo.png";
@@ -112,6 +113,12 @@ export const AppSidebar = ({ online = true }: SidebarProps) => {
       label: "بحث المتابعة الشهرية",
       icon: Search,
       color: "text-sky-300",
+    },
+    {
+      to: "/alerts",
+      label: "المتأخرات والتنبيهات",
+      icon: BellRing,
+      color: "text-rose-300",
     },
     {
       to: "/teacher-links",
