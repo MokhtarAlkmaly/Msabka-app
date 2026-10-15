@@ -1,3 +1,5 @@
+import { persistNow } from "./sqliteClient";
+import { uploadMediaFile, removeMediaFile, ownedMediaPath } from "./mediaFiles";
 import {
   Student,
   HifzHistory,
@@ -1284,8 +1286,12 @@ export const deleteFullYearData = async (year: string) => {
 
   for (const group of yearStores) {
     for (const row of group.rows.filter((item) => item.year === year)) {
-      await deleteItem(group.store, row.id);
-      await markDirty(group.entity, "delete", { id: row.id });
+      if (group.entity === "media") {
+        await deleteMediaMetadataLocal(String(row.id));
+      } else {
+        await deleteItem(group.store, row.id);
+        await markDirty(group.entity, "delete", { id: row.id });
+      }
     }
   }
 
@@ -2235,6 +2241,7 @@ export const saveMediaMetadata = async (
   };
   await putCachedMedia(row);
   await markDirty("media", "upsert", { id: row.id });
+  await persistNow(true);
   queueCloudSync();
   return row;
 };
@@ -2244,6 +2251,8 @@ export const deleteMediaMetadataLocal = async (id: string) => {
   const existing = (await getCachedMedia()).find((item) => item.id === id);
   await deleteCachedMedia(id);
   await markDirty("media", "delete", { id, file_path: existing?.file_path });
+  await removeMediaFile(id);
+  await persistNow(true);
   queueCloudSync();
 };
 
@@ -2566,9 +2575,9 @@ const runSyncToCloud = async (onProgress?: ProgressCb): Promise<boolean> => {
         if (entity === "media" && p.ref?.file_path) {
           const { error: storageError } = await supabase.storage
             .from("media")
-            .remove([p.ref.file_path]);
+            .remove([ownedMediaPath(p.ref.file_path, userId!)]);
           if (storageError) {
-            console.warn("Media file delete failed:", storageError);
+            throw storageError;
           }
         }
         try {
@@ -2576,14 +2585,23 @@ const runSyncToCloud = async (onProgress?: ProgressCb): Promise<boolean> => {
             .delete()
             .eq("user_id", userId)
             .eq("id", p.ref.id);
-          if (error) console.error(`${label} delete failed:`, error);
-        } catch {
-          /* ignore */
+          if (error) throw error;
+        } catch (error) {
+          hadError = true;
+          console.error(`${label} delete failed:`, error);
+          continue;
         }
-        await clearPending(p.key);
+        await clearPending(p.key, p);
         tick(label);
       }
 
+      if (entity === "media") {
+        // A failed binary upload must retain its queue entry and block metadata.
+        for (const pending of upserts) {
+          await uploadMediaFile(pending.ref.id, userId!);
+        }
+        rows = (await getCachedMedia()) as unknown as TRow[];
+      }
       const payload = upserts
         .map((p) => rows.find((row) => row.id === p.ref.id))
         .filter(Boolean)
@@ -2592,15 +2610,12 @@ const runSyncToCloud = async (onProgress?: ProgressCb): Promise<boolean> => {
       if (payload.length > 0) {
         for (let i = 0; i < payload.length; i += 500) {
           const chunk = payload.slice(i, i + 500);
-          try {
-            const { error } = await dynamicFrom(table).upsert(chunk, { onConflict: "id" });
-            if (error) console.error(`${label} upsert failed:`, error);
-          } catch {
-            /* ignore */
-          }
+          const { error } = await dynamicFrom(table).upsert(chunk, { onConflict: "id" });
+          // Do not acknowledge entries that the server did not accept.
+          if (error) throw error;
         }
         for (const p of upserts) {
-          await clearPending(p.key);
+          await clearPending(p.key, p);
           tick(label);
         }
       }

@@ -22,6 +22,12 @@ const DB_VERSION = 1;
 // ========== إنشاء الجداول (سكيمة حقيقية بأعمدة نموذجية) ==========
 
 const SCHEMA_SQL = `
+CREATE TABLE IF NOT EXISTS media_files (
+  id TEXT PRIMARY KEY,
+  mime_type TEXT NOT NULL,
+  data TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS students (
   id INTEGER PRIMARY KEY,
   name TEXT,
@@ -385,13 +391,14 @@ const ensureWebStore = async (sqlite: SQLiteConnectionType) => {
  * حفظ فعلي فوري لقاعدة البيانات في مخزن IndexedDB (الويب فقط).
  * لا تستدعِها مباشرة من دوال الكتابة — استخدم persist() المؤجَّلة.
  */
-const flushToStore = async () => {
+const flushToStore = async (strict = false) => {
   try {
     const platform = await getPlatform();
     if (platform !== "web" || !sqliteConn) return;
     await sqliteConn.saveToStore(DB_NAME);
   } catch (err) {
     console.error("sqliteClient: فشل حفظ قاعدة البيانات المحلية إلى المتصفح", err);
+    if (strict) throw err;
   }
 };
 
@@ -453,14 +460,14 @@ export const persist = async () => {
 };
 
 /** حفظ فوري مضمون — يُستخدم قبل مغادرة الصفحة أو عند إخفائها. */
-export const persistNow = async () => {
+export const persistNow = async (strict = false) => {
   if (persistTimer) {
     clearTimeout(persistTimer);
     persistTimer = null;
     persistDeadline = 0;
   }
   if (persistInFlight) await persistInFlight;
-  await flushToStore();
+  await flushToStore(strict);
 };
 
 let lifecycleHooksBound = false;

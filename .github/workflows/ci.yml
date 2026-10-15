@@ -40,3 +40,9 @@ jobs:
           VITE_SUPABASE_URL: https://placeholder.supabase.co
           VITE_SUPABASE_PUBLISHABLE_KEY: placeholder-key
           VITE_SUPABASE_PROJECT_ID: placeholder
+
+      - name: تجهيز Chromium لاختبار العمل دون إنترنت
+        run: npx playwright-core install --with-deps chromium
+
+      - name: اختبار PWA والوسائط في متصفح حقيقي
+        run: npm run test:pwa

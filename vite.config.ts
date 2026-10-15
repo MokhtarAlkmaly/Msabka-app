@@ -33,6 +33,8 @@ export default defineConfig({
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
     server: { entry: "server" },
+    // Anonymous prerendered shell: no account/session HTML is cached offline.
+    ...(!isCapacitorBuild ? { spa: { enabled: true } } : {}),
   },
   ...(isVercel
     ? { nitro: { preset: "vercel" } }
