@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import OfflineAccessPanel from "@/components/OfflineAccessPanel";
 import logo from "@/assets/logo.png";
 import {
   Mail,
@@ -451,6 +452,8 @@ const Auth = () => {
                     : "إنشاء حساب"}
             </Button>
           </form>
+
+          {!isRecovery && <OfflineAccessPanel />}
 
           {!isRecovery && (
             <div className="mt-4 text-center">

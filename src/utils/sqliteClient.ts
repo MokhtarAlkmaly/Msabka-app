@@ -226,7 +226,64 @@ CREATE TABLE IF NOT EXISTS media (
   created_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_media_year_month ON media(year, month);
+
+CREATE TABLE IF NOT EXISTS monthly_tracking (
+  id TEXT,
+  user_id TEXT,
+  student_id INTEGER NOT NULL,
+  year TEXT NOT NULL,
+  month INTEGER NOT NULL,
+  memorization_from_surah INTEGER,
+  memorization_from_ayah INTEGER,
+  memorization_to_surah INTEGER,
+  memorization_to_ayah INTEGER,
+  memorization_hifz_score REAL,
+  memorization_recitation_score REAL,
+  review_from_surah INTEGER,
+  review_from_ayah INTEGER,
+  review_to_surah INTEGER,
+  review_to_ayah INTEGER,
+  review_hifz_score REAL,
+  review_recitation_score REAL,
+  attendance_score REAL,
+  behavior_score REAL,
+  created_at TEXT,
+  updated_at TEXT,
+  PRIMARY KEY (student_id, year, month)
+);
+CREATE INDEX IF NOT EXISTS idx_monthly_student ON monthly_tracking(student_id);
+CREATE INDEX IF NOT EXISTS idx_monthly_year_month ON monthly_tracking(year, month);
+CREATE INDEX IF NOT EXISTS idx_monthly_user ON monthly_tracking(user_id);
 `;
+
+/**
+ * كل جداول البيانات تحمل عمود `local_updated_at` — تاريخ آخر تعديل **على هذا
+ * الجهاز**. لا نستعمل اسم `updated_at` حتى لا يتعارض مع عمود السحابة عند الرفع،
+ * وهو المرجّح في سياسة «الأحدث يفوز» وفي دمج النسخ الاحتياطية.
+ *
+ * الإضافة تُنفَّذ بـ ALTER (وليس داخل CREATE TABLE) حتى تنطبق على القواعد
+ * الموجودة مسبقاً بنفس الطريقة التي تنطبق بها على الجديدة، وتُبتلع أخطاء
+ * «العمود موجود» بشكل آمن.
+ */
+export const LOCAL_AUDITED_TABLES = [
+  "students",
+  "hifz_history",
+  "year_data",
+  "teachers",
+  "teacher_bonuses",
+  "donors",
+  "awards",
+  "ceremony_expenses",
+  "certificates",
+  "internal_competitions",
+  "external_competitions",
+  "media",
+  "monthly_tracking",
+];
+
+const MIGRATE_LOCAL_AUDIT_COLS = LOCAL_AUDITED_TABLES.map(
+  (table) => `ALTER TABLE ${table} ADD COLUMN local_updated_at TEXT;`,
+);
 
 const MIGRATE_STUDENTS_COLS = [
   "ALTER TABLE students ADD COLUMN gender TEXT;",
@@ -396,7 +453,7 @@ export const getDB = (): Promise<SQLiteDBConnection> => {
       await db.execute(SCHEMA_SQL, true);
 
       // Migrations for existing tables
-      for (const sql of MIGRATE_STUDENTS_COLS) {
+      for (const sql of [...MIGRATE_STUDENTS_COLS, ...MIGRATE_LOCAL_AUDIT_COLS]) {
         try {
           await db.run(sql, [], true);
         } catch {
@@ -414,4 +471,124 @@ export const getDB = (): Promise<SQLiteDBConnection> => {
   })();
 
   return initPromise;
+};
+
+// ========== أدوات النسخ الاحتياطي والاستعادة (ملفات حقيقية) ==========
+
+/** اسم المنصة الحالية: `android` / `ios` / `web`. */
+export const getPlatformName = async (): Promise<string> => getPlatform();
+
+/** هل نعمل داخل تطبيق أصلي (ملفات حقيقية على الجهاز) وليس في متصفح؟ */
+export const isNativePlatform = async (): Promise<boolean> => (await getPlatform()) !== "web";
+
+/** ينفّذ SQL خاماً على الاتصال الحالي — لأدوات النسخ/الاستعادة/الفحص فقط. */
+export const runRawSql = async (sql: string, values: unknown[] = []): Promise<void> => {
+  assertBrowser();
+  const db = await getDB();
+  await db.run(sql, values as never[], true);
+  await persist();
+};
+
+/** استعلام خام يرجع الصفوف كما هي. */
+export const queryRaw = async (sql: string, values: unknown[] = []): Promise<Row[]> => {
+  assertBrowser();
+  const db = await getDB();
+  const res = await db.query(sql, values as never[]);
+  return (res.values ?? []) as Row[];
+};
+
+type Row = Record<string, unknown>;
+
+/** أسماء الجداول الفعلية الموجودة في القاعدة المحلية. */
+export const listTableNames = async (): Promise<string[]> => {
+  const rows = await queryRaw(
+    `SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name`,
+  );
+  return rows.map((row) => String(row.name));
+};
+
+/** عدد صفوف جدول (بدون تحميلها في الذاكرة). */
+export const countTableRows = async (table: string): Promise<number> => {
+  const rows = await queryRaw(`SELECT COUNT(*) AS n FROM ${table}`);
+  return Number(rows[0]?.n ?? 0);
+};
+
+/** أعمدة جدول بترتيبها الفعلي. */
+export const listTableColumns = async (qualifiedTable: string): Promise<string[]> => {
+  const rows = await queryRaw(`PRAGMA table_info(${qualifiedTable})`);
+  return rows.map((row) => String(row.name));
+};
+
+const escapeSqlPath = (path: string) => path.replace(/'/g, "''");
+
+/**
+ * نسخة طبق الأصل من ملف القاعدة في مسار حرّ عبر `VACUUM INTO`
+ * (أندرويد/iOS فقط — في المتصفح تُستعمل لقطة JSON بدلاً منها).
+ *
+ * `VACUUM INTO` لا يقبل معاملات مربوطة (?)، لذلك يُبنى المسار داخل النص مع
+ * تضاعف علامات الاقتباس لمنع كسر الجملة.
+ */
+export const exportDatabaseFile = async (destPath: string): Promise<string> => {
+  assertBrowser();
+  if (!(await isNativePlatform())) {
+    throw new Error("نسخ ملف القاعدة متاح في تطبيق أندرويد فقط — استخدم لقطة JSON في المتصفح.");
+  }
+  const db = await getDB();
+  await db.run(`VACUUM INTO '${escapeSqlPath(destPath)}'`, [], true);
+  return destPath;
+};
+
+/**
+ * استعادة من ملف قاعدة بيانات: يُربط الملف كقاعدة قراءة (`ATTACH`) ثم تُنسخ
+ * صفوف الجداول المشتركة إلى قاعدتنا — بلا أي لمس لملف التطبيق نفسه، وهذا آمن
+ * ولا يحتاج إغلاق الاتصالات ولا أذونات إضافية.
+ */
+export const importDatabaseFile = async (
+  srcPath: string,
+  tables: string[],
+  mode: "replace" | "merge" = "replace",
+): Promise<{ table: string; rows: number }[]> => {
+  assertBrowser();
+  if (!(await isNativePlatform())) {
+    throw new Error("استعادة ملف القاعدة متاح في تطبيق أندرويد فقط — استخدم لقطة JSON في المتصفح.");
+  }
+  const db = await getDB();
+  const alias = "restore_src";
+  const report: { table: string; rows: number }[] = [];
+
+  await db.run(`ATTACH DATABASE '${escapeSqlPath(srcPath)}' AS ${alias}`, [], false);
+  try {
+    const localTables = await listTableNames();
+    await db.beginTransaction();
+    try {
+      for (const table of tables) {
+        if (!localTables.includes(table)) continue;
+        const [mainCols, srcCols] = await Promise.all([
+          listTableColumns(`main.${table}`),
+          listTableColumns(`${alias}.${table}`),
+        ]);
+        const common = mainCols.filter((col) => srcCols.includes(col));
+        if (common.length === 0) continue;
+
+        const cols = common.join(", ");
+        if (mode === "replace") await db.run(`DELETE FROM main.${table}`, [], false);
+        await db.run(
+          `INSERT OR REPLACE INTO main.${table} (${cols}) SELECT ${cols} FROM ${alias}.${table}`,
+          [],
+          false,
+        );
+        const countRows = await db.query(`SELECT COUNT(*) AS n FROM ${alias}.${table}`);
+        report.push({ table, rows: Number(countRows.values?.[0]?.n ?? 0) });
+      }
+      await db.commitTransaction();
+    } catch (err) {
+      await db.rollbackTransaction().catch(() => undefined);
+      throw err;
+    }
+  } finally {
+    await db.run(`DETACH DATABASE ${alias}`, [], false).catch(() => undefined);
+  }
+
+  await persist();
+  return report;
 };
