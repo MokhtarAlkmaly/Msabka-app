@@ -10,9 +10,9 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
-import type { Database } from "@/integrations/supabase/types";
 import { printHtml } from "@/utils/report";
+import { examQuestionErrorMessage, saveExamQuestions } from "@/utils/examStorage";
+import { normalizeQuestionText, type ExamQuestionInput } from "@/lib/exam-questions";
 import {
   PAPER_CSS,
   buildAnswerKeyHtml,
@@ -36,9 +36,6 @@ import {
 } from "@/utils/examPaperGenerator";
 
 const SAVE_MODEL_NOTE = "توليد تلقائي من المصحف";
-
-/** صف إدراج في جدول أسئلة الاختبارات */
-type QuestionInsert = Database["public"]["Tables"]["exam_questions"]["Insert"];
 
 /**
  * تبويب «نماذج الاختبار»: توليد أسئلة الحفظ من المصحف حسب فئة الحفظ،
@@ -99,45 +96,46 @@ const ExamPapersTab = ({ year }: { year: string }) => {
     void printHtml(`مفتاح_التصحيح_${year}`, buildAnswerKeyHtml(papers, year), PAPER_CSS);
   };
 
-  /** حفظ أسئلة النماذج في بنك الأسئلة (مع تجاهل المكرر) */
+  /**
+   * حفظ أسئلة النماذج في بنك الأسئلة (مع تجاهل المكرر).
+   *
+   * محلي أولاً: تُكتب الأسئلة في SQLite فوراً (تعمل بلا إنترنت) ويُرفع كل
+   * منها عبر الطابور عند توفر الاتصال. كشف المكرّر يتم محلياً كذلك — بلا أي
+   * استعلام سحابي لقراءة الأسئلة الموجودة.
+   */
   const saveToBank = async (list: ExamPaper[]) => {
     if (!user || viewAs || list.length === 0) return;
     setSaving(true);
     try {
-      const { data: existing, error: readError } = await supabase
-        .from("exam_questions")
-        .select("question")
-        .eq("user_id", user.id)
-        .eq("year", year);
-      if (readError) throw readError;
-      const have = new Set((existing || []).map((r) => r.question));
+      const rows: ExamQuestionInput[] = [];
+      const seen = new Set<string>();
+      let duplicatesInBatch = 0;
+      const push = (row: ExamQuestionInput) => {
+        const key = normalizeQuestionText(row.question);
+        if (!key || seen.has(key)) {
+          if (key) duplicatesInBatch++;
+          return;
+        }
+        seen.add(key);
+        rows.push(row);
+      };
 
-      const rows: QuestionInsert[] = [];
       for (const paper of list) {
         for (const q of paper.questions) {
-          const question = formatQuestionText(q);
-          if (have.has(question)) continue;
-          have.add(question);
-          rows.push({
-            user_id: user.id,
+          push({
             year,
             category: paper.categoryLabel,
             subject: `سورة ${q.surahName}`,
             question_type: "written",
-            question,
+            question: formatQuestionText(q),
             choices: [],
             correct_answer: formatQuestionRef(q),
             difficulty: "متوسط",
             notes: `${paper.title} — ${SAVE_MODEL_NOTE} — الجزء ${q.juzFrom} — نحو ${q.ayahCount} آيات`,
           });
         }
-      }
-      for (const paper of list) {
         for (const q of paper.supplements) {
-          if (have.has(q.question)) continue;
-          have.add(q.question);
-          rows.push({
-            user_id: user.id,
+          push({
             year,
             category: paper.categoryLabel,
             subject: q.kind === "tajweed" ? "التجويد" : "معاني الآيات",
@@ -150,25 +148,28 @@ const ExamPapersTab = ({ year }: { year: string }) => {
           });
         }
       }
-      const skipped =
-        list.reduce((acc, p) => acc + p.questions.length + p.supplements.length, 0) - rows.length;
+
       if (rows.length === 0) {
+        const total = list.reduce((acc, p) => acc + p.questions.length + p.supplements.length, 0);
         toast({
           title: "كل الأسئلة موجودة في البنك مسبقًا",
-          description: `${skipped} سؤالًا مكررًا`,
+          description: `${total} سؤالًا مكررًا`,
         });
         return;
       }
-      const { error } = await supabase.from("exam_questions").insert(rows);
-      if (error) throw error;
+
+      const { saved, skipped } = await saveExamQuestions(rows);
+      const skippedTotal = skipped + duplicatesInBatch;
       toast({
-        title: `تم حفظ ${rows.length} سؤالًا في البنك`,
-        description: skipped ? `تم تخطي ${skipped} سؤالًا مكررًا` : "تجدها في تبويب «بنك إضافي»",
+        title: `تم حفظ ${saved.length} سؤالًا في البنك`,
+        description: skippedTotal
+          ? `تم تخطي ${skippedTotal} سؤالًا مكررًا`
+          : "تجدها في تبويب «بنك إضافي»",
       });
     } catch (err) {
       toast({
         title: "تعذّر الحفظ في البنك",
-        description: (err as Error).message,
+        description: examQuestionErrorMessage(err),
         variant: "destructive",
       });
     } finally {

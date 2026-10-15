@@ -38,6 +38,7 @@ import {
   type MigrationReport,
   type MigrationTableSpec,
   type TableMigrationResult,
+  type CloudTransformMap,
 } from "@/lib/migration-plan";
 import { DEVICE_OWNER_ID } from "@/lib/offline-auth";
 import {
@@ -212,6 +213,64 @@ const CLOUD_COLUMNS: Record<string, string[]> = {
     "updated_at",
   ],
   media: ["id", "user_id", "year", "month", "title", "file_path", "file_type", "file_size"],
+  // المرحلة 5: سجل المجتمع (UUID محلي، بلا مطابقة معرّفات)
+  community_records: [
+    "id",
+    "user_id",
+    "department",
+    "program_id",
+    "beneficiary_name",
+    "beneficiary_type",
+    "phone",
+    "guardian_name",
+    "address",
+    "service_date",
+    "status",
+    "group_name",
+    "sponsor_name",
+    "amount",
+    "currency",
+    "quantity",
+    "notes",
+    "updated_at",
+  ],
+  // المرحلة 5: بنك الأسئلة (`choices` نصّ JSON محلياً ← مصفوفة jsonb سحابياً)
+  exam_questions: [
+    "id",
+    "user_id",
+    "year",
+    "category",
+    "subject",
+    "question_type",
+    "question",
+    "choices",
+    "correct_answer",
+    "difficulty",
+    "notes",
+    "updated_at",
+  ],
+};
+
+/**
+ * تحويلات الأعمدة قبل الرفع (المرحلة 5).
+ *
+ * `exam_questions.choices` مخزَّن كنصّ JSON في SQLite (لأن SQLite لا يعرف
+ * jsonb) بينما العمود السحابي `jsonb`. بدون هذا التحويل يُرفع النصّ كسلسلة
+ * نصية فيرفضه Postgres (`22P02`) أو يُخزَّنه كقيمة نصية داخل jsonb.
+ */
+export const CLOUD_TRANSFORMS: CloudTransformMap = {
+  exam_questions: {
+    choices: (value) => {
+      if (Array.isArray(value)) return value;
+      if (typeof value !== "string" || !value.trim()) return [];
+      try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    },
+  },
 };
 
 /** مفاتيح الإعدادات المحلية المطابقة لأعمدة `user_settings` في السحابة. */
@@ -250,7 +309,13 @@ const cloud = (table: string): CloudBuilder =>
 const pkKey = (row: CloudRow, pk: string[]) => pk.map((col) => String(row[col] ?? "")).join("|");
 
 const toCloudRow = (table: string, row: CloudRow, ownerId: string): CloudRow =>
-  buildCloudPayload(row, ownerId, CLOUD_COLUMNS[table] ?? null, LOCAL_ONLY_COLUMNS);
+  buildCloudPayload(
+    row,
+    ownerId,
+    CLOUD_COLUMNS[table] ?? null,
+    LOCAL_ONLY_COLUMNS,
+    CLOUD_TRANSFORMS[table] ?? {},
+  );
 
 const isOnlineNow = () => typeof navigator !== "undefined" && navigator.onLine;
 

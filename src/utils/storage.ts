@@ -131,10 +131,26 @@ import {
   deleteCachedMonthlyForStudent,
   CachedMonthly,
 } from "./localDB";
-import { markDirty, getPendingChanges, clearPending, remapPendingStudentId } from "./localDB";
+import {
+  markDirty,
+  getPendingChanges,
+  clearPending,
+  remapPendingStudentId,
+  cacheCommunityRecords,
+  getCachedCommunityRecords,
+  cacheExamQuestions,
+  getCachedExamQuestions,
+} from "./localDB";
 import { getViewAsId, isViewingOtherUser, subscribeViewAs } from "./viewAs";
 import { getLocalOwnerId, saveOfflineIdentity } from "./localAuth";
 import { DEVICE_OWNER_ID } from "@/lib/offline-auth";
+import { fetchAllPages } from "@/lib/cloud-pages";
+import {
+  normalizeCommunityRecord,
+  toCommunityCloudPayload,
+  type CommunityRecord,
+} from "@/lib/community-records";
+import { toExamQuestionRow, toExamCloudPayload, type ExamQuestion } from "@/lib/exam-questions";
 
 // ===== Helper: get cached user =====
 const CACHE_USER_SETTING = "cache_user_id";
@@ -417,7 +433,7 @@ const runSyncFromCloud = async (onProgress?: ProgressCb): Promise<boolean> => {
       }
     }
 
-    onProgress?.(0, 14, "تحميل البيانات");
+    onProgress?.(0, 16, "تحميل البيانات");
     const [
       studentsRes,
       historyRes,
@@ -544,10 +560,20 @@ const runSyncFromCloud = async (onProgress?: ProgressCb): Promise<boolean> => {
       await cacheMedia((mediaRes.data || []) as CachedMedia[]);
     }
 
-    onProgress?.(13, 14, "حفظ المتابعة الشهرية");
+    onProgress?.(13, 16, "حفظ المتابعة الشهرية");
     if (!monthlyRes.error && monthlyRes.data) {
       await cacheMonthlyTracking(monthlyRes.data as unknown as CachedMonthly[]);
     }
+
+    // المرحلة 5: سجل المجتمع وبنك الأسئلة — التنزيل بالصفحات لتفادي سقف
+    // Supabase (1000 صف)، وفشل أيّ منهما تحذير لا إلغاء للمزامنة كلها.
+    onProgress?.(14, 16, "حفظ سجل المجتمع");
+    const communityRows = await fetchPagedTable<CommunityRecord>("community_records", userId);
+    if (communityRows) await cacheCommunityRecords(communityRows.map(normalizeCommunityRecord));
+
+    onProgress?.(15, 16, "حفظ بنك الأسئلة");
+    const examRows = await fetchPagedTable<ExamQuestion>("exam_questions", userId, "year");
+    if (examRows) await cacheExamQuestions(examRows.map(toExamQuestionRow));
 
     // Mark the cache owner only after all user-scoped records were downloaded.
     // This lets the next session detect and replace a cache from another user.
@@ -564,11 +590,50 @@ const runSyncFromCloud = async (onProgress?: ProgressCb): Promise<boolean> => {
     }
 
     await setLastSyncTime();
-    onProgress?.(14, 14, "اكتمل");
+    onProgress?.(16, 16, "اكتمل");
     return true;
   } catch (err) {
     console.error("Sync from cloud failed:", err);
     return false;
+  }
+};
+
+/**
+ * تنزيل جدول مملوك للمستخدم صفحةً صفحةً (المرحلة 5).
+ *
+ * لماذا ليس ضمن `Promise.all` أعلاه؟
+ *  - `fetchAllPages` يحتاج الاستعلام داخل حلقة، ولا يمكن تمريره كوعد واحد.
+ *  - فشل الجدول (غير مطبَّق بعد في السحابة) يجب أن يكون **تحذيراً** لا سبباً
+ *    لإلغاء تنزيل بقية البيانات — لذلك يُرجع `null` بدلاً من الرمي.
+ */
+/** استعلام تنزيل بالصفحات: `select`/`eq`/`order`/`range` فقط (بلا then متسلسل). */
+type PagedQuery = {
+  select: (columns?: string) => PagedQuery;
+  eq: (column: string, value: unknown) => PagedQuery;
+  order: (column: string) => PagedQuery;
+  range: (from: number, to: number) => Promise<{ data: unknown[] | null; error: unknown }>;
+};
+
+const fetchPagedTable = async <T extends { id: string }>(
+  table: string,
+  userId: string,
+  orderBy: string = "id",
+): Promise<T[] | null> => {
+  try {
+    return await fetchAllPages<T>(async (from, to) => {
+      const client = supabase as unknown as { from: (name: string) => PagedQuery };
+      const { data, error } = await client
+        .from(table)
+        .select("*")
+        .eq("user_id", userId)
+        .order(orderBy)
+        .range(from, to);
+      if (error) throw error;
+      return (data ?? []) as unknown as T[];
+    });
+  } catch (err) {
+    console.warn(`Sync from cloud: تعذّر تنزيل ${table} — يُكتفى بالنسخة المحلية`, err);
+    return null;
   }
 };
 
@@ -1262,6 +1327,7 @@ export const deleteEntireDatabase = async () => {
     // المشاريع القديمة التي لم تُفعّل فيها cascade بعد.
     const childTables = [
       "community_records",
+      "exam_questions",
       "monthly_tracking",
       "hifz_history",
       "year_data",
@@ -1527,7 +1593,7 @@ export const migrateYearData = async (newYear: string, students: { id: number }[
   }
 };
 
-const queueCloudSync = () => {
+export const queueCloudSync = () => {
   if (isViewingOtherUser()) return;
   if (!isOnline()) return;
   window.setTimeout(() => {
@@ -2218,6 +2284,8 @@ const runSyncToCloud = async (onProgress?: ProgressCb): Promise<boolean> => {
     const allInternalComps = await getCachedInternalCompetitions();
     const allExternalComps = await getCachedExternalCompetitions();
     const allMedia = await getCachedMedia();
+    const allCommunityRecords = await getCachedCommunityRecords();
+    const allExamQuestions = await getCachedExamQuestions();
 
     const { data: cloudStudents } = await supabase
       .from("students")
@@ -2702,6 +2770,23 @@ const runSyncToCloud = async (onProgress?: ProgressCb): Promise<boolean> => {
         created_at: r.created_at,
       }),
       "رفع بيانات الوسائط",
+    );
+
+    // ===== المرحلة 5: سجل المجتمع وبنك الأسئلة (مفتاح UUID محلي) =====
+    await syncCachedEntity(
+      "community_record",
+      "community_records",
+      allCommunityRecords,
+      (r) => toCommunityCloudPayload(r, userId),
+      "رفع سجل المجتمع",
+    );
+
+    await syncCachedEntity(
+      "exam_question",
+      "exam_questions",
+      allExamQuestions,
+      (r) => toExamCloudPayload(r, userId),
+      "رفع بنك الأسئلة",
     );
 
     // ===== المتابعة الشهرية (مفتاح مركّب: طالب + عام + شهر) =====

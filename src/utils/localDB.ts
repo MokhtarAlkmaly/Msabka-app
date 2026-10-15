@@ -12,6 +12,8 @@ import {
   countTableRows,
   listTableColumns,
 } from "./sqliteClient";
+import type { CommunityRecordRow } from "@/lib/community-records";
+import type { ExamQuestionRow } from "@/lib/exam-questions";
 
 const STORES = {
   students: "students",
@@ -30,6 +32,8 @@ const STORES = {
   externalCompetitions: "external_competitions",
   media: "media",
   monthly: "monthly_tracking",
+  communityRecords: "community_records",
+  examQuestions: "exam_questions",
 } as const;
 
 // ========== سجلّ الجداول ==========
@@ -293,6 +297,72 @@ const TABLES: Record<string, TableConfig> = {
       "updated_at",
     ],
     pk: ["student_id", "year", "month"],
+  },
+  [STORES.communityRecords]: {
+    columns: [
+      "id",
+      "user_id",
+      "department",
+      "program_id",
+      "beneficiary_name",
+      "beneficiary_type",
+      "phone",
+      "guardian_name",
+      "address",
+      "service_date",
+      "status",
+      "group_name",
+      "sponsor_name",
+      "amount",
+      "currency",
+      "quantity",
+      "notes",
+      "created_at",
+      "updated_at",
+    ],
+    pk: ["id"],
+  },
+  [STORES.examQuestions]: {
+    columns: [
+      "id",
+      "user_id",
+      "year",
+      "category",
+      "subject",
+      "question_type",
+      "question",
+      "choices",
+      "correct_answer",
+      "difficulty",
+      "notes",
+      "created_at",
+      "updated_at",
+    ],
+    pk: ["id"],
+    // `choices` مصفوفة في الكائن ونصّ JSON في SQLite (jsonb في السحابة).
+    toRow: (item) => ({
+      ...item,
+      choices:
+        item.choices === null || item.choices === undefined
+          ? null
+          : typeof item.choices === "string"
+            ? item.choices
+            : JSON.stringify(item.choices ?? []),
+    }),
+    fromRow: (row) => {
+      let choices: string[] = [];
+      if (typeof row.choices === "string" && row.choices) {
+        try {
+          const parsed = JSON.parse(row.choices);
+          if (Array.isArray(parsed)) choices = parsed.filter((c) => typeof c === "string");
+        } catch {
+          choices = [];
+        }
+      } else if (Array.isArray(row.choices)) {
+        choices = row.choices.filter((c: unknown) => typeof c === "string");
+      }
+      return { ...row, choices };
+    },
   },
 };
 
@@ -671,6 +741,153 @@ export const getCachedMediaItem = (id: string) => getItem<CachedMedia>(STORES.me
 export const putCachedMedia = (row: CachedMedia) => putItem(STORES.media, row);
 export const deleteCachedMedia = (id: string) => deleteItem(STORES.media, id);
 
+// ========== سجل المجتمع (community_records) ==========
+
+export type CachedCommunityRecord = CommunityRecordRow;
+
+export const cacheCommunityRecords = (rows: CachedCommunityRecord[]) =>
+  cacheRecords(STORES.communityRecords, rows);
+export const getCachedCommunityRecords = () =>
+  getAllItems<CachedCommunityRecord>(STORES.communityRecords);
+export const getCachedCommunityRecord = (id: string) =>
+  getItem<CachedCommunityRecord>(STORES.communityRecords, id);
+export const putCachedCommunityRecord = (row: CachedCommunityRecord) =>
+  putItem(STORES.communityRecords, row);
+export const deleteCachedCommunityRecord = (id: string) => deleteItem(STORES.communityRecords, id);
+
+/** سجلات قسم واحد لمالك واحد — استعلام محلي مفهرس. */
+export const getCachedCommunityRecordsForDepartment = async (
+  userId: string,
+  department: string,
+): Promise<CachedCommunityRecord[]> => {
+  const db = await getDB();
+  const res = await db.query(
+    `SELECT * FROM ${STORES.communityRecords} WHERE user_id = ? AND department = ?`,
+    [userId, department],
+  );
+  return (res.values ?? []).map(
+    (row) => fromRow(TABLES[STORES.communityRecords], row) as CachedCommunityRecord,
+  );
+};
+
+// ========== بنك الأسئلة (exam_questions) ==========
+
+export type CachedExamQuestion = ExamQuestionRow;
+
+export const cacheExamQuestions = (rows: CachedExamQuestion[]) =>
+  cacheRecords(STORES.examQuestions, rows);
+export const getCachedExamQuestions = () => getAllItems<CachedExamQuestion>(STORES.examQuestions);
+export const getCachedExamQuestion = (id: string) =>
+  getItem<CachedExamQuestion>(STORES.examQuestions, id);
+export const putCachedExamQuestion = (row: CachedExamQuestion) =>
+  putItem(STORES.examQuestions, row);
+export const deleteCachedExamQuestion = (id: string) => deleteItem(STORES.examQuestions, id);
+
+/** أسئلة عام واحد لمالك واحد — استعلام محلي مفهرس. */
+export const getCachedExamQuestionsForYear = async (
+  userId: string,
+  year: string,
+): Promise<CachedExamQuestion[]> => {
+  const db = await getDB();
+  const res = await db.query(
+    `SELECT * FROM ${STORES.examQuestions} WHERE user_id = ? AND year = ?`,
+    [userId, year],
+  );
+  return (res.values ?? []).map(
+    (row) => fromRow(TABLES[STORES.examQuestions], row) as CachedExamQuestion,
+  );
+};
+
+/**
+ * تحديث **محصور بنطاق واحد** (مالك + قسم، أو مالك + عام) — جوهر التنزيل
+ * المحلي في المرحلة 5.
+ *
+ * لماذا لا `cacheRecords` (الاستبدال الكامل)؟
+ *  - الاستبدال الكامل يمسح الصفوف التي أُنشئت محلياً ولم تُرفع بعد (بيانات
+ *    بلا إنترنت). هذا التحديث يحميها: أي معرّف في `protectedIds` لا يُحذف ولا
+ *    يُستبدل، مهما كان في السحابة.
+ *  - ويمسح ما حُذف في السحابة داخل النطاق نفسه فقط، فلا تتأثر بقية الأقسام.
+ *
+ * @returns عدد الصفوف المكتوبة والمحذوفة والمحمية (للتشخيص والاختبارات).
+ */
+export const replaceScopedRows = async <T extends Row & { id: string }>(
+  storeName: string,
+  scope: Record<string, unknown>,
+  rows: T[],
+  protectedIds: Set<string> = new Set(),
+): Promise<{ written: number; deleted: number; kept: number }> => {
+  const cfg = getTable(storeName);
+  const db = await getDB();
+  const scopeColumns = Object.keys(scope);
+  if (scopeColumns.length === 0) throw new Error("replaceScopedRows: نطاق فارغ");
+  for (const column of scopeColumns) {
+    if (!cfg.columns.includes(column))
+      throw new Error(`replaceScopedRows: عمود نطاق غير معروف "${column}"`);
+  }
+  const scopeWhere = scopeColumns.map((column) => `${column} = ?`).join(" AND ");
+  const scopeValues = scopeColumns.map((column) => scope[column]);
+
+  const incoming = rows.filter((row) => !protectedIds.has(row.id));
+  const skipped = rows.length - incoming.length;
+  const incomingIds = incoming.map((row) => row.id);
+  const protectedList = [...protectedIds];
+
+  /** شرط «ليس ضمن قائمة» — يُحذف الشرط تماماً عند فراغ القائمة (SQLite). */
+  const notIn = (column: string, ids: (string | number)[]) =>
+    ids.length ? ` AND ${column} NOT IN (${ids.map(() => "?").join(", ")})` : "";
+
+  const deleteSql = `DELETE FROM ${storeName} WHERE ${scopeWhere}${notIn(
+    "id",
+    incomingIds,
+  )}${notIn("id", protectedList)}`;
+  const deleteValues = [...scopeValues, ...incomingIds, ...protectedList];
+
+  const countRes = await db.query(
+    `SELECT COUNT(*) AS n FROM ${storeName} WHERE ${scopeWhere}${notIn(
+      "id",
+      incomingIds,
+    )}${notIn("id", protectedList)}`,
+    deleteValues,
+  );
+  const deleted = Number(countRes.values?.[0]?.n ?? 0);
+
+  const placeholders = cfg.columns.map(() => "?").join(", ");
+  const insertSql = `INSERT OR REPLACE INTO ${storeName} (${cfg.columns.join(
+    ", ",
+  )}) VALUES (${placeholders})`;
+
+  await db.beginTransaction();
+  try {
+    await db.run(deleteSql, deleteValues, false);
+    for (const item of incoming) {
+      const row = toRow(cfg, item);
+      await db.run(
+        insertSql,
+        cfg.columns.map((column) => row[column]),
+        false,
+      );
+    }
+    await db.commitTransaction();
+  } catch (err) {
+    await db.rollbackTransaction().catch(() => undefined);
+    throw err;
+  }
+  await persist();
+
+  const keptRes = await db.query(
+    `SELECT COUNT(*) AS n FROM ${storeName} WHERE ${scopeWhere}${
+      protectedList.length ? ` AND id IN (${protectedList.map(() => "?").join(", ")})` : ""
+    }`,
+    [...scopeValues, ...protectedList],
+  );
+
+  return {
+    written: incoming.length,
+    deleted,
+    kept: skipped + Number(keptRes.values?.[0]?.n ?? 0),
+  };
+};
+
 // ========== Settings ==========
 
 export const setCachedSetting = async (key: string, value: unknown) => {
@@ -736,7 +953,9 @@ export type PendingEntity =
   | "internal_competition"
   | "external_competition"
   | "media"
-  | "monthly";
+  | "monthly"
+  | "community_record"
+  | "exam_question";
 
 export type PendingChange = {
   key: string;
@@ -767,6 +986,8 @@ export const markDirty = (entity: PendingEntity, op: PendingOp, ref: any) => {
   else if (entity === "external_competition") key = `external_comp:${ref.id}`;
   else if (entity === "media") key = `media:${ref.id}`;
   else if (entity === "monthly") key = `monthly:${ref.student_id}|${ref.year}|${ref.month}`;
+  else if (entity === "community_record") key = `community:${ref.id}`;
+  else if (entity === "exam_question") key = `exam:${ref.id}`;
   return putItem(STORES.pending, { key, entity, op, ref, ts: Date.now() });
 };
 
@@ -1006,6 +1227,8 @@ export const SNAPSHOT_TABLES: string[] = [
   "internal_competitions",
   "external_competitions",
   "media",
+  "community_records",
+  "exam_questions",
 ];
 
 /** الجداول الإدارية المحلية (لا تُرحَّل إلى السحابة كصفوف). */
@@ -1067,6 +1290,12 @@ export const reassignTableOwner = async (
 
 /** مفتاح أساسي لجدول (يُستعمل في دمج اللقطات). */
 export const getTablePk = (storeName: string): string[] => getTable(storeName).pk;
+
+/**
+ * أعمدة جدول محلي — يُستعمل في «اختبار انحراف الأعمدة»: أي عمود سحابي جديد
+ * لا يقابله عمود محلي يعني فقدان بيانات صامت عند الترحيل.
+ */
+export const getTableColumns = (storeName: string): string[] => [...getTable(storeName).columns];
 
 /** هل الجدول معروفاً في الطبقة المحلية؟ */
 export const isKnownTable = (storeName: string): boolean => Boolean(TABLES[storeName]);

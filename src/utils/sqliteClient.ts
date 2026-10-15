@@ -254,6 +254,49 @@ CREATE TABLE IF NOT EXISTS monthly_tracking (
 CREATE INDEX IF NOT EXISTS idx_monthly_student ON monthly_tracking(student_id);
 CREATE INDEX IF NOT EXISTS idx_monthly_year_month ON monthly_tracking(year, month);
 CREATE INDEX IF NOT EXISTS idx_monthly_user ON monthly_tracking(user_id);
+
+-- المرحلة 5: سجل المجتمع (المستفيدون من برامج التدريب والرعاية)
+CREATE TABLE IF NOT EXISTS community_records (
+  id TEXT PRIMARY KEY,
+  user_id TEXT,
+  department TEXT NOT NULL,
+  program_id TEXT NOT NULL,
+  beneficiary_name TEXT NOT NULL,
+  beneficiary_type TEXT NOT NULL,
+  phone TEXT,
+  guardian_name TEXT,
+  address TEXT,
+  service_date TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'registered',
+  group_name TEXT,
+  sponsor_name TEXT,
+  amount REAL,
+  currency TEXT,
+  quantity INTEGER,
+  notes TEXT,
+  created_at TEXT,
+  updated_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_community_owner_dept ON community_records(user_id, department);
+CREATE INDEX IF NOT EXISTS idx_community_owner_dept_date ON community_records(user_id, department, service_date);
+
+-- المرحلة 5: بنك الأسئلة (نماذج الاختبار والبنك الإضافي)
+CREATE TABLE IF NOT EXISTS exam_questions (
+  id TEXT PRIMARY KEY,
+  user_id TEXT,
+  year TEXT NOT NULL DEFAULT '',
+  category TEXT NOT NULL DEFAULT '',
+  subject TEXT NOT NULL DEFAULT '',
+  question_type TEXT NOT NULL DEFAULT 'mcq',
+  question TEXT NOT NULL DEFAULT '',
+  choices TEXT,
+  correct_answer TEXT,
+  difficulty TEXT NOT NULL DEFAULT 'متوسط',
+  notes TEXT,
+  created_at TEXT,
+  updated_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_exam_owner_year ON exam_questions(user_id, year);
 `;
 
 /**
@@ -279,6 +322,8 @@ export const LOCAL_AUDITED_TABLES = [
   "external_competitions",
   "media",
   "monthly_tracking",
+  "community_records",
+  "exam_questions",
 ];
 
 const MIGRATE_LOCAL_AUDIT_COLS = LOCAL_AUDITED_TABLES.map(

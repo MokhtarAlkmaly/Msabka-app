@@ -192,6 +192,24 @@ export const MIGRATION_TABLES: MigrationTableSpec[] = [
     idKind: "uuid",
     batch: CLOUD_BATCH_SIZE,
   },
+  {
+    table: "community_records",
+    label: "سجل المجتمع (المستفيدون)",
+    pk: ["id"],
+    onConflict: "id",
+    dependsOnStudentId: false,
+    idKind: "uuid",
+    batch: CLOUD_BATCH_SIZE,
+  },
+  {
+    table: "exam_questions",
+    label: "بنك الأسئلة",
+    pk: ["id"],
+    onConflict: "id",
+    dependsOnStudentId: false,
+    idKind: "uuid",
+    batch: CLOUD_BATCH_SIZE,
+  },
 ];
 
 /** أسماء الجداول القابلة للترحيل (تُستعمل للتحقق من اللقطات والتقارير). */
@@ -295,15 +313,26 @@ export const shouldPushRow = (
   return localTime >= cloudTime;
 };
 
+/** تحويل عمود قبل رفعه إلى السحابة (مثل نصّ JSON ← jsonb). */
+export type CloudColumnTransform = (value: unknown, row: Record<string, unknown>) => unknown;
+
+/** تحويلات الأعمدة لجدول واحد. */
+export type CloudTransforms = Record<string, CloudColumnTransform>;
+
+/** تحويلات الأعمدة لكل الجداول (اسم الجدول ← تحويلاته). */
+export type CloudTransformMap = Record<string, CloudTransforms>;
+
 /**
- * يبني حمولة الصف للرفع: يفرض `user_id` الصحيح (الحساب السحابي) ويحذف
- * الحقول المحلية الداخلية التي لا وجود لها في السحابة.
+ * يبني حمولة الصف للرفع: يفرض `user_id` الصحيح (الحساب السحابي)، ويحذف
+ * الحقول المحلية الداخلية التي لا وجود لها في السحابة، ويطبّق تحويلات
+ * الأعمدة (المرحلة 5: `choices` نصّ JSON في SQLite ← مصفوفة jsonb في السحابة).
  */
 export const buildCloudPayload = (
   row: Record<string, unknown>,
   ownerId: string,
   allowedColumns: string[] | null,
   dropColumns: string[] = [],
+  transforms: CloudTransforms = {},
 ): Record<string, unknown> => {
   const payload: Record<string, unknown> = { ...row, user_id: ownerId };
   for (const column of dropColumns) delete payload[column];
@@ -311,6 +340,10 @@ export const buildCloudPayload = (
     for (const key of Object.keys(payload)) {
       if (!allowedColumns.includes(key)) delete payload[key];
     }
+  }
+  for (const [column, transform] of Object.entries(transforms)) {
+    if (!(column in payload)) continue;
+    payload[column] = transform(payload[column], payload);
   }
   return payload;
 };

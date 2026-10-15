@@ -12,6 +12,7 @@
 
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { createServer } from "vite";
 
@@ -380,6 +381,67 @@ try {
   );
   assert.equal(preview.tables[0].label, "الطلاب والطالبات");
   ok("معاينة الترحيل قبل التنفيذ");
+
+  // ==========================================================
+  section("٤) المرحلة 5 — سجل المجتمع وبنك الأسئلة (محلي أولاً):");
+
+  const localDb = await vite.ssrLoadModule("/src/utils/localDB.ts");
+  const community = await vite.ssrLoadModule("/src/lib/community-records.ts");
+  const exams = await vite.ssrLoadModule("/src/lib/exam-questions.ts");
+
+  for (const table of ["community_records", "exam_questions"]) {
+    const spec = plan.MIGRATION_TABLES.find((entry) => entry.table === table);
+    assert.ok(spec, `${table} في خطة الترحيل الشامل`);
+    assert.equal(spec.idKind, "uuid", `${table}: مفتاح UUID محلي بلا مطابقة`);
+    assert.deepEqual(spec.pk, ["id"]);
+    assert.equal(spec.onConflict, "id");
+    assert.ok(localDb.SNAPSHOT_TABLES.includes(table), `${table} في اللقطة/الترحيل`);
+  }
+  assert.deepEqual(
+    plan.MIGRATION_TABLES.filter((spec) => spec.idKind === "uuid").length >= 10,
+    true,
+    "الجداول ذات المفتاح UUID تُرفع بمعرفاتها كما وُلّدت على الجهاز",
+  );
+  ok("المرحلة 5: الجدولان يدخلان الترحيل الشامل والنسخ وعدّادات اللوحة بمفتاح UUID محلي");
+
+  const transformed = plan.buildCloudPayload(
+    { id: "q-1", user_id: "u", choices: '[\"أ\",\"ب\"]', local_updated_at: "2026-10-15" },
+    "owner-1",
+    ["id", "user_id", "choices"],
+    ["local_updated_at"],
+    { choices: (value) => (typeof value === "string" ? JSON.parse(value) : value) },
+  );
+  assert.deepEqual(transformed.choices, ["أ", "ب"], "نصّ JSON ← مصفوفة jsonb");
+  assert.equal(transformed.user_id, "owner-1");
+  assert.equal("local_updated_at" in transformed, false);
+
+  // ===== اختبار انحراف الأعمدة =====
+  // يُقرأ ملف السكيمة السحابي وتُقارن أعمدته بالأعمدة المحلية: أي عمود سحابي
+  // جديد بلا نظير محلي يعني فقدان بيانات صامت عند الترحيل — فشل فوري.
+  const schemaSql = await readFile(new URL("../supabase/full-schema.sql", import.meta.url), "utf8");
+  const parseCloudColumns = (table) => {
+    const start = schemaSql.indexOf(`CREATE TABLE IF NOT EXISTS ${table} (`);
+    assert.notEqual(start, -1, `${table} موجود في full-schema.sql`);
+    const body = schemaSql.slice(start, schemaSql.indexOf("\n);", start));
+    return body
+      .split("\n")
+      .slice(1)
+      .map((line) => line.trim())
+      .map((line) => line.match(/^([a-z_][a-z0-9_]*)\s/)?.[1])
+      .filter(Boolean);
+  };
+  for (const [table, libColumns] of [
+    ["public.community_records", community.COMMUNITY_RECORD_COLUMNS],
+    ["public.exam_questions", exams.EXAM_QUESTION_COLUMNS],
+  ]) {
+    const cloudColumns = parseCloudColumns(table);
+    const localColumns = localDb
+      .getTableColumns(table.replace("public.", ""))
+      .filter((column) => column !== "local_updated_at");
+    assert.deepEqual(localColumns, cloudColumns, `انحراف أعمدة ${table}: محلي ≠ سحابي`);
+    assert.deepEqual([...libColumns], cloudColumns, `انحراف أعمدة ${table}: lib ≠ سحابي`);
+  }
+  ok("تحويلات الأعمدة عند الرفع + اختبار انحراف أعمدة السكيمة السحابية مقابل المحلية");
 
   console.log("\n✅ كل اختبارات العمل بدون إنترنت والترحيل نجحت.");
 } catch (error) {

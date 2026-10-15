@@ -89,6 +89,8 @@ const TABLE_LABELS: Record<string, string> = {
   internal_competitions: "المسابقات الداخلية",
   external_competitions: "المسابقات الخارجية",
   media: "الوسائط",
+  community_records: "سجل المجتمع (المستفيدون)",
+  exam_questions: "بنك الأسئلة",
 };
 
 const SyncBackupPanel = () => {
