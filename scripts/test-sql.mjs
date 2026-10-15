@@ -301,15 +301,15 @@ async function main() {
   console.log("البنية والفهارس:");
   const tables = await q(
     `SELECT tablename FROM pg_tables WHERE schemaname = 'public'
-      AND tablename IN ('teacher_portals', 'monthly_submissions')`,
+      AND tablename IN ('teacher_portals', 'monthly_submissions', 'exam_questions')`,
   );
-  ok(tables.length === 2, "جدولا teacher_portals و monthly_submissions موجودان");
+  ok(tables.length === 3, "جداول الروابط والترسيلات والأسئلة موجودة");
 
   const rlson = await q(
     `SELECT relname, relrowsecurity FROM pg_class
-      WHERE relname IN ('teacher_portals', 'monthly_submissions')`,
+      WHERE relname IN ('teacher_portals', 'monthly_submissions', 'exam_questions')`,
   );
-  ok(rlson.length === 2 && rlson.every((r) => r.relrowsecurity), "RLS مفعّل على الجدولين");
+  ok(rlson.length === 3 && rlson.every((r) => r.relrowsecurity), "RLS مفعّل على الجداول الثلاثة");
 
   const idx = await q(
     `SELECT indexdef FROM pg_indexes WHERE schemaname = 'public'
@@ -763,6 +763,79 @@ async function main() {
   );
   ok(ownerView.length === 1, "المالك المسجل يستطيع معاينة بوابته");
 
+  // بنك الأسئلة: الملكية وقيود الأنواع وصلاحيات المستخدمين.
+  const exam = await asUser(USER_A, () =>
+    one(
+      `INSERT INTO public.exam_questions (user_id, year, category, subject, question_type, question, correct_answer)
+     VALUES ($1, $2, 'جزء عمّ', 'التجويد', 'written', 'ما مقدار الغنة؟', 'حركتان') RETURNING *`,
+      [USER_A, YEAR],
+    ),
+  );
+  ok(exam.category === "جزء عمّ", "حفظ السؤال مع فئة الحفظ");
+  ok(
+    (await asUser(USER_A, () => q("SELECT * FROM public.exam_questions"))).length === 1,
+    "المالك يرى أسئلته",
+  );
+  ok(
+    (await asUser(USER_B, () => q("SELECT * FROM public.exam_questions"))).length === 0,
+    "لا تُكشف أسئلة مستخدم لآخر",
+  );
+  await throws(
+    () => asRole("anon", () => q("SELECT * FROM public.exam_questions")),
+    "الزائر لا يقرأ بنك الأسئلة",
+  );
+  await throws(
+    () =>
+      asUser(USER_B, () =>
+        db.query(`INSERT INTO public.exam_questions (user_id, question) VALUES ($1, 'سؤال')`, [
+          USER_A,
+        ]),
+      ),
+    "منع إنشاء سؤال باسم مستخدم آخر",
+  );
+  ok(
+    (
+      await asUser(USER_B, () =>
+        q(`UPDATE public.exam_questions SET question = 'تعديل' WHERE id = $1 RETURNING id`, [
+          exam.id,
+        ]),
+      )
+    ).length === 0,
+    "منع تعديل سؤال مستخدم آخر",
+  );
+  ok(
+    (
+      await asUser(USER_B, () =>
+        q("DELETE FROM public.exam_questions WHERE id = $1 RETURNING id", [exam.id]),
+      )
+    ).length === 0,
+    "منع حذف سؤال مستخدم آخر",
+  );
+  await throws(
+    () =>
+      asUser(USER_A, () =>
+        db.query(
+          `INSERT INTO public.exam_questions (user_id, question_type) VALUES ($1, 'invalid')`,
+          [USER_A],
+        ),
+      ),
+    "رفض نوع سؤال غير صالح",
+  );
+  await asUser(USER_A, () =>
+    db.query(`UPDATE public.exam_questions SET correct_answer = 'مقدار حركتين' WHERE id = $1`, [
+      exam.id,
+    ]),
+  );
+  ok(
+    (await one("SELECT correct_answer FROM public.exam_questions WHERE id = $1", [exam.id]))
+      .correct_answer === "مقدار حركتين",
+    "المالك يعدّل إجابة السؤال",
+  );
+  await asUser(USER_A, () =>
+    db.query("DELETE FROM public.exam_questions WHERE id = $1", [exam.id]),
+  );
+  ok((await q("SELECT * FROM public.exam_questions")).length === 0, "المالك يحذف سؤاله");
+
   // full-schema.sql (النسخة الموحدة) تشغَّل كما هي من الصفر
   const db2 = new PGlite();
   await applyStubs(db2);
@@ -779,10 +852,10 @@ async function main() {
     await db2.query(
       `SELECT tablename FROM pg_tables
         WHERE schemaname = 'public'
-          AND tablename IN ('teacher_portals', 'monthly_submissions')`,
+          AND tablename IN ('teacher_portals', 'monthly_submissions', 'exam_questions')`,
     )
   ).rows;
-  ok(fsTables.length === 2, "full-schema.sql تشغَّل من الصفر وتنشئ جدولا الروابط");
+  ok(fsTables.length === 3, "full-schema.sql تشغَّل من الصفر وتنشئ جداول الروابط والأسئلة");
   await db2.close();
 
   console.log(`\n✅ نجحت ${passed} اختباراً خلال ${Date.now() - t0}ms.\n`);
