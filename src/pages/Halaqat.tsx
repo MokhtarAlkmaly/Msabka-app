@@ -77,14 +77,15 @@ const Halaqat = () => {
     if (!year) return;
     setLoading(true);
     try {
-      const [yearStudents, allStudents, yearTeachers] = await Promise.all([
+      // المعلمون والمعلمات سجل عام (بلا عام)؛ أما ربطهم بالطلاب فيبقى لكل عام.
+      const [yearStudents, allStudents, registryTeachers] = await Promise.all([
         loadStudentsForYear(year),
         loadGlobalStudents(),
-        loadTeachers(year),
+        loadTeachers(),
       ]);
       setStudents(yearStudents);
       setGlobalStudents(allStudents);
-      setTeachers(yearTeachers as TeacherRow[]);
+      setTeachers(registryTeachers as TeacherRow[]);
     } catch (error) {
       console.error("تعذر تحميل إدارة الحلقات:", error);
       toast({
@@ -147,16 +148,21 @@ const Halaqat = () => {
 
   const addTeacher = async () => {
     const name = teacherName.trim();
-    if (!name || !year || viewAs) return;
+    if (!name || viewAs) return;
     if (teacherNames.includes(name)) {
-      toast({ title: "المعلم/ة موجود", description: "هذا المعلم/ة مضاف لهذا العام مسبقاً." });
+      toast({ title: "المعلم/ة موجود", description: "هذا الاسم مضاف في السجل العام مسبقاً." });
       return;
     }
     try {
-      await saveTeacher({ name, year });
+      // يُضاف الاسم إلى السجل العام للمعلمين والمعلمات (بلا ربط بعام)، ويظهر
+      // مباشرة كحلقة في كل الأعوام لربط الطلاب بها.
+      await saveTeacher({ name });
       setTeacherName("");
       setAddTeacherOpen(false);
-      toast({ title: "تمت إضافة المعلم/ة", description: `${name} — عام ${year}هـ` });
+      toast({
+        title: "تمت إضافة المعلم/ة",
+        description: `${name} — أُضيف إلى السجل العام وظهر في كل الأعوام.`,
+      });
       await loadData();
     } catch (error) {
       toast({
@@ -274,15 +280,23 @@ const Halaqat = () => {
                   <UsersRound className="h-6 w-6" /> إدارة الحلقات
                 </h1>
                 <p className="mt-1 text-sm text-white/75">
-                  ربط الطلاب بالمعلمين والمعلمات وإدارة حلقات كل عام بشكل مستقل
+                  ترتيب المعلمين والمعلمات وطلابهم: السجل العام للأسماء، والربط بالطلاب لكل عام
+                  مستقل
                 </p>
               </div>
             </div>
-            <Link to="/">
-              <Button variant="ghost" className="gap-1 text-primary-foreground">
-                <ArrowRight className="h-4 w-4" /> السجل الرئيسي
-              </Button>
-            </Link>
+            <div className="flex flex-wrap gap-2">
+              <Link to="/teachers">
+                <Button variant="ghost" className="gap-1 text-primary-foreground">
+                  <UsersRound className="h-4 w-4" /> سجل المعلمين والمعلمات
+                </Button>
+              </Link>
+              <Link to="/students">
+                <Button variant="ghost" className="gap-1 text-primary-foreground">
+                  <ArrowRight className="h-4 w-4" /> سجل الطلاب
+                </Button>
+              </Link>
+            </div>
           </div>
           <div className="mt-5 flex flex-wrap items-center gap-3 rounded-2xl bg-white/10 p-3 ring-1 ring-white/15">
             <CalendarDays className="h-5 w-5 text-amber-300" />
@@ -318,7 +332,7 @@ const Halaqat = () => {
             onClick={() => setAddTeacherOpen(true)}
             className="gap-2 rounded-2xl"
           >
-            <Plus className="h-4 w-4" /> إضافة معلم/ة لهذا العام
+            <Plus className="h-4 w-4" /> إضافة معلم/ة للسجل العام
           </Button>
           <Button
             disabled={!!viewAs}
@@ -415,7 +429,7 @@ const Halaqat = () => {
       <Dialog open={addTeacherOpen} onOpenChange={setAddTeacherOpen}>
         <DialogContent dir="rtl">
           <DialogHeader>
-            <DialogTitle>إضافة معلم/ة لعام {year}هـ</DialogTitle>
+            <DialogTitle>إضافة معلم/ة إلى السجل العام</DialogTitle>
           </DialogHeader>
           <div className="space-y-2">
             <Label htmlFor="halaqat-teacher-name">اسم المعلم/ة</Label>
@@ -428,6 +442,10 @@ const Halaqat = () => {
               }}
               placeholder="اكتب اسم المعلم/ة"
             />
+            <p className="text-xs text-muted-foreground">
+              الأسماء في سجل عام واحد لكل الأعوام — لا حاجة لإضافتها مرة أخرى في كل عام. ربط الطلاب
+              بها يتم من هذه الصفحة لكل عام على حدة.
+            </p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddTeacherOpen(false)}>
