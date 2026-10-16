@@ -1,6 +1,6 @@
 {
   "appId": "net.markz.app",
-  "appName": "Markz Net",
+  "appName": "Markz Net — نسخة بلا إنترنت",
   "webDir": ".output/public",
   "plugins": {
     "CapacitorSQLite": {

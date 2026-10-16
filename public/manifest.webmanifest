@@ -1,7 +1,7 @@
 {
-  "name": "نظام إدارة مركز إنماء الأهلي الخيري",
+  "name": "نظام إدارة مركز إنماء الأهلي الخيري (النسخة السحابية — تحتاج إنترنت)",
   "short_name": "مركز إنماء",
-  "description": "نظام إدارة مركز إنماء الأهلي الخيري - قسم القرآن الكريم",
+  "description": "نظام إدارة مركز إنماء الأهلي الخيري - قسم القرآن الكريم، النسخة المتصلة بالسحابة التي تحتاج إنترنت. للنسخة التي تعمل بلا إنترنت استخدم تطبيق Markz Net.",
   "theme_color": "#047857",
   "background_color": "#ffffff",
   "display": "standalone",
@@ -10,7 +10,10 @@
   "start_url": "/",
   "dir": "rtl",
   "lang": "ar",
-  "categories": ["education", "productivity"],
+  "categories": [
+    "education",
+    "productivity"
+  ],
   "icons": [
     {
       "src": "/icon-192.png",

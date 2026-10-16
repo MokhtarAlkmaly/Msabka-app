@@ -1,12 +1,17 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ar" dir="rtl">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>غير متصل — Markz Net</title>
+    <meta name="theme-color" content="#075E45" />
+    <title>Markz Net — نسخة بلا إنترنت | تعذّر الوصول إلى النظام</title>
+    <link rel="icon" href="/icon-192.png" />
     <style>
       :root {
-        color-scheme: light dark;
+        color-scheme: dark;
+      }
+      * {
+        box-sizing: border-box;
       }
       body {
         margin: 0;
@@ -14,67 +19,97 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        font-family: system-ui, "Segoe UI", Tahoma, sans-serif;
-        background: linear-gradient(180deg, #052e26, #064e3b);
+        font-family: "Cairo", system-ui, "Segoe UI", Tahoma, sans-serif;
+        background:
+          radial-gradient(circle at 78% 16%, rgba(255, 255, 255, 0.18), transparent 22rem),
+          linear-gradient(180deg, #0e9a6b, #075e45 55%, #04372c);
         color: #ecfdf5;
         text-align: center;
         padding: 1.5rem;
       }
       .card {
-        max-width: 28rem;
-        background: rgba(255, 255, 255, 0.08);
-        border: 1px solid rgba(255, 255, 255, 0.15);
+        max-width: 30rem;
+        background: rgba(255, 255, 255, 0.09);
+        border: 1px solid rgba(255, 255, 255, 0.16);
         border-radius: 1.75rem;
-        padding: 2.5rem 2rem;
+        padding: 2.25rem 1.75rem;
         backdrop-filter: blur(8px);
+        box-shadow: 0 26px 60px rgba(0, 0, 0, 0.28);
       }
-      .icon {
-        font-size: 3rem;
-        margin-bottom: 0.5rem;
+      img.logo {
+        width: 92px;
+        height: 92px;
+        border-radius: 26px;
+        background: #fff;
+        padding: 4px;
       }
       h1 {
-        font-size: 1.35rem;
-        margin: 0 0 0.75rem;
+        font-size: 1.3rem;
+        margin: 1rem 0 0.35rem;
+      }
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        margin-top: 0.2rem;
+        padding: 0.3rem 0.85rem;
+        border-radius: 999px;
+        background: rgba(245, 158, 11, 0.22);
+        border: 1px solid rgba(245, 158, 11, 0.45);
+        color: #fde68a;
+        font-size: 0.78rem;
+        font-weight: 700;
       }
       p {
-        margin: 0.35rem 0;
-        color: rgba(236, 253, 245, 0.8);
+        margin: 0.5rem 0;
+        color: rgba(236, 253, 245, 0.82);
         font-size: 0.95rem;
-        line-height: 1.8;
+        line-height: 1.9;
       }
       .hint {
         margin-top: 1rem;
         padding-top: 1rem;
         border-top: 1px solid rgba(255, 255, 255, 0.12);
-        font-size: 0.85rem;
-        color: rgba(236, 253, 245, 0.65);
+        font-size: 0.82rem;
+        color: rgba(236, 253, 245, 0.66);
+      }
+      code {
+        background: rgba(255, 255, 255, 0.14);
+        border-radius: 0.45rem;
+        padding: 0.1rem 0.4rem;
       }
       button {
-        margin-top: 1.5rem;
-        background: #10b981;
-        color: #052e26;
+        margin-top: 1.4rem;
+        background: #f59e0b;
+        color: #3b2300;
         border: 0;
         border-radius: 0.9rem;
         padding: 0.7rem 2rem;
         font-size: 1rem;
         font-weight: 700;
         cursor: pointer;
+        font-family: inherit;
       }
       button:hover {
-        background: #34d399;
+        background: #fbbf24;
       }
     </style>
   </head>
   <body>
     <div class="card">
-      <div class="icon">📡</div>
-      <h1>تعذّر الوصول إلى النظام</h1>
-      <p>خادم Markz Net المحلي غير متاح حالياً على هذا الجهاز أو الشبكة.</p>
-      <p>بياناتك محفوظة بأمان ولن تتأثر — أعد تشغيل الخادم ثم أعد المحاولة.</p>
+      <img class="logo" src="/icon-192.png" alt="Markz Net — نسخة بلا إنترنت" />
+      <h1>Markz Net — نسخة بلا إنترنت</h1>
+      <div class="tag">⚠️ خادم النظام المحلي غير متاح</div>
+      <p>تعذّر الوصول إلى الخادم المحلي لـ Markz Net على هذا الجهاز أو الشبكة الداخلية.</p>
+      <p>
+        <strong>بياناتك آمنة</strong> — كل شيء (الحسابات، الطلاب، المتابعة الشهرية، الوسائط) محفوظ
+        على هذا الجهاز في قاعدة بيانات محلية، ولم يُفقد أي سجل. أعد تشغيل الخادم ثم أعد المحاولة.
+      </p>
+      <p>هذه النسخة لا تتصل بالإنترنت إطلاقاً؛ لا سحابة ولا خادم خارجي.</p>
       <button onclick="location.reload()">إعادة المحاولة</button>
       <p class="hint">
-        لتشغيل الخادم: افتح مجلد النظام ونفّذ الأمر
-        <code dir="ltr">npm start</code>
+        لتشغيل الخادم المحلي: افتح مجلد النظام ونفّذ الأمر <code dir="ltr">npm start</code><br />
+        أو استخدم تطبيق أندرويد «Markz Net» الذي يعمل دون خادم إطلاقاً.
       </p>
     </div>
   </body>

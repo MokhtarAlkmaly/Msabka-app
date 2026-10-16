@@ -1,0 +1,83 @@
+name: بناء تطبيق Markz Net (نسخة بلا إنترنت) — APK
+
+# يبني ملف APK للنسخة المستقلة (مجلد markz-net/) دون أي أسرار أو خدمات سحابية.
+# الناتج مستقل تماماً: معرّف الحزمة net.markz.app — يُثبَّت بجانب تطبيق
+# «مركز إنماء الأهلي الخيري» ولا يستبدله ولا يمسّ بياناته.
+#
+# طريقة الاستخدام: تبويب Actions → «بناء تطبيق Markz Net (نسخة بلا إنترنت) — APK»
+# → Run workflow، ثم حمّل الملف من قسم Artifacts باسم markz-net-debug-apk.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "markz-net/**"
+      - ".github/workflows/build-android-markz-net.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: markz-net
+
+    steps:
+      - name: سحب المشروع
+        uses: actions/checkout@v7
+
+      - name: تثبيت Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: markz-net/package-lock.json
+
+      - name: تثبيت Java (مطلوب لبناء أندرويد)
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: تثبيت حزم المشروع
+        run: npm ci
+
+      - name: فحص الأنواع
+        run: npx tsc --noEmit
+
+      - name: تشغيل الاختبارات المحلية
+        run: npm run test:db && npm run test:integration
+
+      - name: بناء ملفات الويب
+        run: npm run build
+
+      - name: توليد index.html ثابت من الخادم (لتطبيق أندرويد فقط)
+        run: |
+          PORT=3000 node .output/server/index.mjs &
+          SERVER_PID=$!
+          for i in $(seq 1 20); do
+            if curl -sf http://localhost:3000/ -o .output/public/index.html; then
+              break
+            fi
+            sleep 0.5
+          done
+          kill $SERVER_PID
+          test -s .output/public/index.html
+
+      - name: ربط الإضافات الأصلية (Capacitor sync)
+        run: npx cap sync android
+
+      - name: صلاحية تنفيذ gradlew
+        run: chmod +x android/gradlew
+
+      - name: بناء APK (نسخة تجريبية debug)
+        working-directory: markz-net/android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: رفع ملف APK كمرفق للتحميل
+        uses: actions/upload-artifact@v7
+        with:
+          name: markz-net-debug-apk
+          path: markz-net/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14

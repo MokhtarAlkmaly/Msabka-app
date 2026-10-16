@@ -13,6 +13,7 @@ import { FileText, Printer } from "lucide-react";
 import { loadYearData, loadHifzHistory } from "@/utils/storage";
 import { resolveBaseHifz, calculateGrade, calculatePrize } from "@/utils/calculations";
 import logo from "@/assets/logo.png";
+import { BRAND_PRINT_TITLE } from "@/lib/brand";
 
 interface Props {
   student: Student;
@@ -145,7 +146,7 @@ export const StudentReport = ({ student }: Props) => {
       </style></head><body>
         <div class="header">
           <img src="${logo}" alt="الشعار" />
-          <h1>Markz Net</h1>
+          <h1>${BRAND_PRINT_TITLE}</h1>
           <h2>تقرير المسابقة الرمضانية - ${esc(student.name)}</h2>
         </div>
         <div class="student-info">
@@ -222,7 +223,7 @@ export const StudentReport = ({ student }: Props) => {
             <div ref={reportRef}>
               <div className="header">
                 <img src={logo} alt="الشعار" />
-                <h1>Markz Net</h1>
+                <h1>{BRAND_PRINT_TITLE}</h1>
                 <h2>تقرير المسابقة الرمضانية - {student.name}</h2>
               </div>
               <div className="student-info">

@@ -372,12 +372,16 @@ const TeacherPortal = () => {
       <header className="border-b border-white/10 bg-emerald-950/60 px-4 py-4">
         <div className="mx-auto flex max-w-2xl items-center gap-3">
           <div className="rounded-2xl bg-white/95 p-1.5 shadow-lg ring-2 ring-amber-400/30">
-            <img src={logo} alt="Markz Net" className="h-11 w-11 object-contain" />
+            <img
+              src={logo}
+              alt="Markz Net — نسخة بلا إنترنت"
+              className="h-11 w-11 object-contain"
+            />
           </div>
           <div className="min-w-0 flex-1">
             <p className="flex items-center gap-1.5 text-[11px] font-bold text-amber-300">
               <Link2 className="h-3 w-3" />
-              بوابة المعلم/ة · Markz Net
+              بوابة المعلم/ة · Markz Net — نسخة بلا إنترنت
             </p>
             <h1 className="truncate text-lg font-black text-white">
               متابعة {monthLabel} · {yearLabel}
@@ -416,7 +420,7 @@ const TeacherPortal = () => {
         ))}
 
         <p className="pt-2 text-center text-[10px] text-white/30">
-          نظام إدارة Markz Net · قسم القرآن الكريم
+          Markz Net — نسخة بلا إنترنت · قسم القرآن الكريم
         </p>
       </main>
     </div>

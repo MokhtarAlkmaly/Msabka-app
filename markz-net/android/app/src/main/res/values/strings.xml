@@ -1,7 +1,9 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
+    <!-- اسم التطبيق على شاشة الجهاز (قصير ومميّز عن تطبيق «مركز إنماء الأهلي الخيري»). -->
     <string name="app_name">Markz Net</string>
-    <string name="title_activity_main">Markz Net</string>
+    <!-- الاسم الكامل الذي يظهر في مبدّل التطبيقات وفي واجهة النظام. -->
+    <string name="title_activity_main">Markz Net — نسخة بلا إنترنت</string>
     <string name="package_name">net.markz.app</string>
     <string name="custom_url_scheme">net.markz.app</string>
 </resources>

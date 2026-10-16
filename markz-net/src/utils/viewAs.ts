@@ -14,7 +14,8 @@ export interface ViewAsTarget {
   email: string | null;
 }
 
-const STORAGE_KEY = "msabka.viewAs";
+// مفتاح خاص بهذه النسخة (net.markz.app) — لا يشترك مع تطبيق «مركز إنماء».
+const STORAGE_KEY = "markznet.viewAs";
 
 let cached: ViewAsTarget | null | undefined;
 const listeners = new Set<(target: ViewAsTarget | null) => void>();

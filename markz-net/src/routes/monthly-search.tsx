@@ -4,7 +4,7 @@ import MonthlyTrackingSearch from "@/pages/MonthlyTrackingSearch";
 export const Route = createFileRoute("/monthly-search")({
   head: () => ({
     meta: [
-      { title: "بحث المتابعة الشهرية - نظام إدارة Markz Net" },
+      { title: "بحث المتابعة الشهرية | Markz Net — نسخة بلا إنترنت" },
       {
         name: "description",
         content:
@@ -12,7 +12,7 @@ export const Route = createFileRoute("/monthly-search")({
       },
       {
         property: "og:title",
-        content: "بحث المتابعة الشهرية - نظام إدارة Markz Net",
+        content: "بحث المتابعة الشهرية | Markz Net — نسخة بلا إنترنت",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import logo from "@/assets/logo.png";
+import { OfflineNotice } from "@/components/OfflineBadge";
 import {
   Mail,
   Lock,
@@ -154,7 +155,8 @@ const Auth = () => {
       if (firstRun) {
         toast({
           title: "تم إنشاء حساب المسؤول",
-          description: "أهلاً بك في markz-net — يمكنك الآن البدء بإدخال البيانات.",
+          description:
+            "أهلاً بك في Markz Net (نسخة بلا إنترنت) — يمكنك الآن البدء بإدخال البيانات.",
         });
       } else {
         toast({
@@ -220,10 +222,10 @@ const Auth = () => {
           <div className="relative z-10">
             <div className="inline-flex items-center gap-2 rounded-full bg-white/12 px-3 py-1 text-xs font-bold text-amber-200 ring-1 ring-white/15">
               <Sparkles className="h-3.5 w-3.5" />
-              Markz Net — نظام إدارة قسم القرآن الكريم
+              Markz Net — نسخة بلا إنترنت
             </div>
             <h2 className="mt-5 text-3xl font-black leading-relaxed text-white">
-              نسخة مستقلة تعمل بدون إنترنت، وبياناتك تبقى على جهازك.
+              Markz Net — نسخة بلا إنترنت: بياناتك تبقى على جهازك.
             </h2>
             <p className="mt-3 max-w-sm text-sm leading-7 text-white/75">
               كل البيانات — الحسابات والطلاب والمسابقات والمتابعة الشهرية — مخزّنة في قاعدة بيانات
@@ -254,11 +256,16 @@ const Auth = () => {
               <img src={logo} alt="الشعار" className="h-20 w-auto" />
             </div>
             <div>
-              <h1 className="text-xl font-black text-primary">Markz Net — قسم القرآن الكريم</h1>
+              <h1 className="text-xl font-black text-primary">Markz Net — نسخة بلا إنترنت</h1>
+              <p className="mt-0.5 text-[11px] font-semibold text-primary/70">
+                نظام إدارة حلقات ومسابقات القرآن الكريم — قسم القرآن الكريم
+              </p>
               <p className="mt-1 text-sm font-semibold text-foreground">{title}</p>
               <p className="mt-1 text-xs leading-6 text-muted-foreground">{description}</p>
             </div>
           </div>
+
+          <OfflineNotice className="mt-5" />
 
           {firstRun && (
             <div className="mt-5 flex items-start gap-2 rounded-2xl border border-amber-300/40 bg-amber-400/10 p-3 text-xs leading-6 text-amber-900 dark:text-amber-200">

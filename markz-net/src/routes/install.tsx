@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import Install from "@/pages/Install";
 
-const title = "تثبيت التطبيق - نظام إدارة Markz Net";
+const title = "تثبيت التطبيق | Markz Net — نسخة بلا إنترنت";
 const description = "خطوات تثبيت تطبيق المسابقة الرمضانية على الجوال والحاسب.";
 
 export const Route = createFileRoute("/install")({

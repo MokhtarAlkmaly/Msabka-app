@@ -59,9 +59,9 @@ const Install = () => {
                   <Smartphone className="h-12 w-12 text-primary" />
                 </div>
               </div>
-              <CardTitle className="text-3xl mb-2">ثبت التطبيق على جوالك</CardTitle>
+              <CardTitle className="text-3xl mb-2">ثبّت «Markz Net — نسخة بلا إنترنت»</CardTitle>
               <CardDescription className="text-lg">
-                استخدم التطبيق بدون إنترنت وبسرعة أكبر
+                نسخة محلية كاملة: تعمل بدون إنترنت، وكل بياناتك تبقى على جهازك
               </CardDescription>
             </CardHeader>
 
@@ -86,7 +86,7 @@ const Install = () => {
                     <ul className="space-y-3">
                       <li className="flex items-start gap-3">
                         <CheckCircle2 className="h-5 w-5 text-primary mt-0.5" />
-                        <span>يعمل بدون إنترنت بعد التثبيت</span>
+                        <span>يعمل بدون إنترنت بعد التثبيت — بلا خادم ولا سحابة</span>
                       </li>
                       <li className="flex items-start gap-3">
                         <CheckCircle2 className="h-5 w-5 text-primary mt-0.5" />

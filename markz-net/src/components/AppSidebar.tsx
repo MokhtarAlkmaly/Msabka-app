@@ -14,7 +14,6 @@ import {
   Receipt,
   Camera,
   LogOut,
-  HardDrive,
   Menu,
   X,
   GraduationCap,
@@ -28,6 +27,8 @@ import {
   Inbox,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
+import { OfflineBadge } from "@/components/OfflineBadge";
+import { BRAND_NAME, BRAND_OFFLINE_TAG, BRAND_SIGNATURE } from "@/lib/brand";
 import { useAuth } from "@/hooks/useAuth";
 
 export const AppSidebar = () => {
@@ -214,22 +215,23 @@ export const AppSidebar = () => {
         {/* Header Branding */}
         <div className="flex flex-col items-center border-b border-white/10 p-4 text-center">
           <div className="relative mb-2 rounded-2xl bg-white/95 p-2 shadow-lg ring-2 ring-amber-400/30">
-            <img src={logo} alt="Markz Net" className="h-14 w-14 object-contain" />
+            <img
+              src={logo}
+              alt="Markz Net — نسخة بلا إنترنت"
+              className="h-14 w-14 object-contain"
+            />
           </div>
           <div className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-0.5 text-[11px] font-bold text-amber-300 ring-1 ring-white/15">
             <Sparkles className="h-3 w-3" />
-            Markz Net
+            {BRAND_NAME} · {BRAND_OFFLINE_TAG}
           </div>
           <h2 className="mt-1.5 text-base font-black tracking-tight text-white">
             قسم القرآن الكريم
           </h2>
           <p className="text-[11px] text-white/60">نظام الإدارة وسجل الطلاب الشامل</p>
 
-          <div className="mt-2.5 flex items-center gap-2">
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400/20 px-2 py-0.5 text-[11px] font-medium text-emerald-200 ring-1 ring-emerald-400/30">
-              <HardDrive className="h-3 w-3" />
-              يعمل بدون إنترنت
-            </span>
+          <div className="mt-2.5 flex flex-wrap items-center justify-center gap-2">
+            <OfflineBadge tone="glass" />
           </div>
         </div>
 
@@ -331,7 +333,7 @@ export const AppSidebar = () => {
             <LogOut className="h-4 w-4" />
             <span>تسجيل الخروج</span>
           </Button>
-          <p className="mt-2 text-center text-[10px] text-white/40">تصميم أ/ مختار الكمالي</p>
+          <p className="mt-2 text-center text-[10px] text-white/40">{BRAND_SIGNATURE}</p>
         </div>
       </aside>
     </>

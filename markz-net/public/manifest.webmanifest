@@ -1,38 +1,54 @@
 {
-  "name": "Markz Net — نظام إدارة حلقات القرآن الكريم",
+  "name": "Markz Net — نسخة بلا إنترنت (نظام إدارة حلقات ومسابقات القرآن الكريم)",
   "short_name": "Markz Net",
-  "description": "Markz Net — نظام إدارة حلقات ومسابقات القرآن الكريم (نسخة محلية بدون إنترنت)",
-  "theme_color": "#047857",
-  "background_color": "#ffffff",
+  "description": "Markz Net — نسخة بلا إنترنت: نظام إدارة حلقات ومسابقات القرآن الكريم يعمل بالكامل على الجهاز، وكل البيانات (الطلاب، المتابعة الشهرية، المسابقات، الوسائط) مخزّنة محلياً بلا أي خادم أو خدمة سحابية.",
+  "theme_color": "#075E45",
+  "background_color": "#F7FBF8",
   "display": "standalone",
   "orientation": "portrait",
   "scope": "/",
   "start_url": "/",
   "dir": "rtl",
   "lang": "ar",
-  "categories": [
-    "education",
-    "productivity"
-  ],
+  "categories": ["education", "productivity"],
   "icons": [
     {
       "src": "/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
   "shortcuts": [
     {
-      "name": "عرض الطالبات",
+      "name": "سجل الطلاب الرسمي",
+      "short_name": "الطلاب",
       "url": "/",
-      "description": "عرض قائمة الطالبات"
+      "description": "عرض السجل الرسمي للطلاب"
+    },
+    {
+      "name": "المتابعة الشهرية",
+      "short_name": "المتابعة",
+      "url": "/monthly",
+      "description": "متابعة الحفظ والمراجعة الشهرية"
+    },
+    {
+      "name": "تسجيل الدخول",
+      "short_name": "الدخول",
+      "url": "/auth",
+      "description": "تسجيل الدخول إلى النظام المحلي"
     }
   ]
 }

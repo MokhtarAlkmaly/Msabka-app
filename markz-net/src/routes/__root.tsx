@@ -61,33 +61,48 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         name: "viewport",
         content: "width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes",
       },
-      { title: "نظام إدارة Markz Net - قسم القرآن الكريم" },
+      { title: "Markz Net — نسخة بلا إنترنت | نظام إدارة حلقات ومسابقات القرآن الكريم" },
       {
         name: "description",
-        content: "نظام إدارة المسابقة الرمضانية لحفظ القرآن الكريم - Markz Net",
+        content:
+          "Markz Net — نسخة بلا إنترنت: نظام إدارة حلقات ومسابقات القرآن الكريم يعمل بالكامل على الجهاز، وكل البيانات مخزّنة محلياً دون أي اتصال بالإنترنت.",
       },
       { name: "author", content: "مختار الكمالي" },
-      { name: "keywords", content: "مسابقة رمضانية, حفظ القرآن, Markz Net, تحفيظ القرآن" },
+      {
+        name: "keywords",
+        content:
+          "مسابقة رمضانية, حفظ القرآن, Markz Net, نسخة بلا إنترنت, تطبيق يعمل بدون إنترنت, تحفيظ القرآن",
+      },
       { name: "theme-color", content: "#047857" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
       { name: "apple-mobile-web-app-title", content: "Markz Net" },
+      { name: "application-name", content: "Markz Net — نسخة بلا إنترنت" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { property: "og:title", content: "نظام إدارة Markz Net - قسم القرآن الكريم" },
-      { name: "twitter:title", content: "نظام إدارة Markz Net - قسم القرآن الكريم" },
+      {
+        property: "og:title",
+        content: "Markz Net — نسخة بلا إنترنت | نظام إدارة حلقات ومسابقات القرآن الكريم",
+      },
+      {
+        name: "twitter:title",
+        content: "Markz Net — نسخة بلا إنترنت | نظام إدارة حلقات ومسابقات القرآن الكريم",
+      },
       {
         property: "og:description",
-        content: "نظام إدارة المسابقة الرمضانية لحفظ القرآن الكريم - Markz Net",
+        content:
+          "Markz Net — نسخة بلا إنترنت: كل البيانات (الطلاب، المتابعة الشهرية، المسابقات، الوسائط) مخزّنة على جهازك.",
       },
       {
         name: "twitter:description",
-        content: "نظام إدارة المسابقة الرمضانية لحفظ القرآن الكريم - Markz Net",
+        content:
+          "Markz Net — نسخة بلا إنترنت: كل البيانات (الطلاب، المتابعة الشهرية، المسابقات، الوسائط) مخزّنة على جهازك.",
       },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "manifest", href: "/manifest.webmanifest" },
+      { rel: "icon", href: "/favicon.ico", sizes: "any" },
       { rel: "icon", href: "/favicon.png", type: "image/png" },
       { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
     ],

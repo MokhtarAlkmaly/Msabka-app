@@ -21,7 +21,6 @@ import {
 } from "@/components/ui/dialog";
 import {
   RefreshCw,
-  HardDrive,
   LogOut,
   Users,
   BookOpenCheck,
@@ -31,6 +30,8 @@ import {
   Plus,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
+import { OfflineBadge } from "@/components/OfflineBadge";
+import { BRAND_HEADER, BRAND_SIGNATURE } from "@/lib/brand";
 import { Student, CustomColumnDef, DEFAULT_STATUSES, GENDER_OPTIONS } from "@/types/student";
 import { DEFAULT_SCHOOL_GRADES } from "@/utils/schoolGrades";
 import {
@@ -291,7 +292,7 @@ const Index = () => {
                   <div className="rounded-3xl bg-white/95 p-2 shadow-xl shadow-black/10 ring-1 ring-white/40">
                     <img
                       src={logo}
-                      alt="Markz Net"
+                      alt="Markz Net — نسخة بلا إنترنت"
                       className="h-16 w-16 object-contain sm:h-20 sm:w-20"
                     />
                   </div>
@@ -301,7 +302,7 @@ const Index = () => {
                       السجل العام والملف الشامل
                     </div>
                     <h1 className="mt-2 text-2xl font-black tracking-tight sm:text-3xl text-white">
-                      Markz Net - قسم القرآن الكريم
+                      {BRAND_HEADER}
                     </h1>
                     <p className="mt-1 text-xs text-white/80 sm:text-sm">
                       السجل الرسمي الموحد لجميع طلاب الحلقات والمسابقات القرآنية · الإشراف - شرعب
@@ -313,10 +314,7 @@ const Index = () => {
                 <div className="flex flex-col gap-2 rounded-3xl bg-white/10 p-3 text-xs text-white/85 ring-1 ring-white/15 backdrop-blur sm:min-w-56 sm:text-sm">
                   <div className="flex items-center justify-between gap-4">
                     <span className="font-semibold">{dayName}</span>
-                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-300/20 px-2 py-0.5 text-xs text-emerald-50">
-                      <HardDrive className="h-3.5 w-3.5" />
-                      يعمل بدون إنترنت
-                    </span>
+                    <OfflineBadge tone="glass" />
                   </div>
                   <div>{hijriDate}</div>
                   <div className="flex items-center justify-between gap-2 pt-1 border-t border-white/10">
@@ -567,7 +565,7 @@ const Index = () => {
 
           {/* Footer */}
           <footer className="mt-auto px-4 py-6 text-center text-xs text-muted-foreground">
-            Markz Net - قسم القرآن الكريم · تصميم أ/ مختار الكمالي
+            {BRAND_SIGNATURE}
           </footer>
         </div>
       </div>

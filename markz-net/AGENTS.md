@@ -14,6 +14,20 @@ Markz Net نسخة مستقلة بالكامل من نظام إدارة حلقا
 - **ملفات الوسائط:** مخزن IndexedDB باسم `markznet_media` (صور/فيديو كـ Blob).
 - **الجلسة:** `localStorage` بمفتاح `markznet.session` (تحقق من جدول app_users).
 
+## الهوية (مهمة قبل أي تعديل مرئي)
+
+هذا المشروع هو **Markz Net — نسخة بلا إنترنت**، وهو منفصل تماماً عن تطبيق
+«مركز إنماء الأهلي الخيري» السحابي (معرّفه `org.inmaa.msabkarmdan` وقاعدته
+`inmaa_local`). لا تخلط بينهما ولا تعد إلى معرّفات التطبيق السابق.
+
+- نصوص الاسم والوسم والترويسات: `src/lib/brand.ts` فقط (لا تكتب «Markz Net» نصّاً
+  داخل الصفحات). الشارات: `src/components/OfflineBadge.tsx`.
+- الأيقونات والشعار وشاشات البداية تُولَّد بـ `npm run brand:assets`
+  (المولّد: `scripts/generate-brand-assets.mjs` والخطوط في `scripts/brand-fonts/`).
+- لا تُغيّر `appId` (`net.markz.app`) ولا `DB_NAME` (`markznet_local`) ولا مفاتيح
+  `markznet.*` في localStorage — تغييرها يفقد المستخدمين بياناتهم.
+- التفاصيل الكاملة: `docs/الهوية-وتمييز-النسختين.md`.
+
 ## البنية المحلية
 
 | الملف | الدور |

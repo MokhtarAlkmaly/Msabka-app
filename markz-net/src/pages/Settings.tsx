@@ -24,6 +24,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import logo from "@/assets/logo.png";
+import { OfflineNotice } from "@/components/OfflineBadge";
+import { BRAND_LOCAL_NOTE, BRAND_NAME_TAGGED } from "@/lib/brand";
 import {
   AlertTriangle,
   ArrowRight,
@@ -381,11 +383,16 @@ const Settings = () => {
             <p className="mt-1 text-sm opacity-90">
               إعدادات الحساب والسنوات وحالات الطلاب والأعمدة المخصصة من مكان واحد
             </p>
+            <p className="mt-1 text-xs font-semibold text-white/75">
+              {BRAND_NAME_TAGGED} · {BRAND_LOCAL_NOTE}
+            </p>
           </div>
         </div>
       </header>
 
       <main className="container mx-auto max-w-7xl space-y-5 px-3 py-5 sm:px-4 sm:py-7">
+        <OfflineNotice />
+
         {readOnly && (
           <div className="rounded-[1.5rem] border border-amber-300/60 bg-amber-100/80 p-4 text-sm leading-7 text-amber-900 shadow-lg">
             أنت تطالع بيانات <strong>{viewAs?.name}</strong> الآن. إعدادات السجل الخاصة بصاحب

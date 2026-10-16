@@ -7,6 +7,7 @@ import { TableFilters } from "./table/TableFilters";
 import { calculateGrade, resolveBaseHifz } from "@/utils/calculations";
 import { getDuplicateNameCounts, getDuplicateCountFor } from "@/utils/studentNames";
 import logo from "@/assets/logo.png";
+import { BRAND_PRINT_TITLE } from "@/lib/brand";
 import { getTableFilters, setTableFilters } from "@/utils/storage";
 
 interface DirtyData {
@@ -396,7 +397,7 @@ export const CompetitionTable = ({
       </style></head><body>
         <div class="header">
           <img src="${logo}" alt="الشعار" />
-          <h1>Markz Net</h1>
+          <h1>${BRAND_PRINT_TITLE}</h1>
           <h2>كشف ${competitionLabel} - ${currentYear}هـ</h2>
         </div>
         <div class="filter-info"><strong>التصفية:</strong> ${getFilterDescription()}</div>

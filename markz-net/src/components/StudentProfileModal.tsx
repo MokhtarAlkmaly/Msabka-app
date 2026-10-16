@@ -57,6 +57,7 @@ import { resolveBaseHifz, calculateGrade, calculatePrize } from "@/utils/calcula
 import { getSurahList, calcPagesBetweenAsync } from "@/utils/quranData";
 import { esc } from "@/utils/report";
 import logo from "@/assets/logo.png";
+import { BRAND_PRINT_TITLE } from "@/lib/brand";
 import {
   GraduationCap,
   Calendar,
@@ -480,8 +481,8 @@ export const StudentProfileModal = ({
         @media print{@page{size:A4;margin:12mm}}
       </style></head><body>
         <div class="header">
-          <img src="${logo}" alt="Markz Net" />
-          <h1>Markz Net - قسم القرآن الكريم</h1>
+          <img src="${logo}" alt="Markz Net — نسخة بلا إنترنت" />
+          <h1>${BRAND_PRINT_TITLE}</h1>
           <h2>الملف الأكاديمي الشامل للطالب</h2>
         </div>
 
@@ -561,7 +562,7 @@ export const StudentProfileModal = ({
         </table>
 
         <div class="footer">
-          Markz Net · تصميم أ/ مختار الكمالي · طُبع بتاريخ: ${new Date().toLocaleDateString("ar-EG")}
+          Markz Net — نسخة بلا إنترنت · تصميم أ/ مختار الكمالي · طُبع بتاريخ: ${new Date().toLocaleDateString("ar-EG")}
         </div>
       </body></html>`;
 

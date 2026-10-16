@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import Auth from "@/pages/Auth";
 import { useAuth } from "@/hooks/useAuth";
 
-const title = "تسجيل الدخول - نظام إدارة Markz Net";
+const title = "تسجيل الدخول | Markz Net — نسخة بلا إنترنت";
 const description = "الدخول إلى نظام إدارة المسابقة الرمضانية لحفظ القرآن الكريم.";
 
 export const Route = createFileRoute("/auth")({

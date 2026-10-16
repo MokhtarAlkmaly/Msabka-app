@@ -32,6 +32,7 @@ import {
   Search,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
+import { BRAND_PRINT_TITLE } from "@/lib/brand";
 import { Student, START_YEAR, END_YEAR, InternalCompetition } from "@/types/student";
 import {
   getActiveYear,
@@ -205,8 +206,8 @@ const InternalCompetitions = () => {
         @media print{@page{size:A4 landscape;margin:10mm}}
       </style></head><body>
         <div class="header">
-          <img src="${logo}" alt="Markz Net" />
-          <h1>Markz Net - قسم القرآن الكريم</h1>
+          <img src="${logo}" alt="Markz Net — نسخة بلا إنترنت" />
+          <h1>${BRAND_PRINT_TITLE}</h1>
           <h2>كشف المسابقات الداخلية - عام ${esc(currentYear)}هـ</h2>
         </div>
         <table>
@@ -243,7 +244,7 @@ const InternalCompetitions = () => {
               المسابقات القرآنية الداخلية
             </h1>
             <p className="text-sm opacity-90 mt-1">
-              إدارة المسابقات والتصفيات الداخلية بMarkz Net - عام {currentYear}هـ
+              إدارة المسابقات والتصفيات الداخلية بMarkz Net — نسخة بلا إنترنت - عام {currentYear}هـ
             </p>
           </div>
         </div>

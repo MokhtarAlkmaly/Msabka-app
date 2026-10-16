@@ -50,6 +50,7 @@ import { loadXLSX, saveWorkbook } from "@/utils/excel";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import logo from "@/assets/logo.png";
+import { BRAND_PRINT_TITLE } from "@/lib/brand";
 
 /* ==========================================================================
  * تنسيق أعمدة الجدول
@@ -464,7 +465,7 @@ export const StudentsTable = ({
     const customHeaders = customColumns.map((col) => `<th>${esc(col.name)}</th>`).join("");
 
     const fullHtml = `<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8">
-      <title>سجل الطلاب الرسمي - Markz Net</title>
+      <title>سجل الطلاب الرسمي | Markz Net — نسخة بلا إنترنت</title>
       <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; padding: 20px; color: #1a3a2a; }
@@ -483,7 +484,7 @@ export const StudentsTable = ({
       </style></head><body>
         <div class="header">
           <img src="${logo}" alt="الشعار" />
-          <h1>Markz Net - قسم القرآن الكريم</h1>
+          <h1>${BRAND_PRINT_TITLE}</h1>
           <h2>كشف السجل الشامل لطلاب المركز — كل الأعوام</h2>
           <div class="sub">إجمالي الطلاب في السجل الشامل: <strong>${filteredStudents.length}</strong> طالب</div>
         </div>

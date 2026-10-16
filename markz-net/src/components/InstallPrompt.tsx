@@ -76,8 +76,12 @@ export const InstallPrompt = () => {
               <Download className="h-5 w-5 text-primary" />
             </div>
             <div className="flex-1">
-              <h3 className="font-semibold text-sm mb-1">ثبت التطبيق على جوالك</h3>
-              <p className="text-xs text-muted-foreground mb-3">للوصول السريع والعمل بدون إنترنت</p>
+              <h3 className="font-semibold text-sm mb-1">
+                ثبّت «Markz Net — نسخة بلا إنترنت» على جوالك
+              </h3>
+              <p className="text-xs text-muted-foreground mb-3">
+                للوصول السريع، ويعمل بلا إنترنت وبياناته تبقى على جهازك
+              </p>
               <div className="flex gap-2">
                 <Button size="sm" onClick={handleInstallClick} className="text-xs h-8">
                   تثبيت

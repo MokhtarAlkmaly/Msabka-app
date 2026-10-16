@@ -17,7 +17,6 @@ import {
   Trash2,
   Calendar,
   Save,
-  HardDrive,
   RefreshCw,
   Users,
   Trophy,
@@ -27,6 +26,8 @@ import {
   GraduationCap,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
+import { OfflineBadge } from "@/components/OfflineBadge";
+import { BRAND_HEADER, BRAND_SUPERVISOR } from "@/lib/brand";
 import { Student, HifzHistory, YearData, START_YEAR, END_YEAR } from "@/types/student";
 import {
   loadAllStudentsWithData,
@@ -352,7 +353,7 @@ const Competition = () => {
               <div className="rounded-3xl bg-white/95 p-2 shadow-xl shadow-black/10 ring-1 ring-white/40">
                 <img
                   src={logo}
-                  alt="Markz Net"
+                  alt="Markz Net — نسخة بلا إنترنت"
                   className="h-16 w-16 object-contain sm:h-20 sm:w-20"
                 />
               </div>
@@ -381,7 +382,7 @@ const Competition = () => {
                   كشف {competitionLabel}
                 </h1>
                 <p className="mt-1 text-sm text-white/75 sm:text-base">
-                  Markz Net - قسم القرآن الكريم · الإشراف - شرعب الرونة
+                  {BRAND_HEADER} · {BRAND_SUPERVISOR}
                 </p>
               </div>
             </div>
@@ -389,10 +390,7 @@ const Competition = () => {
             <div className="flex flex-col gap-2 rounded-3xl bg-white/10 p-3 text-sm text-white/85 ring-1 ring-white/15 backdrop-blur sm:min-w-52">
               <div className="flex items-center justify-between gap-4">
                 <span className="font-semibold">العام: {currentYear}هـ</span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-300/20 px-2 py-1 text-xs text-emerald-50">
-                  <HardDrive className="h-3.5 w-3.5" />
-                  يعمل بدون إنترنت
-                </span>
+                <OfflineBadge tone="glass" />
               </div>
             </div>
           </div>

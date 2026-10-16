@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Home, Loader2, Printer, Share2, Sparkles, Search as SearchIcon } from "lucide-react";
 import logo from "@/assets/logo.png";
+import { BRAND_PRINT_TITLE } from "@/lib/brand";
 import { loadKhatimat, KhatimEntry } from "@/utils/storage";
 import { printHtml, esc } from "@/utils/report";
 
@@ -37,7 +38,7 @@ const Khatimat = () => {
     <div class="head">
       <img src="${logo}" class="logo" />
       <div>
-        <h1>Markz Net</h1>
+        <h1>${BRAND_PRINT_TITLE}</h1>
         <div class="sub">كشف الخاتمين والخاتمات — إجمالي ${entries.length} طالب/ة</div>
       </div>
     </div>

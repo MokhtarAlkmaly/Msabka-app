@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import Settings from "@/pages/Settings";
 
-const title = "إدارة الإعدادات - نظام إدارة Markz Net";
+const title = "إدارة الإعدادات | Markz Net — نسخة بلا إنترنت";
 const description =
   "إدارة الملف الشخصي والعام النشط وحالات الطلاب والأعمدة المخصصة في نظام إدارة Markz Net.";
 

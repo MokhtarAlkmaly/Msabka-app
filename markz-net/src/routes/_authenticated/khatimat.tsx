@@ -4,14 +4,14 @@ import Khatimat from "@/pages/Khatimat";
 export const Route = createFileRoute("/_authenticated/khatimat")({
   head: () => ({
     meta: [
-      { title: "كشف الخاتمين والخاتمات - نظام إدارة Markz Net" },
+      { title: "كشف الخاتمين والخاتمات | Markz Net — نسخة بلا إنترنت" },
       {
         name: "description",
         content: "قائمة الطلاب الذين ختمن القرآن الكريم عبر جميع الأعوام.",
       },
       {
         property: "og:title",
-        content: "كشف الخاتمين والخاتمات - نظام إدارة Markz Net",
+        content: "كشف الخاتمين والخاتمات | Markz Net — نسخة بلا إنترنت",
       },
       {
         property: "og:description",

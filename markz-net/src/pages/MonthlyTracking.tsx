@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import logo from "@/assets/logo.png";
+import { BRAND_PRINT_TITLE } from "@/lib/brand";
 import { RecallStudents } from "@/components/RecallStudents";
 import {
   Student,
@@ -345,7 +346,7 @@ const MonthlyTracking = () => {
       </style></head><body>
         <div class="header">
           <img src="${logo}" alt="الشعار" />
-          <h1>Markz Net</h1>
+          <h1>${BRAND_PRINT_TITLE}</h1>
           <h2>التقرير الشهري لمتابعة الطالب/ة</h2>
         </div>
         <div class="info">

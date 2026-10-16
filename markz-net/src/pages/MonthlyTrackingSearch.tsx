@@ -37,6 +37,7 @@ import {
 import { getSurahList, calcPagesBetweenAsync } from "@/utils/quranData";
 import { printHtml, esc } from "@/utils/report";
 import logo from "@/assets/logo.png";
+import { BRAND_PRINT_TITLE } from "@/lib/brand";
 
 interface MonthRow {
   month: number;
@@ -190,7 +191,7 @@ const MonthlyTrackingSearch = () => {
       <div class="head">
         <img src="${logo}" class="logo" />
         <div>
-          <h1>Markz Net</h1>
+          <h1>${BRAND_PRINT_TITLE}</h1>
           <div class="sub">سجل المتابعة الشهرية الشامل خلال عام ${year}هـ</div>
         </div>
       </div>

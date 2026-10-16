@@ -22,6 +22,7 @@ import {
 import { loadXLSX, saveWorkbook } from "@/utils/excel";
 import { useToast } from "@/hooks/use-toast";
 import logo from "@/assets/logo.png";
+import { BRAND_PRINT_TITLE } from "@/lib/brand";
 import { Student, HifzHistory, YearData, START_YEAR, END_YEAR } from "@/types/student";
 import {
   loadGlobalStudents,
@@ -279,7 +280,7 @@ const Search = () => {
       <div class="head">
         <img src="${logo}" class="logo" />
         <div>
-          <h1>Markz Net</h1>
+          <h1>${BRAND_PRINT_TITLE}</h1>
           <div class="sub">سجل الطالب/ة الشامل خلال جميع الأعوام</div>
         </div>
       </div>

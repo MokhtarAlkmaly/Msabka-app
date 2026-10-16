@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import Competition from "@/pages/Competition";
 
-const title = "المسابقة الرمضانية - Markz Net";
+const title = "المسابقة الرمضانية | Markz Net — نسخة بلا إنترنت";
 const description = "كشوفات المسابقة الرمضانية ومسابقة عشر ذي الحجة - قسم القرآن الكريم";
 
 export const Route = createFileRoute("/_authenticated/competition")({

@@ -4,11 +4,11 @@ import Expenses from "@/pages/Expenses";
 export const Route = createFileRoute("/_authenticated/expenses")({
   head: () => ({
     meta: [
-      { title: "مصروفات حفل التكريم - نظام إدارة Markz Net" },
+      { title: "مصروفات حفل التكريم | Markz Net — نسخة بلا إنترنت" },
       { name: "description", content: "تتبع مصروفات حفل تكريم حافظات القرآن الكريم." },
       {
         property: "og:title",
-        content: "مصروفات حفل التكريم - نظام إدارة Markz Net",
+        content: "مصروفات حفل التكريم | Markz Net — نسخة بلا إنترنت",
       },
       { property: "og:description", content: "تتبع مصروفات حفل تكريم حافظات القرآن الكريم." },
     ],
