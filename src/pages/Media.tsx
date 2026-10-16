@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -9,7 +9,9 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { mediaObjectUrl, saveMediaFile } from "@/utils/mediaFiles";
+import { newLocalId } from "@/lib/local-ids";
+import { isViewingOtherUser } from "@/utils/viewAs";
 import { ArrowRight, Upload, Trash2, Image, Video, X } from "lucide-react";
 import { Link } from "@/lib/router-compat";
 import { START_YEAR, END_YEAR } from "@/types/student";
@@ -55,27 +57,41 @@ const Media = () => {
   const [uploading, setUploading] = useState(false);
   const [previewItem, setPreviewItem] = useState<MediaItem | null>(null);
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
+  const urlRefs = useRef<string[]>([]);
+  const loadVersion = useRef(0);
+  const readOnly = isViewingOtherUser();
   const { toast } = useToast();
   const { user } = useAuth();
 
   const loadMedia = useCallback(async () => {
     if (!user || !selectedYear) return;
+    const version = ++loadVersion.current;
     setLoading(true);
-    const items = (await loadMediaMetadata(selectedYear)) as MediaItem[];
-    setMediaItems(items);
-    // Generate signed URLs for all cached metadata items.
-    if (items.length > 0 && navigator.onLine) {
-      const paths = items.map((i) => i.file_path);
-      const { data: signed } = await supabase.storage.from("media").createSignedUrls(paths, 3600);
+    try {
+      const items = (await loadMediaMetadata(selectedYear)) as MediaItem[];
+      if (version !== loadVersion.current) return;
+      setMediaItems(items);
       const map: Record<string, string> = {};
-      signed?.forEach((s, idx) => {
-        if (s.signedUrl) map[paths[idx]] = s.signedUrl;
-      });
+      for (const item of items) {
+        try {
+          const url = await mediaObjectUrl(item.id, item.file_path, item.file_size);
+          if (url) map[item.file_path] = url;
+        } catch (error) {
+          console.warn("Media unavailable offline:", error);
+        }
+      }
+      if (version !== loadVersion.current) {
+        Object.values(map).forEach(URL.revokeObjectURL);
+        return;
+      }
+      urlRefs.current.forEach(URL.revokeObjectURL);
+      urlRefs.current = Object.values(map);
       setSignedUrls(map);
-    } else {
-      setSignedUrls({});
+    } catch (error) {
+      console.error("تعذّر قراءة الوسائط المحلية", error);
+    } finally {
+      if (version === loadVersion.current) setLoading(false);
     }
-    setLoading(false);
   }, [user, selectedYear]);
 
   useEffect(() => {
@@ -84,12 +100,25 @@ const Media = () => {
 
   useEffect(() => {
     void loadMedia();
+    const refresh = () => void loadMedia();
+    window.addEventListener("online", refresh);
+    return () => window.removeEventListener("online", refresh);
   }, [loadMedia]);
+
+  useEffect(
+    () => () => {
+      loadVersion.current++;
+      urlRefs.current.forEach(URL.revokeObjectURL);
+    },
+    [],
+  );
 
   const getUrl = (filePath: string) => signedUrls[filePath] || "";
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || !user) return;
+    if (!e.target.files || !user || readOnly || uploading) return;
+    const input = e.target;
+    let saved = 0;
     setUploading(true);
 
     const files = Array.from(e.target.files);
@@ -103,7 +132,7 @@ const Media = () => {
       }
 
       // Get current Hijri month
-      const hijriDate = new Date().toLocaleDateString("ar-SA-u-ca-islamic-umalqura", {
+      const hijriDate = new Date().toLocaleDateString("en-US-u-ca-islamic-umalqura", {
         month: "numeric",
       });
       const currentMonth = parseInt(hijriDate) || 1;
@@ -111,35 +140,44 @@ const Media = () => {
       const ext = file.name.split(".").pop();
       const filePath = `${user.id}/${selectedYear}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
 
-      const { error: uploadError } = await supabase.storage.from("media").upload(filePath, file);
-      if (uploadError) {
-        console.error(uploadError);
-        toast({ title: "خطأ في الرفع", description: uploadError.message, variant: "destructive" });
-        continue;
-      }
+      const id = newLocalId();
+      try {
+        await saveMediaFile(id, file);
+        const result = await saveMediaMetadata({
+          id,
 
-      await saveMediaMetadata({
-        year: selectedYear,
-        month: currentMonth,
-        title: file.name,
-        file_path: filePath,
-        file_type: isImage ? "image" : "video",
-        file_size: file.size,
-      });
+          year: selectedYear,
+          month: currentMonth,
+          title: file.name,
+          file_path: filePath,
+          file_type: isImage ? "image" : "video",
+          file_size: file.size,
+        });
+        if (!result) throw new Error("تعذّر حفظ بيانات الملف");
+        saved++;
+      } catch (error) {
+        // Preserve binary if metadata was already saved (e.g. queue persistence failed).
+        toast({
+          title: "تعذّر حفظ الملف",
+          description: `${file.name}: ${String(error)}`,
+          variant: "destructive",
+        });
+      }
     }
 
     setUploading(false);
     await loadMedia();
-    toast({ title: "تم الرفع", description: `تم رفع ${files.length} ملف بنجاح` });
-    e.target.value = "";
+    toast({
+      title: "حفظ الوسائط",
+      description: `تم حفظ ${saved} من ${files.length} ملف على الجهاز؛ تُرفع عند الاتصال`,
+    });
+    input.value = "";
   };
 
   const handleDelete = async (item: MediaItem) => {
+    if (readOnly) return;
     if (!confirm("هل أنت متأكد من حذف هذا الملف؟")) return;
 
-    if (navigator.onLine && user) {
-      await supabase.storage.from("media").remove([item.file_path]);
-    }
     await deleteMediaMetadataLocal(item.id);
     await loadMedia();
     toast({ title: "تم الحذف", variant: "destructive" });
@@ -203,13 +241,14 @@ const Media = () => {
           </div>
 
           <label className="cursor-pointer">
-            <Button asChild disabled={uploading} className="gap-2">
+            <Button asChild disabled={uploading || readOnly} className="gap-2">
               <span>
                 <Upload className="h-4 w-4" />
-                {uploading ? "جارٍ الرفع..." : "رفع صور / فيديوهات"}
+                {uploading ? "جارٍ الحفظ..." : "إضافة صور / فيديوهات"}
               </span>
             </Button>
             <input
+              disabled={uploading || readOnly}
               type="file"
               multiple
               accept="image/*,video/*"
@@ -251,7 +290,11 @@ const Media = () => {
                           className="aspect-square cursor-pointer"
                           onClick={() => setPreviewItem(item)}
                         >
-                          {item.file_type === "image" ? (
+                          {!getUrl(item.file_path) ? (
+                            <p className="p-4 text-sm text-muted-foreground">
+                              الملف غير محفوظ على الجهاز — اتصل بالإنترنت لتنزيله
+                            </p>
+                          ) : item.file_type === "image" ? (
                             <img
                               src={getUrl(item.file_path)}
                               alt={item.title}
@@ -271,6 +314,8 @@ const Media = () => {
                           </p>
                         </div>
                         <button
+                          aria-label={`حذف ${item.title}`}
+                          disabled={readOnly}
                           onClick={() => handleDelete(item)}
                           className="absolute top-1 left-1 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
                         >

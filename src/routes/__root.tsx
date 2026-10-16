@@ -1,3 +1,5 @@
+import { registerOfflineApp } from "@/utils/registerOfflineApp";
+import { queueCloudSync } from "@/utils/storage";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
@@ -127,6 +129,16 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  useEffect(() => {
+    void registerOfflineApp();
+    const retry = () => queueCloudSync();
+    window.addEventListener("online", retry);
+    const timer = window.setInterval(retry, 60_000);
+    return () => {
+      window.removeEventListener("online", retry);
+      window.clearInterval(timer);
+    };
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>

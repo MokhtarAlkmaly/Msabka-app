@@ -31,6 +31,7 @@ const STORES = {
   internalCompetitions: "internal_competitions",
   externalCompetitions: "external_competitions",
   media: "media",
+  mediaFiles: "media_files",
   monthly: "monthly_tracking",
   communityRecords: "community_records",
   examQuestions: "exam_questions",
@@ -51,6 +52,7 @@ interface TableConfig {
 }
 
 const TABLES: Record<string, TableConfig> = {
+  [STORES.mediaFiles]: { columns: ["id", "mime_type", "data"], pk: ["id"] },
   [STORES.students]: {
     columns: [
       "id",
@@ -993,7 +995,17 @@ export const markDirty = (entity: PendingEntity, op: PendingOp, ref: any) => {
 
 export const getPendingChanges = () => getAllItems<PendingChange>(STORES.pending);
 
-export const clearPending = (key: string) => deleteItem(STORES.pending, key);
+export const clearPending = async (key: string, expected?: PendingChange) => {
+  if (!expected) return deleteItem(STORES.pending, key);
+  // A delete/edit can replace the same key while a network request is in flight.
+  const db = await getDB();
+  await db.run(
+    "DELETE FROM pending_changes WHERE key = ? AND ts = ? AND op = ? AND ref = ?",
+    [key, expected.ts, expected.op, JSON.stringify(expected.ref)],
+    true,
+  );
+  await persist();
+};
 
 export const clearAllPending = () => clearStore(STORES.pending);
 
@@ -1232,7 +1244,12 @@ export const SNAPSHOT_TABLES: string[] = [
 ];
 
 /** الجداول الإدارية المحلية (لا تُرحَّل إلى السحابة كصفوف). */
-export const SNAPSHOT_INTERNAL_TABLES: string[] = ["settings", "meta", "pending_changes"];
+export const SNAPSHOT_INTERNAL_TABLES: string[] = [
+  "settings",
+  "meta",
+  "pending_changes",
+  "media_files",
+];
 
 /** عدد صفوف كل جدول محلي — للمعاينة قبل الترحيل أو الاستعادة. */
 export const getLocalRowCounts = async (

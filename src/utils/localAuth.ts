@@ -1,3 +1,4 @@
+import { persistNow } from "./sqliteClient";
 /**
  * الدخول بدون إنترنت — الطبقة المخزِّنة (فوق SQLite المحلي).
  *
@@ -132,6 +133,8 @@ export const getLocalSession = async (): Promise<LocalSession | null> => {
 
 const writeSession = async (session: LocalSession): Promise<LocalSession> => {
   await setCachedSetting(KEY_SESSION, session);
+  // Login immediately replaces the document; do not lose the debounced write.
+  await persistNow(true);
   return session;
 };
 

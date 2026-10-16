@@ -5,12 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
-    "build": "node scripts/check-env.mjs && vite build",
-    "build:dev": "vite build --mode development",
+    "build": "node scripts/check-env.mjs && vite build && node scripts/build-pwa.mjs",
+    "build:dev": "vite build --mode development && node scripts/build-pwa.mjs",
     "check-env": "node scripts/check-env.mjs",
     "preview": "vite preview",
     "lint": "eslint .",
-    "test": "npm run test:sql && npm run test:exams && npm run test:records && npm run test:community && npm run test:teachers && npm run test:search && npm run test:alerts && npm run test:offline",
+    "test": "npm run test:sql && npm run test:exams && npm run test:records && npm run test:community && npm run test:teachers && npm run test:search && npm run test:alerts && npm run test:offline && npm run test:media",
     "test:exams": "node scripts/test-exams.mjs",
     "test:records": "node scripts/test-records.mjs",
     "test:community": "node scripts/test-center-sections.mjs && node scripts/test-community-records.mjs",
@@ -22,7 +22,9 @@
     "format": "prettier --write .",
     "postinstall": "node scripts/copy-sqlite-wasm.mjs",
     "cap:sync": "cap sync android",
-    "cap:android": "cap open android"
+    "cap:android": "cap open android",
+    "test:media": "node scripts/test-media.mjs",
+    "test:pwa": "node scripts/test-pwa.mjs"
   },
   "dependencies": {
     "@capacitor-community/sqlite": "^8.1.0",
@@ -107,9 +109,11 @@
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^15.15.0",
     "nitro": "3.0.260603-beta",
+    "playwright-core": "^1.64.1",
     "prettier": "^3.7.3",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.56.1",
-    "vite": "^8.2.0"
+    "vite": "^8.2.0",
+    "workbox-build": "^7.4.1"
   }
 }

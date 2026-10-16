@@ -1,3 +1,4 @@
+import { uploadMediaFile, ownedMediaPath } from "./mediaFiles";
 /**
  * الترحيل الشامل: رفع **كل** ما في قاعدة الجهاز المحلية إلى Supabase دفعة
  * واحدة — الزر الذي يضغطه المستخدم عندما يتوفر الإنترنت.
@@ -507,6 +508,11 @@ const executeFullMigration = async (
 
     // (3) كل الجداول بالترتيب (الطلاب → ما يعتمد عليهم → الباقي).
     for (const spec of specs) {
+      if (spec.table === "media") {
+        for (const row of await getTableRows("media")) {
+          await uploadMediaFile(String(row.id), ownerId);
+        }
+      }
       await pushTable(spec, ownerId, strategy, report);
       tick(spec.label);
     }
@@ -643,8 +649,10 @@ const applyPendingDeletes = async (ownerId: string): Promise<number> => {
   for (const change of deletes) {
     const ok = await applyOneDelete(change, ownerId);
     if (ok) {
-      await clearPending(change.key);
+      await clearPending(change.key, change);
       applied++;
+    } else {
+      throw new Error(`تعذّر تنفيذ حذف ${change.entity}؛ بقي في الطابور لإعادة المحاولة`);
     }
   }
   return applied;
@@ -697,6 +705,12 @@ const applyOneDelete = async (change: PendingChange, ownerId: string): Promise<b
       return !error;
     }
 
+    if (change.entity === "media" && typeof ref.file_path === "string") {
+      const { error } = await supabase.storage
+        .from("media")
+        .remove([ownedMediaPath(ref.file_path, ownerId)]);
+      if (error) return false;
+    }
     const table = ENTITY_TABLES[change.entity];
     if (!table || ref.id === undefined) return true; // لا شيء يُحذف
     const { error } = await cloud(table).delete().eq("user_id", ownerId).eq("id", ref.id);
