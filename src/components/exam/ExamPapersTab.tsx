@@ -11,7 +11,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { buildPrintDocument, printHtml } from "@/utils/report";
-import { exportHtmlAsPdf } from "@/utils/nativePrint";
+import { exportHtmlAsPdf, printHtmlDocument } from "@/utils/nativePrint";
 import { examQuestionErrorMessage, saveExamQuestions } from "@/utils/examStorage";
 import { normalizeQuestionText, type ExamQuestionInput } from "@/lib/exam-questions";
 import {
@@ -35,6 +35,10 @@ import {
   getCategory,
   resolveJuzRange,
 } from "@/utils/examPaperGenerator";
+
+/** إعدادات حجم الورق: A5 أفقي */
+const PAPER_PDF_FORMAT = "a5";
+const PAPER_PDF_ORIENTATION = "landscape";
 
 const SAVE_MODEL_NOTE = "توليد تلقائي من المصحف";
 
@@ -87,15 +91,33 @@ const ExamPapersTab = ({ year }: { year: string }) => {
   };
 
   const printPaper = (paper: ExamPaper) => {
-    void printHtml(`نموذج_${paper.label}_${year}`, buildPaperHtml(paper, year), PAPER_CSS);
+    void printHtml(
+      `نموذج_${paper.label}_${year}`,
+      buildPaperHtml(paper, year),
+      PAPER_CSS,
+      PAPER_PDF_FORMAT,
+      PAPER_PDF_ORIENTATION,
+    );
   };
 
   const printAll = () => {
-    void printHtml(`نماذج_الاختبار_${year}`, buildPapersHtml(papers, year), PAPER_CSS);
+    void printHtml(
+      `نماذج_الاختبار_${year}`,
+      buildPapersHtml(papers, year),
+      PAPER_CSS,
+      PAPER_PDF_FORMAT,
+      PAPER_PDF_ORIENTATION,
+    );
   };
 
   const printAnswerKey = () => {
-    void printHtml(`مفتاح_التصحيح_${year}`, buildAnswerKeyHtml(papers, year), PAPER_CSS);
+    void printHtml(
+      `مفتاح_التصحيح_${year}`,
+      buildAnswerKeyHtml(papers, year),
+      PAPER_CSS,
+      PAPER_PDF_FORMAT,
+      PAPER_PDF_ORIENTATION,
+    );
   };
 
   /**
@@ -105,7 +127,12 @@ const ExamPapersTab = ({ year }: { year: string }) => {
   const downloadPdf = async (key: string, fileName: string, body: string) => {
     setPdfKey(key);
     try {
-      await exportHtmlAsPdf(buildPrintDocument(fileName, body, PAPER_CSS), fileName);
+      await exportHtmlAsPdf(
+        buildPrintDocument(fileName, body, PAPER_CSS),
+        fileName,
+        PAPER_PDF_FORMAT,
+        PAPER_PDF_ORIENTATION,
+      );
     } finally {
       setPdfKey(null);
     }

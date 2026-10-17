@@ -40,5 +40,16 @@ export const buildPrintDocument = (title: string, body: string, extraCss = ""): 
  * ديناميكي ولا جلب بيانات) حتى تُفتح نافذة الطباعة داخل نفس نقرة المستخدم؛
  * وإلا حجبها مانع النوافذ المنبثقة في المتصفح.
  */
-export const printHtml = (title: string, body: string, extraCss = ""): Promise<boolean> =>
-  printHtmlDocument(buildPrintDocument(title, body, extraCss), title);
+export const printHtml = (
+  title: string,
+  body: string,
+  extraCss = "",
+  pdfFormat?: string,
+  pdfOrientation?: string,
+): Promise<boolean> =>
+  printHtmlDocument(
+    buildPrintDocument(title, body, extraCss),
+    title,
+    pdfFormat,
+    pdfOrientation,
+  );

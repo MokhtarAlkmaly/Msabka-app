@@ -32,11 +32,15 @@ interface PdfToolkit {
 
 let pdfToolkitPromise: Promise<PdfToolkit> | null = null;
 
-/** عرض ثابت لصفحة الطباعة قبل التصوير (يقارب عرض A4) */
+/** عرض ثابت لصفحة الطباعة قبل التصوير (يقارب عرض A4/A5 أفقي) */
 const PRINT_FRAME_WIDTH = 900;
 /** حدود آمنة لحجم الصورة: بعض المتصفحات ترفض كانفس أطول من ~16384 بكسل */
 const MAX_CANVAS_HEIGHT = 16000;
 const MAX_CANVAS_PIXELS = 30_000_000;
+
+/** الحجم الافتراضي للـ PDF */
+const DEFAULT_PDF_FORMAT = "a4";
+const DEFAULT_PDF_ORIENTATION = "portrait";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -182,13 +186,17 @@ const mountHtmlDocument = async (fullHtml: string): Promise<MountedHtml> => {
   }
 };
 
-/** يبني ملف PDF من مستند HTML (صفحات A4 متتالية). */
-const buildPdfFromHtml = async (fullHtml: string): Promise<JsPdfDoc> => {
+/** يبني ملف PDF من مستند HTML (صفحات متتالية). */
+const buildPdfFromHtml = async (
+  fullHtml: string,
+  pdfFormat = DEFAULT_PDF_FORMAT,
+  pdfOrientation = DEFAULT_PDF_ORIENTATION,
+): Promise<JsPdfDoc> => {
   const { html2canvas, jsPDF } = await loadPdfToolkit();
   const { targets, cleanup } = await mountHtmlDocument(fullHtml);
 
   try {
-    const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+    const pdf = new jsPDF({ orientation: pdfOrientation, unit: "pt", format: pdfFormat });
     for (let index = 0; index < targets.length; index++) {
       const element = targets[index];
       const canvas = await html2canvas(element, {
@@ -208,11 +216,16 @@ const buildPdfFromHtml = async (fullHtml: string): Promise<JsPdfDoc> => {
 
 /**
  * مسار التطبيق المثبَّت (أندرويد): WebView لا يدعم `window.print()`، لذا
- * نولّد PDF حقيقياً بعدة صفحات A4 ثم نفتح قائمة مشاركة النظام (حفظ/واتساب/
+ * نولّد PDF حقيقياً بعدة صفحات ثم نفتح قائمة مشاركة النظام (حفظ/واتساب/
  * الطابعات المثبَّتة).
  */
-const printHtmlAsPdf = async (fullHtml: string, fileName: string): Promise<void> => {
-  const pdf = await buildPdfFromHtml(fullHtml);
+const printHtmlAsPdf = async (
+  fullHtml: string,
+  fileName: string,
+  pdfFormat = DEFAULT_PDF_FORMAT,
+  pdfOrientation = DEFAULT_PDF_ORIENTATION,
+): Promise<void> => {
+  const pdf = await buildPdfFromHtml(fullHtml, pdfFormat, pdfOrientation);
   const base64 = String(pdf.output("datauristring")).split(",")[1] ?? "";
   if (!base64) throw new Error("تعذّر تجهيز ملف الطباعة");
   await sharePdf(base64, fileName);
@@ -365,14 +378,19 @@ const printInIframe = (fullHtml: string): Promise<boolean> =>
 /**
  * يطبع مستند HTML كامل (نفس ما كان يُمرَّر سابقاً لنافذة window.open + print):
  * - بالمتصفح العادي: نافذة طباعة جديدة (أو إطار مخفي إن حُجبت النوافذ).
- * - داخل تطبيق Capacitor المثبَّت: PDF فعلي بعدة صفحات A4 عبر قائمة المشاركة.
+ * - داخل تطبيق Capacitor المثبَّت: PDF فعلي بعدة صفحات عبر قائمة المشاركة.
  *
  * تُعيد `true` عند بدء الطباعة بنجاح، و`false` مع رسالة للمستخدم عند الفشل.
  */
-export const printHtmlDocument = async (fullHtml: string, fileName: string): Promise<boolean> => {
+export const printHtmlDocument = async (
+  fullHtml: string,
+  fileName: string,
+  pdfFormat = DEFAULT_PDF_FORMAT,
+  pdfOrientation = DEFAULT_PDF_ORIENTATION,
+): Promise<boolean> => {
   if (Capacitor.isNativePlatform()) {
     try {
-      await printHtmlAsPdf(fullHtml, fileName);
+      await printHtmlAsPdf(fullHtml, fileName, pdfFormat, pdfOrientation);
       return true;
     } catch (error) {
       console.error("Native print failed:", error);
@@ -426,7 +444,7 @@ export const printCurrentPage = async (fileName = "طباعة"): Promise<boolean
       useCORS: true,
       backgroundColor: "#ffffff",
     });
-    const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+    const pdf = new jsPDF({ orientation: DEFAULT_PDF_ORIENTATION, unit: "pt", format: DEFAULT_PDF_FORMAT });
     appendCanvasToPdf(pdf, canvas, false);
     const base64 = String(pdf.output("datauristring")).split(",")[1] ?? "";
     if (!base64) throw new Error("تعذّر تجهيز ملف الطباعة");
@@ -450,12 +468,17 @@ export const printCurrentPage = async (fileName = "طباعة"): Promise<boolean
 
 /**
  * ينزّل (أو يشارك) المستند كملف PDF جاهز للطباعة — مسار مضمون لا يعتمد على
- * نافذة الطباعة ولا على مانع النوافذ المنبثقة: يُنشئ PDF بصفحات A4 ويحفظه
+ * نافذة الطباعة ولا على مانع النوافذ المنبثقة: يُنشئ PDF بصفحات ويحفظه
  * مباشرة (تنزيل بالمتصفح / مشاركة داخل التطبيق المثبَّت).
  */
-export const exportHtmlAsPdf = async (fullHtml: string, fileName: string): Promise<boolean> => {
+export const exportHtmlAsPdf = async (
+  fullHtml: string,
+  fileName: string,
+  pdfFormat = DEFAULT_PDF_FORMAT,
+  pdfOrientation = DEFAULT_PDF_ORIENTATION,
+): Promise<boolean> => {
   try {
-    const pdf = await buildPdfFromHtml(fullHtml);
+    const pdf = await buildPdfFromHtml(fullHtml, pdfFormat, pdfOrientation);
     const pdfFileName = fileName.endsWith(".pdf") ? fileName : `${fileName}.pdf`;
 
     if (Capacitor.isNativePlatform()) {
