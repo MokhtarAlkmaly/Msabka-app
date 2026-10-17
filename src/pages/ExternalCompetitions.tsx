@@ -1,3 +1,4 @@
+import { printHtmlDocument } from "@/utils/nativePrint";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -178,8 +179,6 @@ const ExternalCompetitions = () => {
   }, [rows, searchQuery]);
 
   const handlePrint = async () => {
-    const { printHtmlDocument } = await import("@/utils/nativePrint");
-
     const rowsHtml = filteredRows
       .map(
         (r, i) => `<tr>

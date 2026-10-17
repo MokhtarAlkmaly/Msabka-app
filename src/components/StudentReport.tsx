@@ -1,3 +1,4 @@
+import { printHtmlDocument } from "@/utils/nativePrint";
 import { useState, useRef } from "react";
 import { Student, START_YEAR, END_YEAR, HifzHistory } from "@/types/student";
 import {
@@ -91,7 +92,6 @@ export const StudentReport = ({ student }: Props) => {
   };
 
   const handlePrint = async () => {
-    const { printHtmlDocument } = await import("@/utils/nativePrint");
     const data = await generateReport();
     setReports(data);
     setShowReport(true);

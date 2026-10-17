@@ -1,3 +1,4 @@
+import { printHtmlDocument } from "@/utils/nativePrint";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { Link } from "@/lib/router-compat";
 import { Button } from "@/components/ui/button";
@@ -395,7 +396,6 @@ const MonthlyTracking = () => {
         <div class="footer">${new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" })}</div>
       </body></html>`;
 
-    const { printHtmlDocument } = await import("@/utils/nativePrint");
     await printHtmlDocument(html, `تقرير_${reportStudent.name}_${monthLabel}`);
     setReportStudent(null);
   };

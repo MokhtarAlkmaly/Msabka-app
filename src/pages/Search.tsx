@@ -1,3 +1,4 @@
+import { shareText } from "@/utils/nativePrint";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "@/lib/router-compat";
 import { Button } from "@/components/ui/button";
@@ -465,7 +466,6 @@ const Search = () => {
   };
 
   const handleWhatsApp = async () => {
-    const { shareText } = await import("@/utils/nativePrint");
     if (!selected) return;
     const lines = activeRows().map((r) => {
       const c = computed(r);

@@ -1,3 +1,4 @@
+import { printCurrentPage } from "@/utils/nativePrint";
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/lib/router-compat";
@@ -366,7 +367,6 @@ const Competition = () => {
   };
 
   const handlePrint = async () => {
-    const { printCurrentPage } = await import("@/utils/nativePrint");
     printCurrentPage(`كشف_${competitionLabel}_${currentYear}`);
   };
 

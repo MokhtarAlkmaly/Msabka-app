@@ -1,3 +1,4 @@
+import { printHtmlDocument } from "@/utils/nativePrint";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Student,
@@ -458,7 +459,6 @@ export const StudentProfileModal = ({
   };
 
   const handlePrintFullProfile = async () => {
-    const { printHtmlDocument } = await import("@/utils/nativePrint");
     if (!studentData) return;
 
     const fullHtml = `<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8">

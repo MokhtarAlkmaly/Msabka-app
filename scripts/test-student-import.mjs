@@ -155,6 +155,44 @@ try {
   );
   ok("خلايا Excel الرقمية تُقرأ كنصوص دون فقدان القيمة");
 
+  console.log("\nتصدير السجل الشامل (صفحة الطلاب):");
+  const registryExport = await vite.ssrLoadModule("/src/lib/student-registry-export.ts");
+  const exportRows = registryExport.buildRegistryExportRows(
+    [
+      {
+        id: 7,
+        name: "فاطمة أحمد",
+        teacher: "سمية",
+        gender: "أنثى",
+        status: "يتيمة",
+        school_grade: "الرابع الابتدائي",
+        registered_years: ["1447", "1447D"],
+        latest_total_hifz: "12",
+        custom_fields: { col1: "قيمة مخصصة" },
+      },
+    ],
+    [{ id: "col1", name: "عمود مخصص" }],
+  );
+  assert.equal(exportRows.length, 1, "صف واحد لكل طالب");
+  assert.equal(exportRows[0]["اسم الطالب"], "فاطمة أحمد");
+  assert.equal(exportRows[0]["رقم القيد"], 7);
+  assert.equal(exportRows[0]["الأعوام المسجل بها"], "1447هـ، 1447هـ · عشر ذي الحجة");
+  assert.equal(exportRows[0]["عمود مخصص"], "قيمة مخصصة", "الأعمدة المخصصة تُصدَّر");
+  assert.equal(exportRows[0]["م"], 1, "ترقيم الصفوف");
+  ok("تصدير السجل الشامل: الأعمدة الأساسية + المخصصة + تنسيق الأعوام");
+
+  const emptyCustom = registryExport.buildRegistryExportRows([{ id: 1, name: "طالب", teacher: "" }]);
+  assert.equal(emptyCustom[0]["الحالة"], "طبيعي", "حالة افتراضية عند عدم التحديد");
+  assert.equal(emptyCustom[0]["الحفظ التراكمي (آخر عام)"], "0", "صفر افتراضي للحفظ");
+  ok("تصدير السجل الشامل: قيم افتراضية آمنة للحقول الفارغة");
+
+  await assert.rejects(
+    () => registryExport.exportStudentsRegistry([]),
+    /لا يوجد طلاب/,
+    "رفض التصدير بسجل فارغ",
+  );
+  ok("تصدير السجل الشامل: منع تصدير ملف فارغ");
+
   console.log("\n✅ نجحت اختبارات استيراد سجل الطلاب.");
 } finally {
   await vite.close();

@@ -10,7 +10,8 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { printHtml } from "@/utils/report";
+import { buildPrintDocument, printHtml } from "@/utils/report";
+import { exportHtmlAsPdf } from "@/utils/nativePrint";
 import { examQuestionErrorMessage, saveExamQuestions } from "@/utils/examStorage";
 import { normalizeQuestionText, type ExamQuestionInput } from "@/lib/exam-questions";
 import {
@@ -19,7 +20,7 @@ import {
   buildPaperHtml,
   buildPapersHtml,
 } from "@/utils/examPaperPrint";
-import { BookOpen, Loader2, Printer, Save, Sparkles, Wand2 } from "lucide-react";
+import { BookOpen, FileDown, Loader2, Printer, Save, Sparkles, Wand2 } from "lucide-react";
 import { loadQuranData, type QuranData } from "@/utils/quranText";
 import {
   HIFZ_CATEGORIES,
@@ -50,6 +51,7 @@ const ExamPapersTab = ({ year }: { year: string }) => {
   const [papers, setPapers] = useState<ExamPaper[]>([]);
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [pdfKey, setPdfKey] = useState<string | null>(null);
   const [dataError, setDataError] = useState("");
 
   const category = useMemo(() => getCategory(categoryId), [categoryId]);
@@ -95,6 +97,22 @@ const ExamPapersTab = ({ year }: { year: string }) => {
   const printAnswerKey = () => {
     void printHtml(`مفتاح_التصحيح_${year}`, buildAnswerKeyHtml(papers, year), PAPER_CSS);
   };
+
+  /**
+   * تنزيل PDF جاهز للطباعة — مسار لا يعتمد على نافذة الطباعة ولا على مانع
+   * النوافذ المنبثقة، فيبقى متاحاً أينما تعذّرت الطباعة المباشرة.
+   */
+  const downloadPdf = async (key: string, fileName: string, body: string) => {
+    setPdfKey(key);
+    try {
+      await exportHtmlAsPdf(buildPrintDocument(fileName, body, PAPER_CSS), fileName);
+    } finally {
+      setPdfKey(null);
+    }
+  };
+
+  const downloadingAll = pdfKey === "all";
+  const downloadingKey = pdfKey === "key";
 
   /**
    * حفظ أسئلة النماذج في بنك الأسئلة (مع تجاهل المكرر).
@@ -248,6 +266,36 @@ const ExamPapersTab = ({ year }: { year: string }) => {
                 <BookOpen className="h-4 w-4" /> مفتاح التصحيح
               </Button>
               <Button
+                variant="outline"
+                className="gap-1"
+                disabled={downloadingAll}
+                onClick={() =>
+                  void downloadPdf("all", `نماذج_الاختبار_${year}`, buildPapersHtml(papers, year))
+                }
+              >
+                {downloadingAll ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <FileDown className="h-4 w-4" />
+                )}
+                {downloadingAll ? "جارٍ التجهيز..." : "تنزيل PDF"}
+              </Button>
+              <Button
+                variant="outline"
+                className="gap-1"
+                disabled={downloadingKey}
+                onClick={() =>
+                  void downloadPdf("key", `مفتاح_التصحيح_${year}`, buildAnswerKeyHtml(papers, year))
+                }
+              >
+                {downloadingKey ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <FileDown className="h-4 w-4" />
+                )}
+                PDF مفتاح التصحيح
+              </Button>
+              <Button
                 variant="secondary"
                 className="gap-1"
                 disabled={saving || !user || !!viewAs}
@@ -324,6 +372,26 @@ const ExamPapersTab = ({ year }: { year: string }) => {
                   onClick={() => printPaper(paper)}
                 >
                   <Printer className="h-3 w-3" /> طباعة النموذج
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1"
+                  disabled={pdfKey === `paper-${paper.index}`}
+                  onClick={() =>
+                    void downloadPdf(
+                      `paper-${paper.index}`,
+                      `نموذج_${paper.label}_${year}`,
+                      buildPaperHtml(paper, year),
+                    )
+                  }
+                >
+                  {pdfKey === `paper-${paper.index}` ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <FileDown className="h-3 w-3" />
+                  )}
+                  PDF
                 </Button>
                 <Button
                   size="sm"

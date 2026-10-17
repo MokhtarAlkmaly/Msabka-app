@@ -1,3 +1,4 @@
+import { printHtmlDocument } from "@/utils/nativePrint";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "@/lib/router-compat";
 import { Button } from "@/components/ui/button";
@@ -66,7 +67,6 @@ const Khatimat = () => {
   const handlePrint = () => printHtml("كشف الخاتمين والخاتمات", buildBody());
 
   const handleShare = async () => {
-    const { printHtmlDocument } = await import("@/utils/nativePrint");
     const html = `<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>كشف الخاتمين والخاتمات</title>
       <style>
         body{font-family:Tahoma,Arial,sans-serif;padding:20px;color:#222}
