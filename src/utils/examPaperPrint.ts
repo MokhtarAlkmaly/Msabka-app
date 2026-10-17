@@ -4,12 +4,33 @@ import {
   type PaperQuestion,
   formatQuestionRef,
   formatQuestionText,
+  studentTitle,
 } from "@/utils/examPaperGenerator";
 
 /**
  * بناء أوراق الطباعة لنماذج الاختبار: ورقة النموذج + مفتاح التصحيح.
  * دوال نصية بحتة (بدون React) لتسهيل الاختبار وإعادة الاستخدام.
  */
+
+/**
+ * بيانات طالب تُطبع في ورقة النموذج بدل الخانات الفارغة.
+ * تُمرَّر عند توليد نماذج مخصصة من جدول المسابقة، وتُترك فارغة عند
+ * توليد نماذج عامة غير مرتبطة بأسماء.
+ */
+export interface PaperStudentContext {
+  name?: string;
+  teacher?: string;
+  gender?: string;
+  /** إجمالي الحفظ التراكمي للطالب (للعرض في الترويسة) */
+  totalHifz?: number;
+  /** ترتيب الطالب داخل فئته وعدد طلاب الفئة */
+  orderInCategory?: number;
+  categoryTotal?: number;
+}
+
+/** نقاط الكتابة على السطر: اسم الطالب + المعلم/ة */
+const NAME_DOTS = "..............................";
+const TEACHER_DOTS = "....................";
 
 export const PAPER_CSS = `
   @page { size: 210mm 148mm; margin: 8mm; }
@@ -133,58 +154,95 @@ const questionItem = (q: PaperQuestion) => `
 
 const LOGO_URL = "/icon-192.png";
 
-/** ورقة نموذج كاملة: ترويسة + بيانات الطالب + الأسئلة */
-export const buildPaperHtml = (paper: ExamPaper, year: string): string => `
-    <div class="paper">
+/** ورقة ترويسة موحّدة لكل المستندات المطبوعة */
+const paperHeader = (title: string): string => `
       <div class="header">
         <img class="logo" src="${LOGO_URL}" alt="شعار المركز" />
         <div>
           <div class="center">مركز إنماء الأهلي الخيري — قسم القرآن الكريم</div>
-          <div class="title">اختبار حفظ القرآن الكريم</div>
+          <div class="title">${esc(title)}</div>
         </div>
         <img class="logo" src="${LOGO_URL}" alt="شعار المركز" />
-      </div>
+      </div>`;
+
+/** خاتمة موحّدة */
+const paperFooter = `
+      <div class="footer-line">
+        <div class="thanks">وفّقكم الله — إدارة مركز إنماء الأهلي الخيري</div>
+      </div>`;
+
+/** خانة «اسم الطالب» — تُملأ بالاسم عند التخصيص وتبقى منقّطة للنماذج العامة */
+const nameCell = (student?: PaperStudentContext, width = "45%") => {
+  const hasName = Boolean(student?.name);
+  const label = hasName ? `اسم ${studentTitle(student?.gender)}` : "اسم الطالب/الطالبة";
+  const value = hasName ? `<b>${esc(student!.name!)}</b>` : NAME_DOTS;
+  return `<td style="width:${width}">${esc(label)}: ${value}</td>`;
+};
+
+/** خانة «المعلّم/المعلّمة» — تُملأ بالاسم المسجّل في الجدول إن وُجد */
+const teacherCell = (student?: PaperStudentContext, width = "30%") => {
+  const value = student?.teacher ? `<b>${esc(student.teacher)}</b>` : TEACHER_DOTS;
+  return `<td style="width:${width}">المعلّم/المعلّمة: ${value}</td>`;
+};
+
+/** سطر إضافي في الترويسة يربط النموذج بالطالب (يظهر في النماذج المخصصة فقط) */
+const studentMeta = (student?: PaperStudentContext): string => {
+  if (!student?.name) return "";
+  const bits: string[] = [];
+  if (typeof student.totalHifz === "number" && student.totalHifz > 0)
+    bits.push(`إجمالي الحفظ: ${student.totalHifz} جزءًا`);
+  if (student.orderInCategory && student.categoryTotal)
+    bits.push(`تسلسله في فئته: ${student.orderInCategory} من ${student.categoryTotal}`);
+  return bits.length ? ` — ${bits.join(" — ")}` : "";
+};
+
+/** ورقة نموذج كاملة: ترويسة + بيانات الطالب + الأسئلة */
+export const buildPaperHtml = (
+  paper: ExamPaper,
+  year: string,
+  student?: PaperStudentContext,
+): string => `
+    <div class="paper">
+      ${paperHeader("اختبار حفظ القرآن الكريم")}
       <div class="meta">
         العام ${esc(year)}هـ — فئة الحفظ: ${esc(paper.categoryLabel)} (${esc(paper.rangeLabel)})
-        — ${esc(paper.title)} — عدد الأسئلة: ${paper.questions.length + paper.supplements.length}
+        — ${esc(paper.title)} — عدد الأسئلة: ${paper.questions.length + paper.supplements.length}${esc(studentMeta(student))}
       </div>
       <table class="info-table">
         <tr>
-          <td style="width:45%">اسم الطالب/الطالبة: ............................................</td>
-          <td style="width:30%">المعلّم/المعلّمة: ..........................</td>
+          ${nameCell(student)}
+          ${teacherCell(student)}
           <td>الدرجة: ......... / ${(paper.questions.length + paper.supplements.length) * 10}</td>
         </tr>
       </table>
-      <p class="note">التعليمات: يقرأ الطالب/الطالبة غيبًا من موضع البداية ﴿…﴾ إلى موضع النهاية ﴿…﴾، ثم يجيب عن أسئلة التجويد ومعاني الآيات. ويُقيَّم كل سؤال من 10 درجات.</p>
+      <p class="note">التعليمات: يقرأ ${esc(studentTitle(student?.gender))} غيبًا من موضع البداية ﴿…﴾ إلى موضع النهاية ﴿…﴾، ثم يجيب عن أسئلة التجويد ومعاني الآيات. ويُقيَّم كل سؤال من 10 درجات.</p>
       <ol class="qs">
         ${paper.questions.map(questionItem).join("")}
       </ol>
-      ${paper.supplements.length > 0 ? `
+      ${
+        paper.supplements.length > 0
+          ? `
       <h3 style="color:#0e6b3a;font-size:12px;margin-top:10px">التجويد ومعاني الآيات</h3>
       <ol class="qs" start="${paper.questions.length + 1}">
         ${paper.supplements.map((q) => `<li><div class="q">${esc(q.question)}</div><div class="score">${esc(q.reference)} — الدرجة: ( ...... ) من 10</div><div>الإجابة: ....................................................................</div></li>`).join("")}
       </ol>
-      ` : ""}
-      <div class="footer-line">
-        <div class="thanks">وفّقكم الله — إدارة مركز إنماء الأهلي الخيري</div>
-      </div>
+      `
+          : ""
+      }
+      ${paperFooter}
     </div>`;
 
 /** كل النماذج في مستند واحد، كل نموذج في صفحة مستقلة */
-export const buildPapersHtml = (papers: ExamPaper[], year: string): string =>
-  papers.map((paper) => buildPaperHtml(paper, year)).join("");
+export const buildPapersHtml = (
+  papers: ExamPaper[],
+  year: string,
+  students?: (PaperStudentContext | undefined)[],
+): string => papers.map((paper, i) => buildPaperHtml(paper, year, students?.[i])).join("");
 
 /** مفتاح التصحيح: مرجع كل سؤال (السورة والآيات والجزء والصفحة وطول المقطع) */
 export const buildAnswerKeyHtml = (papers: ExamPaper[], year: string): string => `
     <div class="paper">
-      <div class="header">
-        <img class="logo" src="${LOGO_URL}" alt="شعار المركز" />
-        <div>
-          <div class="center">مركز إنماء الأهلي الخيري — قسم القرآن الكريم</div>
-          <div class="title">مفتاح تصحيح أسئلة الحفظ</div>
-        </div>
-        <img class="logo" src="${LOGO_URL}" alt="شعار المركز" />
-      </div>
+      ${paperHeader("مفتاح تصحيح أسئلة الحفظ")}
       <div class="meta">العام ${esc(year)}هـ — فئة الحفظ: ${esc(papers[0]?.categoryLabel ?? "")} — ${papers.length} نماذج</div>
       <table class="info-table">
         <thead>
@@ -210,7 +268,84 @@ export const buildAnswerKeyHtml = (papers: ExamPaper[], year: string): string =>
         </tbody>
       </table>
       ${papers.map((paper) => `<h3 style="color:#0e6b3a;font-size:12px;margin-top:10px">${esc(paper.title)} — إجابات التجويد والمعاني</h3><ol class="qs" start="${paper.questions.length + 1}">${paper.supplements.map((q) => `<li><b>${esc(q.question)}</b><p>${esc(q.answer)} — ${esc(q.reference)}</p></li>`).join("")}</ol>`).join("")}
-      <div class="footer-line">
-        <div class="thanks">وفّقكم الله — إدارة مركز إنماء الأهلي الخيري</div>
-      </div>
+      ${paperFooter}
     </div>`;
+
+/**
+ * مفتاح تصحيح النماذج المخصصة للطلاب.
+ * يختلف عن مفتاح النماذج العامة بأنه يبدأ بجدول توزيع (من هو الطالب وفي أي
+ * نموذج)، ثم يعرض إجابات كل نموذج مستخدم مرة واحدة فقط — لأن عدة طلاب قد
+ * يشتركون في نفس النموذج حين يتجاوز عددهم الحد الأعلى للنماذج.
+ */
+export const buildStudentAnswerKeyHtml = (
+  entries: { paper: ExamPaper; student?: PaperStudentContext }[],
+  year: string,
+): string => {
+  const usedPapers: ExamPaper[] = [];
+  const seen = new Set<string>();
+  for (const entry of entries) {
+    const key = `${entry.paper.categoryLabel}:${entry.paper.label}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    usedPapers.push(entry.paper);
+  }
+
+  const distribution = entries
+    .map(
+      (entry, i) => `<tr>
+        <td class="num">${i + 1}</td>
+        <td>${esc(entry.student?.name || "—")}</td>
+        <td>${esc(entry.student?.teacher || "—")}</td>
+        <td class="num">${entry.student?.totalHifz || 0}</td>
+        <td>${esc(entry.paper.categoryLabel)}</td>
+        <td>${esc(entry.paper.rangeLabel)}</td>
+        <td class="num"><b>${esc(entry.paper.label)}</b></td>
+      </tr>`,
+    )
+    .join("");
+
+  return `
+    <div class="paper">
+      ${paperHeader("مفتاح تصحيح نماذج الطلاب")}
+      <div class="meta">العام ${esc(year)}هـ — ${entries.length} طالب/ة — ${usedPapers.length} نماذج مستخدمة</div>
+      <h3 style="color:#0e6b3a;font-size:12px;margin:6px 0">توزيع النماذج على الطلاب</h3>
+      <table class="info-table">
+        <thead>
+          <tr><th>م</th><th>اسم الطالب/ة</th><th>المعلّم/ة</th><th>الحفظ</th><th>فئة الاختبار</th><th>نطاق الأجزاء</th><th>النموذج</th></tr>
+        </thead>
+        <tbody>
+          ${distribution}
+        </tbody>
+      </table>
+      <h3 style="color:#0e6b3a;font-size:12px;margin-top:10px">مواضع أسئلة الحفظ لكل نموذج</h3>
+      <table class="info-table">
+        <thead>
+          <tr><th>النموذج</th><th>السؤال</th><th>السورة</th><th>الآيات</th><th>الجزء</th><th>الصفحة</th><th>طول المقطع</th></tr>
+        </thead>
+        <tbody>
+          ${usedPapers
+            .flatMap((paper) =>
+              paper.questions.map(
+                (q) => `<tr>
+            <td class="num">${esc(paper.label)}</td>
+            <td class="num">${q.number}</td>
+            <td>${esc(q.surahName)}</td>
+            <td class="num">${q.fromAyah}–${q.toAyah}</td>
+            <td class="num">${q.juzFrom}${q.juzTo !== q.juzFrom ? "-" + q.juzTo : ""}</td>
+            <td class="num">${q.pageFrom === q.pageTo ? q.pageFrom : `${q.pageFrom}–${q.pageTo}`}</td>
+            <td class="num">${q.ayahCount} آية (~${q.lines} سطر)</td>
+          </tr>`,
+              ),
+            )
+            .join("")}
+        </tbody>
+      </table>
+      ${usedPapers
+        .map(
+          (paper) =>
+            `<h3 style="color:#0e6b3a;font-size:12px;margin-top:10px">${esc(paper.title)} — إجابات التجويد والمعاني</h3><ol class="qs" start="${paper.questions.length + 1}">${paper.supplements.map((q) => `<li><b>${esc(q.question)}</b><p>${esc(q.answer)} — ${esc(q.reference)}</p></li>`).join("")}</ol>`,
+        )
+        .join("")}
+      ${paperFooter}
+    </div>`;
+};

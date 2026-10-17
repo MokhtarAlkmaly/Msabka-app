@@ -8,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Trash2 } from "lucide-react";
+import { FileText, Trash2 } from "lucide-react";
 import { StudentReport } from "@/components/StudentReport";
 import { useState, useEffect, useCallback } from "react";
 import { resolveBaseHifz, calculateGrade, calculatePrize } from "@/utils/calculations";
@@ -26,6 +26,8 @@ interface Props {
   teacherNames?: string[];
   /** عدد مرات تكرار الاسم في السجل — يُمرَّر من الجدول الأب لتمييز الأسماء المكررة */
   duplicateNameCount?: number;
+  /** توليد نموذج اختبار مخصص باسم هذا الطالب/ة (من مولّد نماذج المسابقة) */
+  onGeneratePaper?: (student: Student) => void;
 }
 
 export const TableRow = ({
@@ -36,6 +38,7 @@ export const TableRow = ({
   onDirtyChange,
   teacherNames = [],
   duplicateNameCount = 0,
+  onGeneratePaper,
 }: Props) => {
   const currentYearNum = parseInt(currentYear);
   const [name, setName] = useState(student.name);
@@ -296,6 +299,20 @@ export const TableRow = ({
 
       <td className="border-b border-l border-border/70 p-1 text-center">
         <StudentReport student={student} />
+      </td>
+
+      <td className="border-b border-l border-border/70 p-1 text-center">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onGeneratePaper?.(student)}
+          disabled={!onGeneratePaper}
+          title={`توليد نموذج اختبار باسم ${student.name || "الطالب/ة"}`}
+          aria-label="توليد نموذج اختبار"
+          className="h-9 w-9 rounded-xl border-primary/25 p-0 text-primary hover:bg-primary/10 hover:text-primary"
+        >
+          <FileText className="h-4 w-4" />
+        </Button>
       </td>
 
       <td className="border-b border-l border-border/70 p-1 text-center">

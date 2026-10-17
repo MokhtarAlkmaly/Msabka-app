@@ -324,6 +324,14 @@ export const generatePapers = (data: QuranData, opts: GenerateOptions): ExamPape
   return papers;
 };
 
+/** اللقب المناسب لورقة الاختبار حسب الجنس المسجّل (ذكر/أنثى/بدون) */
+export const studentTitle = (gender?: string): string => {
+  const value = (gender || "").trim().toLowerCase();
+  if (value === "أنثى" || value === "انثى" || value === "female") return "الطالبة";
+  if (value === "ذكر" || value === "male") return "الطالب";
+  return "الطالب/ة";
+};
+
 /** أكبر عدد أسئلة ممكن في نموذج لفئة معيّنة (يُستخدم في التحقق قبل التوليد) */
 export const categoryQuestionCount = (category: HifzCategory, data?: QuranData): number => {
   if (!data) return category.questions;

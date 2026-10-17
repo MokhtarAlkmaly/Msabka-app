@@ -117,6 +117,7 @@ export const TableHeader = ({ currentYear, sortField, sortDirection, onSort }: P
         {sortableHeader("المكافأة حسب الحالة", "statusPrize", "min-w-[96px]", 2)}
         {sortableHeader("ترتيب", "rank", "min-w-[60px]", 2)}
         {staticHeader("تقرير", "min-w-[60px]", 2)}
+        {staticHeader("نموذج اختبار", "min-w-[70px]", 2)}
         {staticHeader("حذف", "min-w-[60px]", 2)}
       </tr>
       <tr>
