@@ -139,8 +139,10 @@ export const generateStudentPapers = (
   const papers: StudentPaper[] = [];
   for (const [categoryId, group] of groups) {
     const category = getCategory(categoryId);
-    // عند ضيق النطاق (فئة صغيرة مع طلاب كثر) نقلّل النماذج بدل فشل الدفعة كلها
-    const attempts = [clampModels(models), MIN_MODELS];
+    // لا نولّد نماذج أكثر من طلاب الفئة (أقلّ عملًا وأسرع)، وعند ضيق النطاق
+    // (فئة صغيرة مع طلاب كثر) نقلّل العدد بدل فشل الدفعة كلها.
+    const wanted = Math.max(MIN_MODELS, Math.min(clampModels(models), group.length));
+    const attempts = [wanted, MIN_MODELS];
     let batch: ExamPaper[] | null = null;
     let lastError: Error | null = null;
     for (const count of attempts) {
