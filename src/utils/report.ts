@@ -47,9 +47,4 @@ export const printHtml = (
   pdfFormat?: string,
   pdfOrientation?: string,
 ): Promise<boolean> =>
-  printHtmlDocument(
-    buildPrintDocument(title, body, extraCss),
-    title,
-    pdfFormat,
-    pdfOrientation,
-  );
+  printHtmlDocument(buildPrintDocument(title, body, extraCss), title, pdfFormat, pdfOrientation);

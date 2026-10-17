@@ -209,7 +209,10 @@ try {
 
   // ===== الملخص حسب الفئة =====
   const summary = studentPapers.summarizeByCategory(auto.papers);
-  assert.equal(summary.reduce((sum, row) => sum + row.count, 0), auto.papers.length);
+  assert.equal(
+    summary.reduce((sum, row) => sum + row.count, 0),
+    auto.papers.length,
+  );
   const order = summary.map((row) => row.category.id);
   const canonical = generator.HIFZ_CATEGORIES.map((c) => c.id);
   assert.deepEqual(
