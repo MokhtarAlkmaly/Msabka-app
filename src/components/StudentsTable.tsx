@@ -1,3 +1,4 @@
+import { exportHtmlAsPdf, printHtmlDocument } from "@/utils/nativePrint";
 import { useState, useMemo } from "react";
 import {
   Student,
@@ -37,6 +38,8 @@ import {
   X,
   PencilLine,
   ListFilter,
+  FileDown,
+  Loader2,
 } from "lucide-react";
 import { StudentProfileModal } from "./StudentProfileModal";
 import { getDuplicateNameCounts, getDuplicateCountFor } from "@/utils/studentNames";
@@ -47,7 +50,7 @@ import {
   matchesSchoolGrade,
 } from "@/utils/schoolGrades";
 import { esc } from "@/utils/report";
-import { loadXLSX, saveWorkbook } from "@/utils/excel";
+import { exportStudentsRegistry } from "@/lib/student-registry-export";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import logo from "@/assets/logo.png";
@@ -57,6 +60,9 @@ import logo from "@/assets/logo.png";
  * كل عرض/تنسيق يُعرَّف مرة واحدة هنا ويُستخدم في الرأس (<colgroup> + <th>)
  * وفي الخلايا، حتى تبقى الأعمدة متساوية ومحاذاتها موحّدة تمامًا.
  * ========================================================================== */
+
+/** اسم ملف طباعة/ـPDF للسجل الشامل */
+const REGISTRY_PRINT_FILE_NAME = "سجل_الطلاب_الشامل_كل_الأعوام_مركز_إنماء";
 
 /** عامل التحويل من rem إلى بكسل — يُستخدم لحساب أقل عرض مسموح للجدول */
 const REM_PX = 16;
@@ -154,6 +160,7 @@ export const StudentsTable = ({
   const [newColumnDialogOpen, setNewColumnDialogOpen] = useState(false);
   const [newColumnName, setNewColumnName] = useState("");
   const [newColumnType, setNewColumnType] = useState<CustomColumnDef["type"]>("text");
+  const [printingPdf, setPrintingPdf] = useState(false);
 
   const [newStatusDialogOpen, setNewStatusDialogOpen] = useState(false);
   const [newStatusName, setNewStatusName] = useState("");
@@ -368,50 +375,33 @@ export const StudentsTable = ({
 
   // Export to Excel
   const handleExportExcel = async () => {
-    const data = filteredStudents.map((s, i) => {
-      const current = dirtyMap[s.id] || s;
-      const row: Record<string, string | number> = {
-        م: i + 1,
-        "رقم القيد": current.id,
-        "اسم الطالب": current.name,
-        الجنس: current.gender || "",
-        "تاريخ هجري الالتحاق": current.hijri_join_date || "",
-        "الحفظ قبل الالتحاق": current.initial_hifz || "0",
-        "الحفظ التراكمي (آخر عام)": current.latest_total_hifz || "0",
-        "عام أول مسابقة": current.first_competition_year || "",
-        "الأعوام المسجل بها": (current.registered_years || [])
-          .map((y) => formatYearKey(y))
-          .join("، "),
-        الحالة: current.status || "طبيعي",
-        "السنة الدراسية وقت الالتحاق": current.school_grade || "",
-        "رقم ولي الأمر": current.guardian_phone || "",
-        "رقم الطالب": current.student_phone || "",
-      };
-
-      customColumns.forEach((col) => {
-        row[col.name] = current.custom_fields?.[col.id] || "";
+    if (filteredStudents.length === 0) {
+      toast({
+        title: "لا توجد بيانات للتصدير",
+        description: "لا يوجد طالب مطابق للبحث أو التصفية الحالية",
+        variant: "destructive",
       });
+      return;
+    }
 
-      return row;
-    });
-
-    const XLSX = await loadXLSX();
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "سجل الطلاب الشامل");
-
-    const fileName = `سجل_الطلاب_الشامل_كل_الأعوام_مركز_إنماء.xlsx`;
-    await saveWorkbook(wb, fileName);
-    toast({
-      title: "تم التصدير",
-      description: `تم تصدير ${filteredStudents.length} طالب من السجل الشامل (كل الأعوام) إلى ملف Excel بنجاح`,
-    });
+    try {
+      await exportStudentsRegistry(filteredStudents, customColumns, undefined, dirtyMap);
+      toast({
+        title: "تم التصدير",
+        description: `تم تصدير ${filteredStudents.length} طالب من السجل الشامل (كل الأعوام) إلى ملف Excel بنجاح`,
+      });
+    } catch (error) {
+      console.error("Registry export failed:", error);
+      toast({
+        title: "تعذّر التصدير",
+        description: "حدث خطأ أثناء تجهيز ملف Excel — حاول مرة أخرى",
+        variant: "destructive",
+      });
+    }
   };
 
-  // Print Official Table
-  const handlePrint = async () => {
-    const { printHtmlDocument } = await import("@/utils/nativePrint");
-
+  // مستند طباعة السجل الرسمي (يُستخدم للطباعة المباشرة ولتنزيل PDF)
+  const buildRegistryPrintHtml = () => {
     const rowsHtml = filteredStudents
       .map((s, i) => {
         const current = dirtyMap[s.id] || s;
@@ -487,7 +477,20 @@ export const StudentsTable = ({
         </div>
       </body></html>`;
 
-    printHtmlDocument(fullHtml, `سجل_الطلاب_الشامل_كل_الأعوام_مركز_إنماء`);
+    return fullHtml;
+  };
+
+  const handlePrint = () => {
+    void printHtmlDocument(buildRegistryPrintHtml(), REGISTRY_PRINT_FILE_NAME);
+  };
+
+  const handlePrintPdf = async () => {
+    setPrintingPdf(true);
+    try {
+      await exportHtmlAsPdf(buildRegistryPrintHtml(), REGISTRY_PRINT_FILE_NAME);
+    } finally {
+      setPrintingPdf(false);
+    }
   };
 
   return (
@@ -544,6 +547,20 @@ export const StudentsTable = ({
               className="w-full sm:w-auto gap-1 rounded-xl font-bold"
             >
               <Printer className="h-4 w-4" /> طباعة السجل
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void handlePrintPdf()}
+              disabled={printingPdf || filteredStudents.length === 0}
+              className="w-full sm:w-auto gap-1 rounded-xl font-bold"
+            >
+              {printingPdf ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileDown className="h-4 w-4" />
+              )}
+              {printingPdf ? "جارٍ التجهيز..." : "PDF"}
             </Button>
           </div>
         </div>

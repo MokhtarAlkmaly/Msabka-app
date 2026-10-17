@@ -1,3 +1,4 @@
+import { printHtmlDocument } from "@/utils/nativePrint";
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { Student, HifzHistory, YearData } from "@/types/student";
 import { TableHeader } from "./table/TableHeader";
@@ -332,8 +333,6 @@ export const CompetitionTable = ({
   };
 
   const handlePrintFiltered = async () => {
-    const { printHtmlDocument } = await import("@/utils/nativePrint");
-
     const rows = filteredStudents
       .map((s, i) => {
         const parts = parseFloat(s.yearData?.parts || "0");

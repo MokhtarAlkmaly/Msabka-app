@@ -1,3 +1,4 @@
+import { printHtmlDocument } from "@/utils/nativePrint";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -238,7 +239,6 @@ export function TeacherCertificatesTab({
 
   const printCertificates = async (list: CertificateRow[]) => {
     if (list.length === 0) return;
-    const { printHtmlDocument } = await import("@/utils/nativePrint");
     const html = `<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8">
       <title>شهادات التقدير للمعلمين والمعلمات - ${esc(year)}هـ</title><style>
       *{box-sizing:border-box}

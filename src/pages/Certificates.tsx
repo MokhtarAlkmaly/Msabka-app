@@ -1,3 +1,4 @@
+import { printHtmlDocument } from "@/utils/nativePrint";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -239,7 +240,6 @@ const Certificates = () => {
     </div>`;
 
   const printCerts = async (list: Certificate[]) => {
-    const { printHtmlDocument } = await import("@/utils/nativePrint");
     if (!list.length) return;
     const html = `<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8">
       <title>شهادات ${esc(currentYear)}</title><style>

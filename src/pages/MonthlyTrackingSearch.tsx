@@ -1,3 +1,4 @@
+import { printHtmlDocument } from "@/utils/nativePrint";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "@/lib/router-compat";
 import { Button } from "@/components/ui/button";
@@ -219,7 +220,6 @@ const MonthlyTrackingSearch = () => {
 
   const handleShare = async () => {
     if (!selected) return;
-    const { printHtmlDocument } = await import("@/utils/nativePrint");
     const html = `<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>متابعة ${esc(selected.name)}</title>
       <style>
         body{font-family:Tahoma,Arial,sans-serif;padding:20px;color:#222}

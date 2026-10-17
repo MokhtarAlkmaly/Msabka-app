@@ -1,3 +1,4 @@
+import { printHtmlDocument } from "@/utils/nativePrint";
 import { useState, useEffect, useCallback, useMemo, type ReactElement } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -266,7 +267,6 @@ const Awards = () => {
   const totalOf = (rows: AwardRow[]) => rows.reduce((sum, r) => sum + Number(r.amount || 0), 0);
 
   const printReport = async () => {
-    const { printHtmlDocument } = await import("@/utils/nativePrint");
     const bonuses = (await loadTeacherBonuses(currentYear)) as {
       teacher_name: string;
       amount: number;

@@ -1,3 +1,4 @@
+import { printHtmlDocument } from "@/utils/nativePrint";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -172,7 +173,6 @@ export function AnnualBonusesTab({
   };
 
   const printReport = async () => {
-    const { printHtmlDocument } = await import("@/utils/nativePrint");
     const esc = (value: string) =>
       (value || "").replace(
         /[&<>"']/g,

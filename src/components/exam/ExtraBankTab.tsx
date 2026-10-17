@@ -19,8 +19,9 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { Plus, Pencil, Trash2, Save, Printer, Layers } from "lucide-react";
-import { printHtml, esc } from "@/utils/report";
+import { Plus, Pencil, Trash2, Save, Printer, Layers, FileDown, Loader2 } from "lucide-react";
+import { buildPrintDocument, printHtml, esc } from "@/utils/report";
+import { exportHtmlAsPdf } from "@/utils/nativePrint";
 import {
   deleteExamQuestion,
   examQuestionErrorMessage,
@@ -78,6 +79,7 @@ const ExtraBankTab = ({ year }: { year: string }) => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ExamForm>(emptyForm());
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   // محلي أولاً: القراءة من SQLite، ثم تحديث محصور بهذا العام من السحابة.
   const load = useCallback(async () => {
@@ -204,7 +206,7 @@ const ExtraBankTab = ({ year }: { year: string }) => {
     }
   };
 
-  const printQuestions = () => {
+  const buildQuestionsHtml = () => {
     const categoryLabel = categoryFilter !== "all" ? ` — فئة الحفظ: ${esc(categoryFilter)}` : "";
     const html = `
       <h2 style="text-align:center">بنك أسئلة الاختبارات — ${esc(year)}هـ${categoryLabel}</h2>
@@ -228,7 +230,23 @@ const ExtraBankTab = ({ year }: { year: string }) => {
           )
           .join("")}
       </ol>`;
-    void printHtml(`أسئلة_${year}`, html);
+    return html;
+  };
+
+  const printQuestions = () => {
+    void printHtml(`أسئلة_${year}`, buildQuestionsHtml());
+  };
+
+  const downloadQuestionsPdf = async () => {
+    setExportingPdf(true);
+    try {
+      await exportHtmlAsPdf(
+        buildPrintDocument(`أسئلة_${year}`, buildQuestionsHtml()),
+        `أسئلة_${year}`,
+      );
+    } finally {
+      setExportingPdf(false);
+    }
   };
 
   return (
@@ -269,6 +287,19 @@ const ExtraBankTab = ({ year }: { year: string }) => {
         <div className="flex gap-2">
           <Button variant="outline" className="gap-1" onClick={printQuestions}>
             <Printer className="h-4 w-4" /> طباعة
+          </Button>
+          <Button
+            variant="outline"
+            className="gap-1"
+            onClick={() => void downloadQuestionsPdf()}
+            disabled={exportingPdf || filteredRows.length === 0}
+          >
+            {exportingPdf ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <FileDown className="h-4 w-4" />
+            )}
+            PDF
           </Button>
           <Button className="gap-1" disabled={!!viewAs} onClick={openAdd}>
             <Plus className="h-4 w-4" /> سؤال جديد
