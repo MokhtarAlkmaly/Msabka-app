@@ -24,6 +24,8 @@ interface Props {
   displayYear?: string;
   /** اسم المسابقة المفتوحة لعرضه في العنوان */
   competitionLabel?: string;
+  /** وضع الاطلاع: يمنع الاستيراد والقالب والدمج ويبقي التصدير متاحاً */
+  disabled?: boolean;
 }
 
 export const ImportExport = ({
@@ -31,6 +33,7 @@ export const ImportExport = ({
   currentYear,
   displayYear,
   competitionLabel,
+  disabled = false,
 }: Props) => {
   const { toast } = useToast();
   const [importProgress, setImportProgress] = useState<{ current: number; total: number } | null>(
@@ -110,6 +113,7 @@ export const ImportExport = ({
   };
 
   const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (disabled) return;
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
@@ -243,6 +247,7 @@ export const ImportExport = ({
   };
 
   const downloadTemplate = async () => {
+    if (disabled) return;
     const XLSX = await loadXLSX();
     const templateData = [
       {
@@ -273,6 +278,7 @@ export const ImportExport = ({
   };
 
   const handleMergeDuplicates = async () => {
+    if (disabled) return;
     if (!confirm("سيتم دمج الطلاب المكررة بنفس الاسم في سجل واحد. هل تريد المتابعة؟")) return;
     setMerging(true);
     try {
@@ -315,11 +321,18 @@ export const ImportExport = ({
         يُضافون تلقائياً إلى السجل الشامل.
       </p>
 
+      {disabled && (
+        <p role="note" className="mt-2 text-xs leading-relaxed text-muted-foreground">
+          وضع الاطلاع يكتفي بالتصدير — الاستيراد والدمج متاحان على بياناتك أنت.
+        </p>
+      )}
+
       <div className="mt-3 grid grid-cols-3 gap-1.5">
         <Button
           onClick={downloadTemplate}
           variant="outline"
           size="sm"
+          disabled={disabled}
           className="h-10 gap-1 rounded-xl px-2 text-[11px] font-bold"
         >
           <Download className="h-3.5 w-3.5" />
@@ -329,7 +342,7 @@ export const ImportExport = ({
           variant="default"
           size="sm"
           className="relative h-10 gap-1 overflow-hidden rounded-xl px-2 text-[11px] font-bold"
-          disabled={!!importProgress}
+          disabled={disabled || !!importProgress}
         >
           <Upload className="h-3.5 w-3.5" />
           <span>
@@ -339,7 +352,7 @@ export const ImportExport = ({
             type="file"
             accept=".xlsx,.xls"
             onChange={handleImport}
-            disabled={!!importProgress}
+            disabled={disabled || !!importProgress}
             className="absolute inset-0 cursor-pointer opacity-0"
           />
         </Button>
@@ -372,7 +385,7 @@ export const ImportExport = ({
           variant="outline"
           size="sm"
           className="w-full gap-1 rounded-xl text-[11px] font-bold"
-          disabled={merging}
+          disabled={disabled || merging}
         >
           <Users className="h-3.5 w-3.5" />
           {merging ? "جارٍ الدمج..." : "دمج الأسماء المكررة"}

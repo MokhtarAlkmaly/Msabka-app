@@ -25,6 +25,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import SyncBackupPanel from "@/components/SyncBackupPanel";
 import { StudentRegistryImportExport } from "@/components/StudentRegistryImportExport";
+import { CompetitionToolsPanel } from "@/components/CompetitionToolsPanel";
 import logo from "@/assets/logo.png";
 import {
   AlertTriangle,
@@ -659,6 +660,9 @@ const Settings = () => {
             </div>
 
             <StudentRegistryImportExport readOnly={readOnly} />
+
+            {/* أدوات المسابقة: الاستيراد/التصدير/الحذف بعد نقلها من صفحة المسابقة */}
+            <CompetitionToolsPanel readOnly={readOnly} activeYear={currentYear} />
 
             {/* ===== العمل بدون إنترنت: الترحيل الشامل + النسخ في مجلد ظاهر ===== */}
             <SyncBackupPanel />

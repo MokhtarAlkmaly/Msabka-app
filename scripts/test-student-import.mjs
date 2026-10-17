@@ -208,8 +208,13 @@ try {
   assert.match(indexSource, /<StudentsTable/);
   assert.match(
     settingsSource,
-    /<StudentRegistryImportExport readOnly=\{readOnly\} \/>\s*(?:\{\/\*[\s\S]*?\*\/\}\s*)?<SyncBackupPanel \/>/,
-    "أدوات السجل تسبق لوحة المزامنة مباشرة مع تمرير وضع الاطلاع",
+    /<StudentRegistryImportExport readOnly=\{readOnly\} \/>[\s\S]*?<SyncBackupPanel \/>/,
+    "أدوات السجل تسبق لوحة المزامنة مع تمرير وضع الاطلاع",
+  );
+  assert.match(
+    settingsSource,
+    /<StudentRegistryImportExport readOnly=\{readOnly\} \/>\s*(?:\{\/\*[\s\S]*?\*\/\}\s*)?<CompetitionToolsPanel/,
+    "أدوات المسابقة تأتي بعد أدوات السجل الشامل مباشرة",
   );
   ok("القسم في الإعدادات لا في صفحة الطلاب، وجدول الطلاب باقٍ");
 
