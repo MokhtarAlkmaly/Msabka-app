@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect } from "react";
 import { Link, useLocation } from "@/lib/router-compat";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,10 +41,20 @@ import { useSyncStatus } from "@/hooks/useSyncStatus";
 
 interface SidebarProps {
   online?: boolean;
+  /**
+   * حالة الدرج على الشاشات الأصغر من 1024px. يتحكم بها التخطيط العام
+   * (`_authenticated/route.tsx`) لأن شريط الأقسام العلوي يحتاج إغلاق الدرج
+   * أيضاً بعد اختيار قسم، ولأن أي تغيير في المسار يُغلقه.
+   */
+  mobileOpen: boolean;
+  onMobileOpenChange: (open: boolean) => void;
 }
 
-export const AppSidebar = ({ online: onlineProp }: SidebarProps) => {
-  const [mobileOpen, setMobileOpen] = useState(false);
+export const AppSidebar = ({
+  online: onlineProp,
+  mobileOpen,
+  onMobileOpenChange,
+}: SidebarProps) => {
   const location = useLocation();
   const { signOut, isAdmin, sharedWithMe, viewAs, setViewAs, authMode } = useAuth();
   /**
@@ -59,14 +69,35 @@ export const AppSidebar = ({ online: onlineProp }: SidebarProps) => {
   // أصحاب البيانات الذين سمحوا لي بالاطلاع (يُستثنى حسابي أنا).
   const shareableOwners = sharedWithMe;
 
+  /** يُغلق الدرج بعد أي اختيار: عنصر قائمة، اطلاع على بيانات مستخدم، أو خروج. */
+  const closeMobileDrawer = () => onMobileOpenChange(false);
+
+  /**
+   * بينما الدرج مفتوح (شاشات أصغر من 1024px فقط) نمنع تمرير الصفحة خلفه،
+   * ونغلقه بمفتاح Escape مثل أي قائمة منبثقة.
+   */
+  useEffect(() => {
+    if (!mobileOpen || typeof document === "undefined") return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onMobileOpenChange(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [mobileOpen, onMobileOpenChange]);
+
   const enterViewAs = (ownerId: string, name: string, email: string | null) => {
-    setMobileOpen(false);
+    closeMobileDrawer();
     setViewAs({ id: ownerId, name, email });
     if (typeof window !== "undefined") window.location.reload();
   };
 
   const exitViewAs = () => {
-    setMobileOpen(false);
+    closeMobileDrawer();
     setViewAs(null);
     if (typeof window !== "undefined") window.location.reload();
   };
@@ -247,7 +278,7 @@ export const AppSidebar = ({ online: onlineProp }: SidebarProps) => {
       <Link
         key={item.to}
         to={item.to}
-        onClick={() => setMobileOpen(false)}
+        onClick={closeMobileDrawer}
         className={`group flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-150 ${
           active
             ? "bg-gradient-to-l from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-900/40 ring-1 ring-white/20 translate-x-[-2px]"
@@ -285,31 +316,44 @@ export const AppSidebar = ({ online: onlineProp }: SidebarProps) => {
 
   return (
     <>
-      {/* Mobile Menu Trigger Button */}
-      <div className="fixed top-3 right-3 z-50 md:hidden print:hidden">
+      {/* زر فتح القائمة: يظهر فقط تحت 1024px، أي حيث يكون الشريط درجاً */}
+      <div className="fixed top-3 right-3 z-50 lg:hidden print:hidden">
         <Button
           variant="secondary"
           size="sm"
-          onClick={() => setMobileOpen(!mobileOpen)}
+          onClick={() => onMobileOpenChange(!mobileOpen)}
           className="h-10 w-10 rounded-2xl bg-emerald-900 text-white shadow-xl hover:bg-emerald-800 p-0 flex items-center justify-center ring-1 ring-white/20"
           aria-label="القائمة"
+          aria-expanded={mobileOpen}
+          aria-controls="app-sidebar"
         >
           {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </Button>
       </div>
 
-      {/* Backdrop for mobile */}
+      {/* الخلفية الداكنة خلف الدرج: تحت 1024px فقط، والنقر عليها يُغلق الدرج */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden"
-          onClick={() => setMobileOpen(false)}
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
+          onClick={closeMobileDrawer}
+          aria-hidden="true"
         />
       )}
 
-      {/* Sidebar container (Right side in RTL) */}
+      {/*
+        الشريط الجانبي (على اليمين مع اتجاه RTL):
+        - على الشاشات الواسعة (1024px فأكثر) ثابت دائماً بلا أي إزاحة،
+          والمحتوى يُزاح عنه عبر `.app-main` في styles.css.
+        - تحت 1024px درج: الإزاحة `max-lg:translate-x-full` تُخرجه من الشاشة
+          حين يكون مغلقاً، و`max-lg:translate-x-0` تُظهره حين يُفتح. تقييد
+          الإزاحتين بـ `max-lg` هو ما يمنع بقاء الدرج فوق المحتوى بعد اختيار
+          صفحة أو قسم (فرض الظهور عند كسر md كان يبقيه فوق المحتوى بين
+          768px و1023px بلا إمكانية إغلاق).
+      */}
       <aside
-        className={`fixed top-0 right-0 bottom-0 z-40 flex w-72 flex-col bg-gradient-to-b from-emerald-950 via-teal-950 to-slate-950 text-white shadow-2xl transition-transform duration-300 ease-in-out md:translate-x-0 print:hidden border-l border-white/10 ${
-          mobileOpen ? "translate-x-0" : "translate-x-full"
+        id="app-sidebar"
+        className={`fixed top-0 right-0 bottom-0 z-40 flex w-72 flex-col bg-gradient-to-b from-emerald-950 via-teal-950 to-slate-950 text-white shadow-2xl transition-transform duration-300 ease-in-out print:hidden border-l border-white/10 ${
+          mobileOpen ? "max-lg:translate-x-0" : "max-lg:translate-x-full"
         }`}
         dir="rtl"
       >
@@ -416,7 +460,7 @@ export const AppSidebar = ({ online: onlineProp }: SidebarProps) => {
 
           <Button
             onClick={() => {
-              setMobileOpen(false);
+              closeMobileDrawer();
               signOut();
             }}
             variant="ghost"

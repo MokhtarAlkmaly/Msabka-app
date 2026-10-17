@@ -1,5 +1,5 @@
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { createFileRoute, Outlet, redirect, useRouterState } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { CenterSectionTabs } from "@/components/CenterSectionTabs";
 import { AppSidebar } from "@/components/AppSidebar";
 import { ViewAsBanner } from "@/components/ViewAsBanner";
@@ -39,6 +39,34 @@ export const Route = createFileRoute("/_authenticated")({
 });
 
 function AuthenticatedLayout() {
+  /**
+   * حالة درج القائمة على الشاشات الأصغر من 1024px. تعيش هنا في التخطيط لأن
+   * كلاً من `AppSidebar` و`CenterSectionTabs` يحتاجان التحكم بها: اختيار صفحة
+   * من القائمة أو قسم من الشريط العلوي يُغلق الدرج فوراً.
+   */
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+
+  // أي تنقّل بين الصفحات يُغلق الدرج حتى لا يبقى مفتوحاً فوق المحتوى.
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [pathname]);
+
+  /**
+   * إذا اتسعت الشاشة إلى 1024px فأكثر (تكبير النافذة أو تدوير الجهاز) يعود
+   * الشريط ثابتاً على اليمين، فنُغلق الدرج حتى لا تبقى حالته مفتوحة ومعها
+   * قفل تمرير الصفحة.
+   */
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const wideScreen = window.matchMedia("(min-width: 1024px)");
+    const onChange = (event: MediaQueryListEvent) => {
+      if (event.matches) setMobileNavOpen(false);
+    };
+    wideScreen.addEventListener("change", onChange);
+    return () => wideScreen.removeEventListener("change", onChange);
+  }, []);
+
   // تهيئة قاعدة البيانات المحلية (SQLite/WASM ~1MB) تحدث هنا فقط — أي بعد
   // تسجيل الدخول — بدل تحميلها على كل صفحة من الجذر. صفحة الدخول تبقى خفيفة.
   useEffect(() => {
@@ -61,13 +89,15 @@ function AuthenticatedLayout() {
 
   return (
     <div className="min-h-screen" dir="rtl">
-      <AppSidebar />
-      {/* AppSidebar is fixed on desktop; reserve its width so pages do not sit
-          underneath it. The margin is removed on mobile where it becomes a drawer. */}
-      <main className="min-h-screen min-w-0 md:mr-72">
+      <AppSidebar mobileOpen={mobileNavOpen} onMobileOpenChange={setMobileNavOpen} />
+      {/* الشريط ثابت على اليمين في الشاشات الواسعة (1024px فأكثر)، و`.app-main`
+          في styles.css تحجز عرضه (margin-right: 18rem) حتى لا تتداخل الصفحات
+          معه. تحت 1024px يتحول الشريط إلى درج يُغلق بعد الاختيار، فتُلغى
+          الإزاحة ويأخذ المحتوى عرض الشاشة كاملاً. */}
+      <main className="app-main min-h-screen min-w-0">
         {/* يظهر فقط أثناء الاطلاع على بيانات مستخدم آخر (قراءة فقط) */}
         <ViewAsBanner />
-        <CenterSectionTabs />
+        <CenterSectionTabs onSectionSelect={() => setMobileNavOpen(false)} />
         <Outlet />
       </main>
     </div>

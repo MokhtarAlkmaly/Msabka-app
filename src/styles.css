@@ -98,6 +98,9 @@
 
   --radius: 1rem;
 
+  /* عرض الشريط الجانبي الثابت — يطابق `w-72` في AppSidebar.tsx */
+  --app-sidebar-width: 18rem;
+
   --sidebar-background: 0 0% 98%;
   --sidebar-foreground: 240 5.3% 26.1%;
   --sidebar-primary: 240 5.9% 10%;
@@ -208,5 +211,34 @@
   input,
   [role="button"] {
     -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/*
+ * تخطيط هيكل التطبيق مع الشريط الجانبي (AppSidebar):
+ * - على الشاشات الواسعة (1024px فأكثر) الشريط ثابت على اليمين بعرض
+ *   --app-sidebar-width، ولذلك يُزاح المحتوى الرئيسي (`main.app-main` في
+ *   routes/_authenticated/route.tsx) بنفس المقدار حتى لا يتداخلا.
+ * - الإزاحة `margin-right` فيزيائية وليست منطقية (margin-inline-end)، لأن
+ *   التطبيق `dir="rtl"`: الشريط يبقى على يمين الشاشة في الحالتين.
+ * - تحت 1024px يتحول الشريط إلى درج فوق المحتوى (يُغلق عند تغيير المسار أو
+ *   اختيار عنصر/قسم)، فلا إزاحة ويأخذ المحتوى العرض كاملاً.
+ */
+@layer components {
+  .app-main {
+    margin-right: 0;
+  }
+
+  @media (min-width: 1024px) {
+    .app-main {
+      margin-right: var(--app-sidebar-width);
+    }
+  }
+
+  /* الشريط نفسه `print:hidden`، فتسقط إزاحة المحتوى عند الطباعة معه */
+  @media print {
+    .app-main {
+      margin-right: 0;
+    }
   }
 }
