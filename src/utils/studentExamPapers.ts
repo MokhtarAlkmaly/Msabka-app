@@ -1,9 +1,10 @@
 import {
   HIFZ_CATEGORIES,
-  MAX_MODELS,
+  HARD_MODEL_CEILING,
   MIN_MODELS,
   generatePapers,
   getCategory,
+  maxFeasibleModels,
   type ExamPaper,
   type HifzCategory,
   type RangeDirection,
@@ -20,9 +21,9 @@ import type { QuranData } from "@/utils/quranText";
  * حفظه هو (فئة الحفظ)، وموضعه داخل النطاق يختلف عن موضع زملائه في نفس
  * الفئة حتى لا تتطابق النماذج داخل الحلقة الواحدة.
  *
- * التنفيذ: نجمع الطلاب حسب فئة الحفظ، ثم نولّد للفئة دفعة واحدة بعدد
- * نماذج يساوي عدد طلابها (بحد أقصى `MAX_MODELS`)، ونوزّع النماذج على
- * الطلاب بالترتيب. عند تجاوز الحد الأعلى نعيد الاستخدام من البداية.
+ * التنفيذ: نجمع الطلاب حسب فئة الحفظ، ثم نولّد للفئة دفعة واحدة بعدد نماذج
+ * يساوي عدد طلابها (بحدٍّ أقصى سقف الفئة من `maxFeasibleModels`)، ونوزّع
+ * النماذج على الطلاب بالترتيب. عند تجاوز السقف نعيد الاستخدام من البداية.
  */
 
 /** بيانات الطالب اللازمة لبناء النموذج المخصص */
@@ -91,23 +92,15 @@ export interface GenerateStudentPapersOptions {
   /** "auto" = فئة كل طالب من إجمالي حفظه، أو معرّف فئة موحّد للجميع */
   categoryId?: string | null;
   direction?: RangeDirection;
-  /** عدد النماذج المختلفة المتاحة داخل الفئة الواحدة (2..30) */
-  models?: number;
+  /**
+   * عدد النماذج المطلوب داخل الفئة الواحدة — اختيار المعلم الصريح.
+   * بلا قيمة = تلقائي: موضع مستقل لكل طالب/ة حتى سقف فئته.
+   */
+  models?: number | null;
   /** دالة توليد عشوائي — تُمرَّر في الاختبارات لتثبيت النتائج */
   rng?: () => number;
   includeSupplements?: boolean;
 }
-
-/**
- * حصر عدد النماذج بين الحدّين المعتمدين.
- * لا نرفعه إلى عدد طلاب الفئة: اختيار المعلم لعدد صغير مقصود (نماذج أقل
- * تميّزًا)، والطلاب الزائدون يعيدون استخدام المواضع من البداية.
- */
-const clampModels = (models: number): number =>
-  Math.min(
-    MAX_MODELS,
-    Math.max(MIN_MODELS, Math.round(Number.isFinite(models) ? models : MAX_MODELS)),
-  );
 
 /**
  * توليد نموذج لكل طالب في القائمة.
@@ -119,7 +112,9 @@ export const generateStudentPapers = (
   opts: GenerateStudentPapersOptions = {},
 ): StudentPapersResult => {
   const direction: RangeDirection = opts.direction ?? "end";
-  const models = Number.isFinite(opts.models ?? NaN) ? Number(opts.models) : MAX_MODELS;
+  const explicitModels = Number.isFinite(opts.models ?? NaN)
+    ? Math.min(HARD_MODEL_CEILING, Math.max(MIN_MODELS, Math.round(Number(opts.models))))
+    : null; // تلقائي: موضع مستقل لكل طالب/ة حتى سقف الفئة
 
   // تجميع الطلاب حسب الفئة مع الحفاظ على ترتيبهم الأصلي داخل كل فئة
   const groups = new Map<string, StudentPaperInput[]>();
@@ -139,9 +134,15 @@ export const generateStudentPapers = (
   const papers: StudentPaper[] = [];
   for (const [categoryId, group] of groups) {
     const category = getCategory(categoryId);
-    // لا نولّد نماذج أكثر من طلاب الفئة (أقلّ عملًا وأسرع)، وعند ضيق النطاق
-    // (فئة صغيرة مع طلاب كثر) نقلّل العدد بدل فشل الدفعة كلها.
-    const wanted = Math.max(MIN_MODELS, Math.min(clampModels(models), group.length));
+    // السقف الحقيقي للفئة: أكبر عدد نماذج يبقى لكلٍّ منها موضع مستقل
+    const cap = maxFeasibleModels(data, category, direction);
+    // الطلب = min(اختيار المعلم إن وُجد، عدد طلاب الفئة، سقف الفئة)،
+    // وبلا أقل من الحد الأدنى. اختيار المعلم لعدد صغير مقصود (نماذج أقل
+    // تميّزًا) لا يُرفع قسرًا؛ والزائدون عن العدد يعيدون استخدام المواضع.
+    const wanted = Math.max(
+      MIN_MODELS,
+      Math.min(explicitModels ?? group.length, group.length, cap),
+    );
     const attempts = [wanted, MIN_MODELS];
     let batch: ExamPaper[] | null = null;
     let lastError: Error | null = null;
@@ -154,6 +155,7 @@ export const generateStudentPapers = (
           models: count,
           rng: opts.rng,
           includeSupplements: opts.includeSupplements,
+          allowBeyondMax: true,
         });
         break;
       } catch (err) {
