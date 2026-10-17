@@ -9,7 +9,6 @@ import {
 } from "@/components/ui/select";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { StudentsTable } from "@/components/StudentsTable";
-import { ImportExport } from "@/components/ImportExport";
 import { Input } from "@/components/ui/input";
 import {
   Dialog,
@@ -467,8 +466,6 @@ const Index = () => {
                 </Button>
               </div>
             </div>
-
-            {currentYear && <ImportExport onDataImported={loadData} currentYear={currentYear} />}
 
             {syncProgress && (
               <div className="space-y-1">

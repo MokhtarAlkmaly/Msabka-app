@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Upload, Download, FileSpreadsheet, ChevronDown, ChevronUp, Users } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Download, FileSpreadsheet, Upload, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { loadXLSX, saveWorkbook } from "@/utils/excel";
 import {
@@ -12,32 +14,47 @@ import {
   mergeDuplicateStudents,
   syncToCloud,
 } from "@/utils/storage";
-import { Student } from "@/types/student";
-import { Progress } from "@/components/ui/progress";
+import { formatYearKey } from "@/types/student";
 
 interface Props {
   onDataImported: () => void;
+  /** مفتاح بيانات العام (1447 أو 1447D لمسابقة عشر ذي الحجة) */
   currentYear: string;
+  /** نص العام للعرض فقط، افتراضياً يُنسَّق من مفتاح العام */
   displayYear?: string;
+  /** اسم المسابقة المفتوحة لعرضه في العنوان */
+  competitionLabel?: string;
 }
 
-export const ImportExport = ({ onDataImported, currentYear, displayYear }: Props) => {
+export const ImportExport = ({
+  onDataImported,
+  currentYear,
+  displayYear,
+  competitionLabel,
+}: Props) => {
   const { toast } = useToast();
-  const [isOpen, setIsOpen] = useState(false);
   const [importProgress, setImportProgress] = useState<{ current: number; total: number } | null>(
     null,
   );
   const [merging, setMerging] = useState(false);
 
-  const labelYear = displayYear || currentYear;
+  const labelYear = displayYear || formatYearKey(currentYear);
+  const yearShortLabel = currentYear.endsWith("D")
+    ? `${currentYear.slice(0, -1)}هـ`
+    : `${currentYear}هـ`;
+  // أسماء الأعمدة مرتبطة بمفتاح بيانات العام نفسه حتى يعمل التصدير والاستيراد
+  // في الاتجاهين، بينما يظهر للمستخدم النص المنسَّق (1447هـ · عشر ذي الحجة).
+  const fileYear = currentYear.endsWith("D")
+    ? `${currentYear.slice(0, -1)}هـ-عشر-ذي-الحجة`
+    : `${currentYear}هـ`;
   const yearCols = {
-    parts: `حفظ_جديد_${labelYear}`,
-    annual: `سنة_${labelYear}`,
-    recitation: `تلاوة_${labelYear}`,
-    memorization: `حفظ_درجة_${labelYear}`,
-    total: `مجموع_${labelYear}`,
-    grade: `تقدير_${labelYear}`,
-    prize: `مكافأة_${labelYear}`,
+    parts: `حفظ_جديد_${currentYear}`,
+    annual: `سنة_${currentYear}`,
+    recitation: `تلاوة_${currentYear}`,
+    memorization: `حفظ_درجة_${currentYear}`,
+    total: `مجموع_${currentYear}`,
+    grade: `تقدير_${currentYear}`,
+    prize: `مكافأة_${currentYear}`,
   };
 
   const handleExport = async () => {
@@ -48,7 +65,7 @@ export const ImportExport = ({ onDataImported, currentYear, displayYear }: Props
     if (students.length === 0) {
       toast({
         title: "لا توجد بيانات",
-        description: `لا يوجد طلاب مسجّلون بعام ${labelYear}هـ لتصديرها`,
+        description: `لا يوجد طلاب مسجّلون بعام ${labelYear} لتصديرها`,
         variant: "destructive",
       });
       return;
@@ -73,14 +90,14 @@ export const ImportExport = ({ onDataImported, currentYear, displayYear }: Props
 
     const worksheet = XLSX.utils.json_to_sheet(exportData);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, `بيانات ${labelYear}`);
+    XLSX.utils.book_append_sheet(workbook, worksheet, `بيانات ${fileYear}`);
     const cols = Object.keys(exportData[0] || {}).map(() => ({ wch: 20 }));
     worksheet["!cols"] = cols;
     try {
-      await saveWorkbook(workbook, `بيانات_المسابقة_${labelYear}.xlsx`);
+      await saveWorkbook(workbook, `بيانات_المسابقة_${fileYear}.xlsx`);
       toast({
         title: "تم التصدير بنجاح",
-        description: `تم تصدير بيانات ${students.length} طالب/ة لعام ${labelYear}هـ`,
+        description: `تم تصدير بيانات ${students.length} طالب/ة لعام ${labelYear}`,
       });
     } catch (e) {
       console.error("Export failed:", e);
@@ -94,6 +111,7 @@ export const ImportExport = ({ onDataImported, currentYear, displayYear }: Props
 
   const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
+    event.target.value = "";
     if (!file) return;
 
     const reader = new FileReader();
@@ -207,7 +225,7 @@ export const ImportExport = ({ onDataImported, currentYear, displayYear }: Props
           console.error("Cloud sync after import failed:", e);
         }
         toast({
-          title: `تم الاستيراد لعام ${labelYear}هـ`,
+          title: `تم الاستيراد لعام ${labelYear}`,
           description: `جديدة: ${importedCount} | محدّثة: ${updatedCount}${skippedCount ? ` | مكررة (تم تجاهلها): ${skippedCount}` : ""}`,
         });
       } catch (error) {
@@ -222,7 +240,6 @@ export const ImportExport = ({ onDataImported, currentYear, displayYear }: Props
       }
     };
     reader.readAsBinaryString(file);
-    event.target.value = "";
   };
 
   const downloadTemplate = async () => {
@@ -240,11 +257,11 @@ export const ImportExport = ({ onDataImported, currentYear, displayYear }: Props
     ];
     const worksheet = XLSX.utils.json_to_sheet(templateData);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, `قالب ${labelYear}`);
+    XLSX.utils.book_append_sheet(workbook, worksheet, `قالب ${fileYear}`);
     worksheet["!cols"] = Array(7).fill({ wch: 20 });
     try {
-      await saveWorkbook(workbook, `قالب_استيراد_${labelYear}.xlsx`);
-      toast({ title: "تم تنزيل القالب", description: `القالب خاص بعام ${labelYear}هـ` });
+      await saveWorkbook(workbook, `قالب_استيراد_${fileYear}.xlsx`);
+      toast({ title: "تم تنزيل القالب", description: `القالب خاص بعام ${labelYear}` });
     } catch (e) {
       console.error("Template download failed:", e);
       toast({
@@ -274,86 +291,97 @@ export const ImportExport = ({ onDataImported, currentYear, displayYear }: Props
   };
 
   return (
-    <Card className="bg-card/50 border border-primary/20 print:hidden">
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between p-3 hover:bg-muted/30 transition-colors rounded-lg"
-      >
-        <div className="flex items-center gap-2 text-primary font-semibold text-sm">
-          <FileSpreadsheet className="h-4 w-4" />
-          <span>استيراد وتصدير بيانات المسابقة</span>
-          <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-bold text-muted-foreground">
-            لعام {labelYear}هـ
-          </span>
-        </div>
-        {isOpen ? (
-          <ChevronUp className="h-4 w-4 text-muted-foreground" />
-        ) : (
-          <ChevronDown className="h-4 w-4 text-muted-foreground" />
-        )}
-      </button>
-
-      {isOpen && (
-        <div className="px-3 pb-3 space-y-3">
-          <div className="grid grid-cols-3 gap-2">
-            <Button
-              onClick={downloadTemplate}
-              variant="outline"
-              size="sm"
-              className="gap-1 text-xs"
-            >
-              <Download className="h-3 w-3" />
-              تنزيل القالب
-            </Button>
-            <Button
-              variant="default"
-              size="sm"
-              className="gap-1 text-xs relative overflow-hidden"
-              disabled={!!importProgress}
-            >
-              <Upload className="h-3 w-3" />
-              <span>
-                {importProgress ? `${importProgress.current}/${importProgress.total}` : "استيراد"}
-              </span>
-              <input
-                type="file"
-                accept=".xlsx,.xls"
-                onChange={handleImport}
-                className="absolute inset-0 opacity-0 cursor-pointer"
-              />
-            </Button>
-            <Button onClick={handleExport} variant="secondary" size="sm" className="gap-1 text-xs">
-              <Download className="h-3 w-3" />
-              تصدير
-            </Button>
+    <Card className="flex h-full flex-col rounded-[1.5rem] border border-white/70 bg-card/88 p-4 shadow-xl shadow-primary/5 backdrop-blur">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-start gap-2.5">
+          <div className="rounded-2xl bg-primary/10 p-2 text-primary">
+            <FileSpreadsheet className="h-5 w-5" />
           </div>
-          {importProgress && (
-            <div className="space-y-1">
-              <Progress
-                value={(importProgress.current / Math.max(importProgress.total, 1)) * 100}
-                className="h-2"
-              />
-              <p className="text-xs text-center text-muted-foreground">
-                جارٍ الاستيراد: {importProgress.current} من {importProgress.total}
-              </p>
-            </div>
-          )}
-          <Button
-            onClick={handleMergeDuplicates}
-            variant="outline"
-            size="sm"
-            className="w-full gap-1 text-xs"
-            disabled={merging}
-          >
-            <Users className="h-3 w-3" />
-            {merging ? "جارٍ الدمج..." : "دمج الأسماء المكررة"}
-          </Button>
-          <p className="text-xs text-muted-foreground">
-            📝 نزّل القالب، عبّئ البيانات (الاسم إلزامي)، ثم استورده — الطلاب الجديدة تُضاف تلقائياً
-            إلى السجل الشامل لكل الأعوام وتُسجَّل بيانات مسابقتهن في عام {labelYear}هـ.
+          <div>
+            <h3 className="text-base font-black leading-tight">استيراد وتصدير بيانات المسابقة</h3>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {competitionLabel ? `${competitionLabel} · ` : ""}
+              {yearShortLabel}
+            </p>
+          </div>
+        </div>
+        <Badge variant="secondary" className="shrink-0 rounded-full text-[10px] font-bold">
+          Excel
+        </Badge>
+      </div>
+
+      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+        نزّل قالب المسابقة لتعبئة الدرجات والحفظ الجديد، أو صدّر الكشف الحالي كاملاً. الطلاب الجدد
+        يُضافون تلقائياً إلى السجل الشامل.
+      </p>
+
+      <div className="mt-3 grid grid-cols-3 gap-1.5">
+        <Button
+          onClick={downloadTemplate}
+          variant="outline"
+          size="sm"
+          className="h-10 gap-1 rounded-xl px-2 text-[11px] font-bold"
+        >
+          <Download className="h-3.5 w-3.5" />
+          تنزيل القالب
+        </Button>
+        <Button
+          variant="default"
+          size="sm"
+          className="relative h-10 gap-1 overflow-hidden rounded-xl px-2 text-[11px] font-bold"
+          disabled={!!importProgress}
+        >
+          <Upload className="h-3.5 w-3.5" />
+          <span>
+            {importProgress ? `${importProgress.current}/${importProgress.total}` : "استيراد"}
+          </span>
+          <input
+            type="file"
+            accept=".xlsx,.xls"
+            onChange={handleImport}
+            disabled={!!importProgress}
+            className="absolute inset-0 cursor-pointer opacity-0"
+          />
+        </Button>
+        <Button
+          onClick={handleExport}
+          variant="secondary"
+          size="sm"
+          className="h-10 gap-1 rounded-xl px-2 text-[11px] font-bold"
+        >
+          <Download className="h-3.5 w-3.5" />
+          تصدير
+        </Button>
+      </div>
+
+      {importProgress && (
+        <div className="mt-2 space-y-1">
+          <Progress
+            value={(importProgress.current / Math.max(importProgress.total, 1)) * 100}
+            className="h-2"
+          />
+          <p className="text-center text-[11px] text-muted-foreground">
+            جارٍ الاستيراد: {importProgress.current} من {importProgress.total}
           </p>
         </div>
       )}
+
+      <div className="mt-auto pt-3">
+        <Button
+          onClick={handleMergeDuplicates}
+          variant="outline"
+          size="sm"
+          className="w-full gap-1 rounded-xl text-[11px] font-bold"
+          disabled={merging}
+        >
+          <Users className="h-3.5 w-3.5" />
+          {merging ? "جارٍ الدمج..." : "دمج الأسماء المكررة"}
+        </Button>
+        <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+          الاسم إلزامي في القالب. الطلاب الجدد يُضافون إلى السجل الشامل وتُسجَّل بياناتهم في هذا
+          العام عند توفرها، والموجودون تُحدَّث بياناتهم دون تكرار.
+        </p>
+      </div>
     </Card>
   );
 };

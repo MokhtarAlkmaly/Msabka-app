@@ -10,7 +10,7 @@
     "check-env": "node scripts/check-env.mjs",
     "preview": "vite preview",
     "lint": "eslint .",
-    "test": "npm run test:sql && npm run test:exams && npm run test:records && npm run test:community && npm run test:teachers && npm run test:search && npm run test:alerts && npm run test:offline && npm run test:media",
+    "test": "npm run test:sql && npm run test:exams && npm run test:records && npm run test:community && npm run test:teachers && npm run test:search && npm run test:student-import && npm run test:alerts && npm run test:offline && npm run test:media",
     "test:exams": "node scripts/test-exams.mjs",
     "test:records": "node scripts/test-records.mjs",
     "test:community": "node scripts/test-center-sections.mjs && node scripts/test-community-records.mjs",
@@ -24,7 +24,8 @@
     "cap:sync": "cap sync android",
     "cap:android": "cap open android",
     "test:media": "node scripts/test-media.mjs",
-    "test:pwa": "node scripts/test-pwa.mjs"
+    "test:pwa": "node scripts/test-pwa.mjs",
+    "test:student-import": "node scripts/test-student-import.mjs"
   },
   "dependencies": {
     "@capacitor-community/sqlite": "^8.1.0",
