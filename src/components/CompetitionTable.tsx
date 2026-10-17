@@ -48,6 +48,7 @@ export const CompetitionTable = ({
     statusFilter: string;
     gradeFilter: string;
     partsFilter: string;
+    cumulativeHifzFilter: string;
     sortField: SortField | null;
     sortDirection: SortDirection;
     updatedAt?: number;
@@ -65,6 +66,9 @@ export const CompetitionTable = ({
   const [statusFilter, setStatusFilter] = useState<string>(saved.statusFilter ?? "all");
   const [gradeFilter, setGradeFilter] = useState<string>(saved.gradeFilter ?? "all");
   const [partsFilter, setPartsFilter] = useState<string>(saved.partsFilter ?? "");
+  const [cumulativeHifzFilter, setCumulativeHifzFilter] = useState<string>(
+    saved.cumulativeHifzFilter ?? "all",
+  );
   const [sortField, setSortField] = useState<SortField | null>(saved.sortField ?? null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(saved.sortDirection ?? null);
   const [cloudLoaded, setCloudLoaded] = useState(false);
@@ -94,6 +98,8 @@ export const CompetitionTable = ({
           if (remote.statusFilter !== undefined) setStatusFilter(remote.statusFilter);
           if (remote.gradeFilter !== undefined) setGradeFilter(remote.gradeFilter);
           if (remote.partsFilter !== undefined) setPartsFilter(remote.partsFilter);
+          if (remote.cumulativeHifzFilter !== undefined)
+            setCumulativeHifzFilter(remote.cumulativeHifzFilter);
           if (remote.sortField !== undefined) setSortField(remote.sortField);
           if (remote.sortDirection !== undefined) setSortDirection(remote.sortDirection);
         }
@@ -115,6 +121,7 @@ export const CompetitionTable = ({
       statusFilter,
       gradeFilter,
       partsFilter,
+      cumulativeHifzFilter,
       sortField,
       sortDirection,
       updatedAt: Date.now(),
@@ -155,6 +162,7 @@ export const CompetitionTable = ({
     statusFilter,
     gradeFilter,
     partsFilter,
+    cumulativeHifzFilter,
     sortField,
     sortDirection,
     cloudLoaded,
@@ -168,6 +176,7 @@ export const CompetitionTable = ({
         statusFilter,
         gradeFilter,
         partsFilter,
+        cumulativeHifzFilter,
         sortField,
         sortDirection,
         updatedAt: Date.now(),
@@ -179,7 +188,16 @@ export const CompetitionTable = ({
         /* ignore */
       }
     },
-    [selectedTeacher, nameFilter, statusFilter, gradeFilter, partsFilter, sortField, sortDirection],
+    [
+      selectedTeacher,
+      nameFilter,
+      statusFilter,
+      gradeFilter,
+      partsFilter,
+      cumulativeHifzFilter,
+      sortField,
+      sortDirection,
+    ],
   );
 
   const handleSort = useCallback(
@@ -294,6 +312,16 @@ export const CompetitionTable = ({
         if (parts < minParts) return false;
       }
 
+      if (cumulativeHifzFilter !== "all") {
+        const baseHifz = resolveBaseHifz(
+          student.hifzHistory || {},
+          currentYearNum,
+          student.yearData?.baseHifz,
+        );
+        const cumulativeParts = Math.min(baseHifz + parts, 30);
+        if (cumulativeParts !== Number(cumulativeHifzFilter)) return false;
+      }
+
       return true;
     });
 
@@ -317,6 +345,8 @@ export const CompetitionTable = ({
     statusFilter,
     gradeFilter,
     partsFilter,
+    cumulativeHifzFilter,
+    currentYearNum,
     sortField,
     sortDirection,
     getStudentSortValue,
@@ -348,7 +378,8 @@ export const CompetitionTable = ({
     nameFilter !== "" ||
     statusFilter !== "all" ||
     gradeFilter !== "all" ||
-    partsFilter !== "";
+    partsFilter !== "" ||
+    cumulativeHifzFilter !== "all";
 
   const getFilterDescription = () => {
     const parts: string[] = [];
@@ -357,6 +388,7 @@ export const CompetitionTable = ({
       parts.push(`الحالة: ${statusFilter === "active" ? "نشط" : "منقطع"}`);
     if (gradeFilter !== "all") parts.push(`التقدير: ${gradeFilter}`);
     if (partsFilter) parts.push(`الحفظ الجديد ≥ ${partsFilter}`);
+    if (cumulativeHifzFilter !== "all") parts.push(`الحفظ التراكمي: ${cumulativeHifzFilter} جزء`);
     if (nameFilter) parts.push(`الاسم: ${nameFilter}`);
     return parts.join(" | ");
   };
@@ -464,6 +496,8 @@ export const CompetitionTable = ({
         onGradeFilterChange={setGradeFilter}
         partsFilter={partsFilter}
         onPartsFilterChange={setPartsFilter}
+        cumulativeHifzFilter={cumulativeHifzFilter}
+        onCumulativeHifzFilterChange={setCumulativeHifzFilter}
         onPrintFiltered={handlePrintFiltered}
         hasFilters={hasFilters}
       />

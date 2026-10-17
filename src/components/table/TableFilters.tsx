@@ -22,6 +22,8 @@ interface Props {
   onGradeFilterChange: (value: string) => void;
   partsFilter: string;
   onPartsFilterChange: (value: string) => void;
+  cumulativeHifzFilter: string;
+  onCumulativeHifzFilterChange: (value: string) => void;
   onPrintFiltered: () => void;
   hasFilters: boolean;
 }
@@ -38,6 +40,8 @@ export const TableFilters = ({
   onGradeFilterChange,
   partsFilter,
   onPartsFilterChange,
+  cumulativeHifzFilter,
+  onCumulativeHifzFilterChange,
   onPrintFiltered,
   hasFilters,
 }: Props) => {
@@ -87,7 +91,7 @@ export const TableFilters = ({
       </button>
 
       {isOpen && (
-        <div className="grid grid-cols-1 gap-3 border-t border-border/60 bg-background/45 p-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid grid-cols-1 gap-3 border-t border-border/60 bg-background/45 p-4 sm:grid-cols-2 lg:grid-cols-6">
           <Select value={selectedTeacher} onValueChange={onTeacherChange}>
             <SelectTrigger className="h-11 rounded-2xl bg-background text-sm">
               <SelectValue placeholder="المعلم/ة" />
@@ -134,6 +138,20 @@ export const TableFilters = ({
               <SelectItem value="جيد">جيد</SelectItem>
               <SelectItem value="مقبول">مقبول</SelectItem>
               <SelectItem value="ضعيف">ضعيف</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={cumulativeHifzFilter} onValueChange={onCumulativeHifzFilterChange}>
+            <SelectTrigger className="h-11 rounded-2xl bg-background text-sm">
+              <SelectValue placeholder="الحفظ التراكمي" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">كل فئات الحفظ</SelectItem>
+              {Array.from({ length: 30 }, (_, index) => index + 1).map((part) => (
+                <SelectItem key={part} value={String(part)}>
+                  {part} جزء
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
 
