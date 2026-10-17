@@ -24,6 +24,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import SyncBackupPanel from "@/components/SyncBackupPanel";
+import { StudentRegistryImportExport } from "@/components/StudentRegistryImportExport";
 import logo from "@/assets/logo.png";
 import {
   AlertTriangle,
@@ -656,6 +657,8 @@ const Settings = () => {
                 </Card>
               </div>
             </div>
+
+            <StudentRegistryImportExport readOnly={readOnly} />
 
             {/* ===== العمل بدون إنترنت: الترحيل الشامل + النسخ في مجلد ظاهر ===== */}
             <SyncBackupPanel />

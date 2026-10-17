@@ -9,8 +9,6 @@ import {
 } from "@/components/ui/select";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { StudentsTable } from "@/components/StudentsTable";
-import { StudentRegistryImport } from "@/components/StudentRegistryImport";
-import { StudentRegistryExport } from "@/components/StudentRegistryExport";
 import { Input } from "@/components/ui/input";
 import {
   Dialog,
@@ -30,16 +28,9 @@ import {
   Calendar,
   Sparkles,
   Plus,
-  FileSpreadsheet,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
-import {
-  Student,
-  CustomColumnDef,
-  DEFAULT_STATUSES,
-  GENDER_OPTIONS,
-  formatYearKey,
-} from "@/types/student";
+import { Student, CustomColumnDef, DEFAULT_STATUSES, GENDER_OPTIONS } from "@/types/student";
 import { DEFAULT_SCHOOL_GRADES } from "@/utils/schoolGrades";
 import {
   loadGlobalStudentsWithYears,
@@ -488,27 +479,6 @@ const Index = () => {
                 </p>
               </div>
             )}
-
-            {/* أدوات الاستيراد والتصدير — السجل الشامل (كل الأعوام) */}
-            <section className="print:hidden space-y-2">
-              <div className="flex flex-wrap items-center gap-2 px-1">
-                <span className="rounded-xl bg-primary/10 p-1.5 text-primary">
-                  <FileSpreadsheet className="h-4 w-4" />
-                </span>
-                <h3 className="text-base font-black text-foreground">الاستيراد والتصدير</h3>
-                <span className="text-xs text-muted-foreground">
-                  استورد دفعة طلاب إلى السجل الشامل أو صدّره كاملاً من ملفات Excel
-                </span>
-              </div>
-              <div className="grid items-stretch gap-3 lg:grid-cols-2">
-                <StudentRegistryImport
-                  onImported={loadData}
-                  targetYear={currentYear}
-                  yearLabel={currentYear ? formatYearKey(currentYear) : ""}
-                />
-                <StudentRegistryExport students={students} customColumns={customColumns} />
-              </div>
-            </section>
 
             {/* Students Table */}
             {loading ? (

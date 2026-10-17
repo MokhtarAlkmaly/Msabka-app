@@ -12,18 +12,24 @@ interface Props {
   students: Student[];
   /** الأعمدة المخصّصة لإضافتها كأعمدة في الملف */
   customColumns?: CustomColumnDef[];
+  disabled?: boolean;
 }
 
 /**
- * زر تصدير السجل الشامل (كل الأعوام) إلى ملف Excel — يُوضع في صفحة الطلاب
- * الرئيسية بجانب زر الاستيراد. يُصدّر كل الطلاب بلا تصفية؛ أما تصدير نتائج
+ * زر تصدير السجل الشامل (كل الأعوام) إلى ملف Excel — يُوضع في صفحة الإعدادات
+ * بجانب زر الاستيراد. يُصدّر كل الطلاب بلا تصفية؛ أما تصدير نتائج
  * بحث محددة فيتم من زر «تصدير Excel» داخل الجدول.
  */
-export const StudentRegistryExport = ({ students, customColumns = [] }: Props) => {
+export const StudentRegistryExport = ({
+  students,
+  customColumns = [],
+  disabled = false,
+}: Props) => {
   const { toast } = useToast();
   const [exporting, setExporting] = useState(false);
 
   const handleExport = async () => {
+    if (disabled || exporting) return;
     if (students.length === 0) {
       toast({
         title: "السجل فارغ",
@@ -78,7 +84,7 @@ export const StudentRegistryExport = ({ students, customColumns = [] }: Props) =
         <Button
           onClick={() => void handleExport()}
           size="sm"
-          disabled={exporting || students.length === 0}
+          disabled={disabled || exporting || students.length === 0}
           className="h-10 gap-1.5 rounded-xl px-2 text-[11px] font-bold"
         >
           {exporting ? (

@@ -9,6 +9,9 @@
  */
 
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { fileURLToPath } from "node:url";
 import { createServer } from "vite";
 
@@ -155,7 +158,7 @@ try {
   );
   ok("خلايا Excel الرقمية تُقرأ كنصوص دون فقدان القيمة");
 
-  console.log("\nتصدير السجل الشامل (صفحة الطلاب):");
+  console.log("\nتصدير السجل الشامل (صفحة الإعدادات):");
   const registryExport = await vite.ssrLoadModule("/src/lib/student-registry-export.ts");
   const exportRows = registryExport.buildRegistryExportRows(
     [
@@ -194,6 +197,63 @@ try {
     "رفض التصدير بسجل فارغ",
   );
   ok("تصدير السجل الشامل: منع تصدير ملف فارغ");
+
+  console.log("\nأدوات السجل الشامل في الإعدادات:");
+  const indexSource = await readFile(new URL("../src/pages/Index.tsx", import.meta.url), "utf8");
+  const settingsSource = await readFile(
+    new URL("../src/pages/Settings.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.doesNotMatch(indexSource, /StudentRegistryImport|StudentRegistryExport/);
+  assert.match(indexSource, /<StudentsTable/);
+  assert.match(
+    settingsSource,
+    /<StudentRegistryImportExport readOnly=\{readOnly\} \/>\s*(?:\{\/\*[\s\S]*?\*\/\}\s*)?<SyncBackupPanel \/>/,
+    "أدوات السجل تسبق لوحة المزامنة مباشرة مع تمرير وضع الاطلاع",
+  );
+  ok("القسم في الإعدادات لا في صفحة الطلاب، وجدول الطلاب باقٍ");
+
+  const { StudentRegistryImport } = await vite.ssrLoadModule(
+    "/src/components/StudentRegistryImport.tsx",
+  );
+  const { StudentRegistryExport } = await vite.ssrLoadModule(
+    "/src/components/StudentRegistryExport.tsx",
+  );
+  const render = (component, props) => renderToStaticMarkup(createElement(component, props));
+  for (const disabled of [false, true]) {
+    const html = render(StudentRegistryImport, {
+      onImported: () => {},
+      targetYear: "1447D",
+      disabled,
+    });
+    const controls = html.match(/<(?:button|input)\b[^>]*>/g);
+    assert.ok(controls.length >= 4, "القالب وزر الاستيراد ومدخل الملف وخيار التسجيل");
+    for (const control of controls) {
+      assert.equal(/\sdisabled=""/.test(control), disabled, control);
+    }
+    assert.match(html, /عشر ذي الحجة/, "تسمية العام النشط تدعم مسابقة ذي الحجة");
+
+    const exportHtml = render(StudentRegistryExport, {
+      students: [{ id: 1, name: "طالب", teacher: "" }],
+      disabled,
+    });
+    const [exportButton] = exportHtml.match(/<button\b[^>]*>/g);
+    assert.equal(/\sdisabled=""/.test(exportButton), disabled);
+  }
+  const emptyExport = render(StudentRegistryExport, { students: [] });
+  assert.match(emptyExport.match(/<button\b[^>]*>/)[0], /\sdisabled=""/);
+  ok("تعطيل كل عناصر الاستيراد وزر التصدير اختياري، والسجل الفارغ لا يُصدَّر");
+
+  const { StudentRegistryImportExport } = await vite.ssrLoadModule(
+    "/src/components/StudentRegistryImportExport.tsx",
+  );
+  const readOnlyHtml = render(StudentRegistryImportExport, { readOnly: true });
+  assert.match(readOnlyHtml, /وضع الاطلاع يمنع استيراد سجل الطلاب/);
+  assert.match(readOnlyHtml, /lg:grid-cols-2/);
+  assert.match(readOnlyHtml, /استيراد سجل الطلاب/);
+  assert.match(readOnlyHtml, /تصدير السجل الشامل/);
+  assert.doesNotMatch(render(StudentRegistryImportExport, {}), /وضع الاطلاع يمنع/);
+  ok("عرض البطاقتين في شبكة مع تنبيه وضع الاطلاع عند تفعيله فقط");
 
   console.log("\n✅ نجحت اختبارات استيراد سجل الطلاب.");
 } finally {
