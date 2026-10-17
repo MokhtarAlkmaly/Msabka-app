@@ -30,9 +30,15 @@ interface Props {
   targetYear?: string;
   /** نص العام للعرض (افتراضياً يُنسَّق من targetYear) */
   yearLabel?: string;
+  disabled?: boolean;
 }
 
-export const StudentRegistryImport = ({ onImported, targetYear, yearLabel }: Props) => {
+export const StudentRegistryImport = ({
+  onImported,
+  targetYear,
+  yearLabel,
+  disabled = false,
+}: Props) => {
   const { toast } = useToast();
   const [importing, setImporting] = useState(false);
   const [registerInYear, setRegisterInYear] = useState(true);
@@ -45,6 +51,7 @@ export const StudentRegistryImport = ({ onImported, targetYear, yearLabel }: Pro
   const labelYear = yearLabel || (targetYear ? formatYearKey(targetYear) : "");
 
   const downloadTemplate = async () => {
+    if (disabled || importing) return;
     const XLSX = await loadXLSX();
     try {
       const workbook = XLSX.utils.book_new();
@@ -77,7 +84,7 @@ export const StudentRegistryImport = ({ onImported, targetYear, yearLabel }: Pro
   const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
-    if (!file) return;
+    if (disabled || importing || !file) return;
 
     setImporting(true);
     try {
@@ -338,6 +345,7 @@ export const StudentRegistryImport = ({ onImported, targetYear, yearLabel }: Pro
       <div className="mt-3 grid grid-cols-2 gap-2">
         <Button
           onClick={downloadTemplate}
+          disabled={disabled || importing}
           variant="outline"
           size="sm"
           className="h-10 gap-1.5 rounded-xl px-2 text-[11px] font-bold"
@@ -348,7 +356,7 @@ export const StudentRegistryImport = ({ onImported, targetYear, yearLabel }: Pro
         <Button
           size="sm"
           className="relative h-10 gap-1.5 overflow-hidden rounded-xl px-2 text-[11px] font-bold"
-          disabled={importing}
+          disabled={disabled || importing}
         >
           <Upload className="h-3.5 w-3.5" />
           <span>{importing ? "جارٍ الاستيراد..." : "استيراد الملف"}</span>
@@ -356,7 +364,7 @@ export const StudentRegistryImport = ({ onImported, targetYear, yearLabel }: Pro
             type="file"
             accept=".xlsx,.xls"
             onChange={handleImport}
-            disabled={importing}
+            disabled={disabled || importing}
             className="absolute inset-0 cursor-pointer opacity-0"
           />
         </Button>
@@ -368,7 +376,7 @@ export const StudentRegistryImport = ({ onImported, targetYear, yearLabel }: Pro
             checked={registerInYear}
             onCheckedChange={(value) => setRegisterInYear(value === true)}
             className="mt-0.5"
-            disabled={importing}
+            disabled={disabled || importing}
           />
           <span className="text-xs leading-relaxed">
             <span className="font-bold">تسجيل المستوردين في مسابقة {labelYear}</span>
