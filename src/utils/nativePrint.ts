@@ -444,7 +444,11 @@ export const printCurrentPage = async (fileName = "طباعة"): Promise<boolean
       useCORS: true,
       backgroundColor: "#ffffff",
     });
-    const pdf = new jsPDF({ orientation: DEFAULT_PDF_ORIENTATION, unit: "pt", format: DEFAULT_PDF_FORMAT });
+    const pdf = new jsPDF({
+      orientation: DEFAULT_PDF_ORIENTATION,
+      unit: "pt",
+      format: DEFAULT_PDF_FORMAT,
+    });
     appendCanvasToPdf(pdf, canvas, false);
     const base64 = String(pdf.output("datauristring")).split(",")[1] ?? "";
     if (!base64) throw new Error("تعذّر تجهيز ملف الطباعة");

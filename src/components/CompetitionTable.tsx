@@ -1,10 +1,13 @@
 import { printHtmlDocument } from "@/utils/nativePrint";
+import { Button } from "@/components/ui/button";
+import { Wand2 } from "lucide-react";
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { Student, HifzHistory, YearData } from "@/types/student";
 import { TableHeader } from "./table/TableHeader";
 import { SortField, SortDirection } from "./table/TableHeader";
 import { TableRow } from "./table/TableRow";
 import { TableFilters } from "./table/TableFilters";
+import { GenerateStudentPapersDialog } from "@/components/exam/GenerateStudentPapersDialog";
 import { calculateGrade, resolveBaseHifz } from "@/utils/calculations";
 import { getDuplicateNameCounts, getDuplicateCountFor } from "@/utils/studentNames";
 import logo from "@/assets/logo.png";
@@ -65,6 +68,11 @@ export const CompetitionTable = ({
   const [sortField, setSortField] = useState<SortField | null>(saved.sortField ?? null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(saved.sortDirection ?? null);
   const [cloudLoaded, setCloudLoaded] = useState(false);
+  /**
+   * الطلاب المشمولون بتوليد نماذج الاختبار: `null` = الحوار مغلق،
+   * طالب واحد من زر الصف، أو كل الطلاب المفلترين من زر رأس الكشف.
+   */
+  const [paperStudents, setPaperStudents] = useState<Student[] | null>(null);
 
   // Pull filter settings from cloud once on mount
   useEffect(() => {
@@ -447,12 +455,25 @@ export const CompetitionTable = ({
               اسحب يمين/يسار لرؤية كل الأعمدة على الجوال
             </p>
           </div>
-          <div className="rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
-            {filteredStudents.length} طالب/ة
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPaperStudents(filteredStudents)}
+              disabled={filteredStudents.length === 0}
+              title="توليد نموذج اختبار باسم كل طالب/ة من الطلاب المفلترين"
+              className="h-9 gap-1 rounded-full border-primary/25 text-xs text-primary hover:bg-primary/10 hover:text-primary"
+            >
+              <Wand2 className="h-3.5 w-3.5" />
+              نماذج الاختبار
+            </Button>
+            <div className="rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
+              {filteredStudents.length} طالب/ة
+            </div>
           </div>
         </div>
         <div className="table-scroll max-h-[60vh] overflow-auto md:max-h-[72vh]">
-          <table className="w-full min-w-[1480px] table-fixed border-separate border-spacing-0 bg-card text-sm whitespace-nowrap">
+          <table className="w-full min-w-[1560px] table-fixed border-separate border-spacing-0 bg-card text-sm whitespace-nowrap">
             <TableHeader
               currentYear={currentYear}
               sortField={sortField}
@@ -470,6 +491,7 @@ export const CompetitionTable = ({
                   onDirtyChange={onDirtyChange}
                   teacherNames={teacherNames}
                   duplicateNameCount={getDuplicateCountFor(student.name, duplicateNameCounts)}
+                  onGeneratePaper={(target) => setPaperStudents([target])}
                 />
               ))}
             </tbody>
@@ -482,6 +504,16 @@ export const CompetitionTable = ({
           لا توجد بيانات تطابق معايير البحث
         </div>
       )}
+
+      <GenerateStudentPapersDialog
+        open={paperStudents !== null}
+        onOpenChange={(open) => {
+          if (!open) setPaperStudents(null);
+        }}
+        students={paperStudents ?? []}
+        currentYear={currentYear}
+        competitionLabel={competitionLabel}
+      />
     </div>
   );
 };
