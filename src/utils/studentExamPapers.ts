@@ -21,9 +21,10 @@ import type { QuranData } from "@/utils/quranText";
  * حفظه هو (فئة الحفظ)، وموضعه داخل النطاق يختلف عن موضع زملائه في نفس
  * الفئة حتى لا تتطابق النماذج داخل الحلقة الواحدة.
  *
- * التنفيذ: نجمع الطلاب حسب فئة الحفظ، ثم نولّد للفئة دفعة واحدة بعدد نماذج
- * يساوي عدد طلابها (بحدٍّ أقصى سقف الفئة من `maxFeasibleModels`)، ونوزّع
- * النماذج على الطلاب بالترتيب. عند تجاوز السقف نعيد الاستخدام من البداية.
+ * التنفيذ: في الوضع التلقائي نجمع الطلاب ذوي الإجمالي التراكمي نفسه، ونحدد
+ * النطاق الموافق لعدد الأجزاء (آخر N أجزاء افتراضيًا)، ثم نولّد نماذج بعدد طلاب المجموعة (بحدٍّ
+ * أقصى سقف المواضع من `maxFeasibleModels`) ونوزّعها عليهم. عند تجاوز السقف
+ * نعيد الاستخدام من البداية.
  */
 
 /** بيانات الطالب اللازمة لبناء النموذج المخصص */
@@ -54,26 +55,47 @@ export interface StudentPapersResult {
   skipped: { student: StudentPaperInput; reason: string }[];
 }
 
-/**
- * عتبات ربط إجمالي الحفظ بفئة من فئات الحفظ المعتمدة.
- * تُقرأ من الأعلى إلى الأسفل: أول حدّ يستوفي إجمالي الحفظ هو الفئة المختارة.
- * مثال: من حفظ 12 جزءًا يُختبر في فئة «10 أجزاء» (الأجزاء 21–30).
- */
-const AUTO_CATEGORY_THRESHOLDS: { minHifz: number; categoryId: string }[] = [
-  { minHifz: 30, categoryId: "full" },
-  { minHifz: 20, categoryId: "juz20" },
-  { minHifz: 15, categoryId: "juz15" },
-  { minHifz: 10, categoryId: "juz10" },
-  { minHifz: 5, categoryId: "juz5" },
-  { minHifz: 3, categoryId: "juz3" },
-  { minHifz: 1, categoryId: "juz29" },
-];
+/** الفئات الثابتة الموافقة تمامًا لبعض أعداد الأجزاء التراكمية. */
+const CANONICAL_CATEGORIES_BY_JUZ_COUNT: Record<number, string> = {
+  1: "juz30", // جزء عمّ هو آخر جزء في المصحف
+  3: "juz3",
+  5: "juz5",
+  10: "juz10",
+  15: "juz15",
+  20: "juz20",
+  30: "full",
+};
 
-/** فئة الحفظ المناسبة لإجمالي حفظ معيّن */
+/** عدد أسئلة الحفظ للفئات التلقائية غير الثابتة، بما ينسجم مع الفئات المعتمدة. */
+const questionsForJuzCount = (juzCount: number): number =>
+  Math.min(6, Math.max(3, Math.ceil(juzCount / 5) + 2));
+
+/** اسم مناسب لعدد الأجزاء التراكمي المعروض في ملخص التوزيع. */
+const labelForJuzCount = (juzCount: number): string => {
+  if (juzCount === 1) return "جزء عمّ";
+  if (juzCount === 2) return "جزآن";
+  if (juzCount === 30) return "المصحف كامل";
+  return juzCount <= 10 ? `${juzCount} أجزاء` : `${juzCount} جزءًا`;
+};
+
+/**
+ * فئة الحفظ المناسبة لإجمالي تراكمي معيّن.
+ * كل عدد صحيح يُعامل كفئة مستقلة، ونطاقه الافتراضي آخر N أجزاء من المصحف؛
+ * فمثلًا 1 = جزء عمّ، و2 = الجزآن 29–30، و4 = الأجزاء 27–30.
+ */
 export const categoryForHifz = (totalHifz: number): HifzCategory | null => {
-  const hifz = Math.min(30, Math.max(0, Math.round(Number(totalHifz) || 0)));
-  const match = AUTO_CATEGORY_THRESHOLDS.find((t) => hifz >= t.minHifz);
-  return match ? getCategory(match.categoryId) : null;
+  const juzCount = Math.min(30, Math.max(0, Math.round(Number(totalHifz) || 0)));
+  if (juzCount === 0) return null;
+
+  const canonicalId = CANONICAL_CATEGORIES_BY_JUZ_COUNT[juzCount];
+  if (canonicalId) return getCategory(canonicalId);
+
+  return {
+    id: `cumulative-${juzCount}`,
+    label: labelForJuzCount(juzCount),
+    juzCount,
+    questions: questionsForJuzCount(juzCount),
+  };
 };
 
 /**
@@ -116,8 +138,9 @@ export const generateStudentPapers = (
     ? Math.min(HARD_MODEL_CEILING, Math.max(MIN_MODELS, Math.round(Number(opts.models))))
     : null; // تلقائي: موضع مستقل لكل طالب/ة حتى سقف الفئة
 
-  // تجميع الطلاب حسب الفئة مع الحفاظ على ترتيبهم الأصلي داخل كل فئة
-  const groups = new Map<string, StudentPaperInput[]>();
+  // التجميع حسب العدد التراكمي الدقيق (في التلقائي)، أو حسب الفئة المختارة.
+  // حفظ كائن الفئة نفسه مهم للفئات التلقائية ذات الأعداد غير الثابتة.
+  const groups = new Map<string, { category: HifzCategory; students: StudentPaperInput[] }>();
   const skipped: StudentPapersResult["skipped"] = [];
 
   for (const student of students) {
@@ -126,14 +149,17 @@ export const generateStudentPapers = (
       skipped.push({ student, reason: "لا يوجد حفظ مسجّل يغطي فئة اختبار" });
       continue;
     }
-    const list = groups.get(category.id);
-    if (list) list.push(student);
-    else groups.set(category.id, [student]);
+    const group = groups.get(category.id);
+    if (group) group.students.push(student);
+    else groups.set(category.id, { category, students: [student] });
   }
 
   const papers: StudentPaper[] = [];
-  for (const [categoryId, group] of groups) {
-    const category = getCategory(categoryId);
+  const orderedGroups = [...groups.values()].sort(
+    (a, b) =>
+      a.category.juzCount - b.category.juzCount || a.category.id.localeCompare(b.category.id),
+  );
+  for (const { category, students: group } of orderedGroups) {
     // السقف الحقيقي للفئة: أكبر عدد نماذج يبقى لكلٍّ منها موضع مستقل
     const cap = maxFeasibleModels(data, category, direction);
     // الطلب = min(اختيار المعلم إن وُجد، عدد طلاب الفئة، سقف الفئة)،
@@ -185,7 +211,7 @@ export const generateStudentPapers = (
 export const distinctPaperCount = (papers: StudentPaper[]): number =>
   new Set(papers.map((p) => `${p.category.id}:${p.paper.label}`)).size;
 
-/** ملخص التوزيع حسب الفئة — يُعرض للمعلم قبل الطباعة */
+/** ملخص التوزيع حسب الإجمالي التراكمي — يُعرض للمعلم قبل الطباعة */
 export const summarizeByCategory = (
   papers: StudentPaper[],
 ): { category: HifzCategory; count: number }[] => {
@@ -195,8 +221,15 @@ export const summarizeByCategory = (
     if (entry) entry.count += 1;
     else map.set(p.category.id, { category: p.category, count: 1 });
   }
-  // نفس ترتيب الفئات المعتمد في القائمة المنسدلة
-  return HIFZ_CATEGORIES.filter((c) => map.has(c.id)).map((c) => map.get(c.id)!);
+  const predefinedOrder = new Map(HIFZ_CATEGORIES.map((category, index) => [category.id, index]));
+  return [...map.values()].sort((a, b) => {
+    const juzDifference = a.category.juzCount - b.category.juzCount;
+    if (juzDifference !== 0) return juzDifference;
+    return (
+      (predefinedOrder.get(a.category.id) ?? Number.MAX_SAFE_INTEGER) -
+      (predefinedOrder.get(b.category.id) ?? Number.MAX_SAFE_INTEGER)
+    );
+  });
 };
 
 /**

@@ -26,7 +26,10 @@ import {
   HIFZ_CATEGORIES,
   MAX_MODELS,
   MIN_MODELS,
+  describeJuzRange,
   maxFeasibleModels,
+  resolveJuzRange,
+  type HifzCategory,
   type RangeDirection,
 } from "@/utils/examPaperGenerator";
 import {
@@ -39,7 +42,6 @@ import {
   distinctPaperCount,
   generateStudentPapers,
   resolveStudentCategory,
-  summarizeByCategory,
   toStudentPaperInput,
   type StudentPaper,
   type StudentPapersResult,
@@ -125,9 +127,9 @@ export const GenerateStudentPapersDialog = ({
 
   const inputs = useMemo(() => students.map(toStudentPaperInput), [students]);
 
-  /** معاينة التوزيع حسب الفئة قبل التوليد الفعلي (بلا حاجة لنص المصحف) */
+  /** معاينة التجميع حسب الإجمالي التراكمي قبل التوليد (بلا حاجة لنص المصحف) */
   const preview = useMemo(() => {
-    const counts = new Map<string, number>();
+    const counts = new Map<string, { category: HifzCategory; count: number }>();
     let withoutHifz = 0;
     for (const input of inputs) {
       const category = resolveStudentCategory(input.totalHifz, categoryId);
@@ -135,12 +137,14 @@ export const GenerateStudentPapersDialog = ({
         withoutHifz += 1;
         continue;
       }
-      counts.set(category.id, (counts.get(category.id) ?? 0) + 1);
+      const entry = counts.get(category.id);
+      if (entry) entry.count += 1;
+      else counts.set(category.id, { category, count: 1 });
     }
-    const rows = HIFZ_CATEGORIES.filter((c) => counts.has(c.id)).map((c) => ({
-      category: c,
-      count: counts.get(c.id)!,
-    }));
+    const rows = [...counts.values()].sort(
+      (a, b) =>
+        a.category.juzCount - b.category.juzCount || a.category.id.localeCompare(b.category.id),
+    );
     return { rows, withoutHifz, total: rows.reduce((sum, r) => sum + r.count, 0) };
   }, [inputs, categoryId]);
 
@@ -264,8 +268,8 @@ export const GenerateStudentPapersDialog = ({
           </DialogTitle>
           <DialogDescription className="text-sm">
             {isSingle
-              ? "ورقة اختبار واحدة باسم هذا الطالب/ة، تُطبع بمقاس A5 أفقي مع شعار المركز."
-              : `ورقة اختبار باسم كل طالب/ة من الطلاب المفلترين (${students.length})، بمواضع مختلفة داخل فئة حفظ كل منهم.`}
+              ? "ورقة اختبار واحدة باسم هذا الطالب/ة من نطاق الأجزاء الموافق لإجماليه التراكمي."
+              : `تجميع الطلاب المفلترين (${students.length}) حسب الإجمالي التراكمي، ثم توليد نموذج باسم كل طالب/ة من النطاق الموافق لإجمالي مجموعته.`}
           </DialogDescription>
         </DialogHeader>
 
@@ -277,7 +281,9 @@ export const GenerateStudentPapersDialog = ({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={AUTO_CATEGORY}>تلقائي — حسب حفظ كل طالب/ة</SelectItem>
+                <SelectItem value={AUTO_CATEGORY}>
+                  تلقائي — حسب الإجمالي التراكمي لكل طالب/ة
+                </SelectItem>
                 {HIFZ_CATEGORIES.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.label}
@@ -288,7 +294,7 @@ export const GenerateStudentPapersDialog = ({
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">عدد النماذج داخل الفئة</Label>
+            <Label className="text-xs text-muted-foreground">عدد النماذج لكل مجموعة</Label>
             <Select
               value={models === AUTO_MODELS ? AUTO_MODELS : String(models)}
               onValueChange={(v) => setModels(v === AUTO_MODELS ? AUTO_MODELS : Number(v))}
@@ -297,7 +303,7 @@ export const GenerateStudentPapersDialog = ({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={AUTO_MODELS}>تلقائي — موضع مستقل لكل طالب/ة</SelectItem>
+                <SelectItem value={AUTO_MODELS}>تلقائي — نموذج مستقل لكل طالب/ة</SelectItem>
                 {Array.from({ length: MAX_MODELS - MIN_MODELS + 1 }, (_, i) => MIN_MODELS + i).map(
                   (n) => (
                     <SelectItem key={n} value={String(n)}>
@@ -336,12 +342,12 @@ export const GenerateStudentPapersDialog = ({
         <div className="rounded-2xl border border-border/60 bg-secondary/25 p-3 text-sm">
           <div className="mb-2 flex items-center gap-2 font-bold text-primary">
             <Users className="h-4 w-4" />
-            توزيع الفئات المتوقع
+            توزيع الطلاب حسب الإجمالي التراكمي
           </div>
           {preview.rows.length === 0 ? (
             <p className="text-muted-foreground">
-              لا يوجد حفظ مسجّل لهؤلاء الطلاب — سجّل «الحفظ السابق» أو «حفظ جديد» أولًا، أو اختر فئة
-              موحّدة من القائمة.
+              لا يوجد إجمالي تراكمي مسجّل لهؤلاء الطلاب — سجّل الحفظ أولًا، أو اختر فئة موحّدة من
+              القائمة.
             </p>
           ) : (
             <>
@@ -356,9 +362,12 @@ export const GenerateStudentPapersDialog = ({
                       className={overflow ? "gap-1 border-amber-500/60 bg-amber-500/10" : "gap-1"}
                     >
                       {row.category.label}
-                      <span className="font-black text-primary">{row.count}</span>
+                      <span className="text-muted-foreground">
+                        {describeJuzRange(resolveJuzRange(row.category, direction))}
+                      </span>
+                      <span className="font-black text-primary">{row.count} طالب/ة</span>
                       {cap !== undefined && (
-                        <span className="text-muted-foreground">/ السقف {cap}</span>
+                        <span className="text-muted-foreground">/ سقف المواضع {cap}</span>
                       )}
                     </Badge>
                   );
@@ -371,7 +380,7 @@ export const GenerateStudentPapersDialog = ({
                 })
                 .map((row) => (
                   <p key={row.category.id} className="mt-2 text-xs text-amber-700">
-                    فئة «{row.category.label}»: {row.count} طالبًا ويتوفر لها{" "}
+                    مجموعة «{row.category.label}»: {row.count} طالب/ة ويتوفر لها{" "}
                     {caps.get(row.category.id)} موضعًا مستقلًا فقط — سيتشارك بعض الطلاب النماذج
                     بالتناوب.
                   </p>
@@ -433,9 +442,9 @@ export const GenerateStudentPapersDialog = ({
         </DialogFooter>
 
         <p className="text-xs text-muted-foreground">
-          ملاحظة: لكل فئة سقفٌ من المواضع المستقلة يظهر في شارات التوزيع أعلاه، ومن يتجاوزه من
-          الطلاب يتشارك المواضع بالتناوب. ولزيادة التميّز قلّل عدد طلاب الدفعة باستخدام التصفية (حسب
-          المعلم/ة مثلًا).
+          ملاحظة: لكل إجمالي تراكمي سقفٌ من المواضع المستقلة يظهر في شارات التوزيع أعلاه، ومن
+          يتجاوزه من الطلاب يتشارك المواضع بالتناوب. ولزيادة التميّز قلّل عدد طلاب الدفعة باستخدام
+          التصفية (حسب المعلم/ة مثلًا).
         </p>
       </DialogContent>
     </Dialog>

@@ -322,6 +322,27 @@ export const CompetitionTable = ({
     getStudentSortValue,
   ]);
 
+  /** استخدم أحدث تعديلات الجدول غير المحفوظة عند فتح مولّد النماذج. */
+  const applyPendingEdits = useCallback(
+    (student: Student): Student => {
+      const pending = dirtyMap[student.id];
+      if (!pending) return student;
+      return {
+        ...student,
+        name: pending.name,
+        teacher: pending.teacher,
+        hifzHistory: pending.history,
+        yearData: pending.yearData,
+      };
+    },
+    [dirtyMap],
+  );
+
+  const filteredPaperStudents = useMemo(
+    () => filteredStudents.map(applyPendingEdits),
+    [filteredStudents, applyPendingEdits],
+  );
+
   const hasFilters =
     selectedTeacher !== "all" ||
     nameFilter !== "" ||
@@ -459,7 +480,7 @@ export const CompetitionTable = ({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setPaperStudents(filteredStudents)}
+              onClick={() => setPaperStudents(filteredPaperStudents)}
               disabled={filteredStudents.length === 0}
               title="توليد نموذج اختبار باسم كل طالب/ة من الطلاب المفلترين"
               className="h-9 gap-1 rounded-full border-primary/25 text-xs text-primary hover:bg-primary/10 hover:text-primary"
@@ -491,7 +512,7 @@ export const CompetitionTable = ({
                   onDirtyChange={onDirtyChange}
                   teacherNames={teacherNames}
                   duplicateNameCount={getDuplicateCountFor(student.name, duplicateNameCounts)}
-                  onGeneratePaper={(target) => setPaperStudents([target])}
+                  onGeneratePaper={(target) => setPaperStudents([applyPendingEdits(target)])}
                 />
               ))}
             </tbody>
