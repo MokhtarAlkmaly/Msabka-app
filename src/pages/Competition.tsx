@@ -10,14 +10,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CompetitionTable } from "@/components/CompetitionTable";
-import { ImportExport } from "@/components/ImportExport";
-import { StudentRegistryImport } from "@/components/StudentRegistryImport";
 import { NotificationSystem } from "@/components/notifications/NotificationSystem";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { RecallStudents } from "@/components/RecallStudents";
 import {
   Printer,
-  Trash2,
+  Settings as SettingsIcon,
   Calendar,
   Save,
   Wifi,
@@ -29,17 +27,16 @@ import {
   WalletCards,
   ArrowRight,
   GraduationCap,
-  FileSpreadsheet,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
+import { Student, HifzHistory, YearData, START_YEAR, END_YEAR } from "@/types/student";
 import {
-  Student,
-  HifzHistory,
-  YearData,
-  START_YEAR,
-  END_YEAR,
-  formatYearKey,
-} from "@/types/student";
+  competitionLabelFor,
+  competitionYearKey,
+  readStoredCompetitionType,
+  storeCompetitionType,
+  type CompetitionType,
+} from "@/lib/competition-year";
 import {
   loadAllStudentsWithData,
   loadGlobalStudents,
@@ -54,30 +51,11 @@ import {
   mergeDuplicateStudents,
   loadTeachers as loadCachedTeachers,
   deleteStudentFromYear,
-  deleteStudentsFromYear,
 } from "@/utils/storage";
 import { getPendingChanges } from "@/utils/localDB";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { Progress } from "@/components/ui/progress";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogAction,
-} from "@/components/ui/alert-dialog";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Checkbox } from "@/components/ui/checkbox";
 
 interface DirtyData {
   name: string;
@@ -89,9 +67,8 @@ interface DirtyData {
 const Competition = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [currentYear, setCurrentYear] = useState<string>("1447");
-  const [competitionType, setCompetitionType] = useState<"ramadan" | "dhul_hijjah">(
-    () => (localStorage.getItem("competitionType") as "ramadan" | "dhul_hijjah") || "ramadan",
-  );
+  const [competitionType, setCompetitionType] =
+    useState<CompetitionType>(readStoredCompetitionType);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -107,9 +84,8 @@ const Competition = () => {
   const { user } = useAuth();
 
   const isDirty = Object.keys(dirtyMap).length > 0;
-  const dataYearKey = competitionType === "dhul_hijjah" ? `${currentYear}D` : currentYear;
-  const competitionLabel =
-    competitionType === "dhul_hijjah" ? "مسابقة عشر ذي الحجة" : "المسابقة الرمضانية";
+  const dataYearKey = competitionYearKey(currentYear, competitionType);
+  const competitionLabel = competitionLabelFor(competitionType);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -280,10 +256,10 @@ const Competition = () => {
     });
   };
 
-  const handleCompetitionTypeChange = (type: "ramadan" | "dhul_hijjah") => {
+  const handleCompetitionTypeChange = (type: CompetitionType) => {
     if (isDirty && !confirm("هناك تغييرات غير محفوظة، هل تريد المتابعة بدون حفظ؟")) return;
     setCompetitionType(type);
-    localStorage.setItem("competitionType", type);
+    storeCompetitionType(type);
     toast({
       title: "تم التبديل",
       description:
@@ -307,63 +283,6 @@ const Competition = () => {
       description: `تم فصل الطالب عن عام ${currentYear}هـ مع إبقائه في السجل العام`,
       variant: "destructive",
     });
-  };
-
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [duplicateWarning, setDuplicateWarning] = useState<{
-    name: string;
-    years: string[];
-  } | null>(null);
-  const [deleteMode, setDeleteMode] = useState<"all" | "year" | "selected">("year");
-  const [selectedToDelete, setSelectedToDelete] = useState<Set<number>>(new Set());
-  const [deleting, setDeleting] = useState(false);
-
-  const toggleSelectedToDelete = (id: number) => {
-    setSelectedToDelete((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const handleConfirmDelete = async () => {
-    setDeleting(true);
-    try {
-      if (deleteMode === "all") {
-        const { deleteAllStudents } = await import("@/utils/storage");
-        await deleteAllStudents();
-        setStudents([]);
-        setDirtyMap({});
-        toast({ title: "تم الحذف", description: "تم حذف جميع البيانات", variant: "destructive" });
-      } else if (deleteMode === "year") {
-        const { deleteYearData } = await import("@/utils/storage");
-        await deleteYearData(dataYearKey);
-        setDirtyMap({});
-        toast({
-          title: "تم الحذف",
-          description: `تم حذف بيانات عام ${currentYear}هـ فقط`,
-          variant: "destructive",
-        });
-        await loadData();
-      } else {
-        if (selectedToDelete.size === 0) {
-          setDeleting(false);
-          return;
-        }
-        await deleteStudentsFromYear(dataYearKey, Array.from(selectedToDelete));
-        setSelectedToDelete(new Set());
-        toast({
-          title: "تم الحذف",
-          description: `تم فصل ${selectedToDelete.size} طالب عن عام ${currentYear}هـ مع إبقائهم في السجل العام`,
-          variant: "destructive",
-        });
-        await loadData();
-      }
-    } finally {
-      setDeleting(false);
-      setDeleteDialogOpen(false);
-    }
   };
 
   const handlePrint = async () => {
@@ -523,29 +442,26 @@ const Competition = () => {
         <div className="print:hidden space-y-4">
           <NotificationSystem students={students} currentYear={currentYear} />
 
-          {/* أدوات الاستيراد والتصدير — سجل الطلاب وبيانات المسابقة */}
-          <section className="space-y-2">
-            <div className="flex flex-wrap items-center gap-2 px-1">
+          {/* أدوات الاستيراد/التصدير/الحذف انتقلت إلى صفحة الإعدادات */}
+          <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/70 bg-card/80 px-4 py-3 shadow-lg shadow-primary/5 backdrop-blur">
+            <div className="flex items-start gap-2.5">
               <span className="rounded-xl bg-primary/10 p-1.5 text-primary">
-                <FileSpreadsheet className="h-4 w-4" />
+                <SettingsIcon className="h-4 w-4" />
               </span>
-              <h3 className="text-base font-black text-foreground">الاستيراد والتصدير</h3>
-              <span className="text-xs text-muted-foreground">
-                استورد سجل الطلاب أو بيانات المسابقة من ملفات Excel
-              </span>
+              <div>
+                <h3 className="text-sm font-black text-foreground">
+                  الاستيراد والتصدير والحذف في الإعدادات
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  أدوات ملفات Excel وحذف بيانات المسابقة مجمّعة الآن في صفحة الإعدادات
+                </p>
+              </div>
             </div>
-            <div className="grid items-stretch gap-3 lg:grid-cols-2">
-              <StudentRegistryImport
-                onImported={loadData}
-                targetYear={dataYearKey}
-                yearLabel={formatYearKey(dataYearKey)}
-              />
-              <ImportExport
-                onDataImported={loadData}
-                currentYear={dataYearKey}
-                competitionLabel={competitionLabel}
-              />
-            </div>
+            <Link to="/settings">
+              <Button variant="outline" size="sm" className="gap-1.5 rounded-xl">
+                <SettingsIcon className="h-3.5 w-3.5" /> فتح الإعدادات
+              </Button>
+            </Link>
           </section>
 
           <div className="rounded-[1.75rem] border border-white/70 bg-card/88 p-4 shadow-xl shadow-primary/5 backdrop-blur sm:p-5">
@@ -633,19 +549,6 @@ const Competition = () => {
                 <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
                 {syncProgress ? `${syncProgress.current}/${syncProgress.total}` : "مزامنة"}
               </Button>
-
-              <Button
-                onClick={() => {
-                  setDeleteMode("year");
-                  setSelectedToDelete(new Set());
-                  setDeleteDialogOpen(true);
-                }}
-                variant="destructive"
-                className="h-12 gap-2 rounded-2xl"
-              >
-                <Trash2 className="h-4 w-4" />
-                حذف بيانات
-              </Button>
             </div>
 
             {syncProgress && (
@@ -682,87 +585,6 @@ const Competition = () => {
           )}
         </div>
       </main>
-
-      {/* Delete Dialog */}
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent dir="rtl" className="max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-destructive">حذف بيانات المسابقة</DialogTitle>
-          </DialogHeader>
-
-          <RadioGroup
-            value={deleteMode}
-            onValueChange={(v) => setDeleteMode(v as typeof deleteMode)}
-            className="space-y-3"
-          >
-            <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-border p-3 hover:bg-secondary/50">
-              <RadioGroupItem value="year" id="mode-year" className="mt-1" />
-              <div>
-                <div className="font-bold">
-                  حذف بيانات {competitionLabel} لعام {currentYear}هـ فقط
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  تُحذف الدرجات والحفظ لهذا العام فقط، وتبقى بيانات الطلاب وسجلاتهم كما هي
-                </div>
-              </div>
-            </label>
-
-            <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-border p-3 hover:bg-secondary/50">
-              <RadioGroupItem value="selected" id="mode-selected" className="mt-1" />
-              <div className="w-full">
-                <div className="font-bold">حذف طلاب محددين</div>
-                <div className="text-xs text-muted-foreground">تُحذف بيانات الطلاب المحددين</div>
-                {deleteMode === "selected" && (
-                  <div className="mt-2 max-h-48 space-y-1 overflow-y-auto rounded-lg bg-secondary/40 p-2">
-                    {students.length === 0 ? (
-                      <p className="p-2 text-xs text-muted-foreground">لا يوجد طلاب بهذا العام</p>
-                    ) : (
-                      students.map((s) => (
-                        <label
-                          key={s.id}
-                          className="flex cursor-pointer items-center gap-2 rounded-lg p-1.5 hover:bg-background"
-                        >
-                          <Checkbox
-                            checked={selectedToDelete.has(s.id)}
-                            onCheckedChange={() => toggleSelectedToDelete(s.id)}
-                          />
-                          <span className="text-sm">
-                            {s.name || "بدون اسم"}{" "}
-                            <span className="text-xs text-muted-foreground">— {s.teacher}</span>
-                          </span>
-                        </label>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
-            </label>
-
-            <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/5 p-3 hover:bg-destructive/10">
-              <RadioGroupItem value="all" id="mode-all" className="mt-1" />
-              <div>
-                <div className="font-bold text-destructive">حذف كل البيانات نهائياً</div>
-                <div className="text-xs text-muted-foreground">إجراء لا يمكن التراجع عنه</div>
-              </div>
-            </label>
-          </RadioGroup>
-
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
-              إلغاء
-            </Button>
-            <Button
-              variant="destructive"
-              disabled={deleting || (deleteMode === "selected" && selectedToDelete.size === 0)}
-              onClick={handleConfirmDelete}
-              className="gap-1.5"
-            >
-              <Trash2 className="h-4 w-4" />
-              {deleting ? "جارٍ الحذف..." : "تأكيد الحذف"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };

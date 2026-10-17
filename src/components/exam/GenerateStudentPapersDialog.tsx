@@ -137,9 +137,12 @@ export const GenerateStudentPapersDialog = ({
   const inputs = useMemo(() => students.map(toStudentPaperInput), [students]);
   // عند اختيار فئة محددة، اعرض وولّد فقط الطلاب الذين يطابق إجمالي حفظهم التراكمي هذه الفئة.
   const eligibleInputs = useMemo(
-    () => categoryId === AUTO_CATEGORY
-      ? inputs
-      : inputs.filter((input) => resolveStudentCategory(input.totalHifz, AUTO_CATEGORY)?.id === categoryId),
+    () =>
+      categoryId === AUTO_CATEGORY
+        ? inputs
+        : inputs.filter(
+            (input) => resolveStudentCategory(input.totalHifz, AUTO_CATEGORY)?.id === categoryId,
+          ),
     [inputs, categoryId],
   );
 
@@ -370,11 +373,15 @@ export const GenerateStudentPapersDialog = ({
                   {eligibleInputs.map((student) => (
                     <li key={student.id} className="flex justify-between gap-2">
                       <span>{student.name}</span>
-                      <span className="shrink-0 text-muted-foreground">{student.totalHifz} جزءًا</span>
+                      <span className="shrink-0 text-muted-foreground">
+                        {student.totalHifz} جزءًا
+                      </span>
                     </li>
                   ))}
                 </ul>
-              ) : <p className="text-muted-foreground">لا توجد أسماء مطابقة لهذه الفئة.</p>}
+              ) : (
+                <p className="text-muted-foreground">لا توجد أسماء مطابقة لهذه الفئة.</p>
+              )}
             </div>
           )}
           {preview.rows.length === 0 ? (
