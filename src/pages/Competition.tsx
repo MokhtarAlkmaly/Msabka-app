@@ -9,6 +9,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CompetitionTable } from "@/components/CompetitionTable";
+import { ImportExport } from "@/components/ImportExport";
+import { StudentRegistryImport } from "@/components/StudentRegistryImport";
 import { NotificationSystem } from "@/components/notifications/NotificationSystem";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { RecallStudents } from "@/components/RecallStudents";
@@ -26,9 +28,17 @@ import {
   WalletCards,
   ArrowRight,
   GraduationCap,
+  FileSpreadsheet,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
-import { Student, HifzHistory, YearData, START_YEAR, END_YEAR } from "@/types/student";
+import {
+  Student,
+  HifzHistory,
+  YearData,
+  START_YEAR,
+  END_YEAR,
+  formatYearKey,
+} from "@/types/student";
 import {
   loadAllStudentsWithData,
   loadGlobalStudents,
@@ -512,6 +522,31 @@ const Competition = () => {
       <main className="container mx-auto max-w-7xl px-3 py-5 sm:px-4 sm:py-7 print:p-0">
         <div className="print:hidden space-y-4">
           <NotificationSystem students={students} currentYear={currentYear} />
+
+          {/* أدوات الاستيراد والتصدير — سجل الطلاب وبيانات المسابقة */}
+          <section className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2 px-1">
+              <span className="rounded-xl bg-primary/10 p-1.5 text-primary">
+                <FileSpreadsheet className="h-4 w-4" />
+              </span>
+              <h3 className="text-base font-black text-foreground">الاستيراد والتصدير</h3>
+              <span className="text-xs text-muted-foreground">
+                استورد سجل الطلاب أو بيانات المسابقة من ملفات Excel
+              </span>
+            </div>
+            <div className="grid items-stretch gap-3 lg:grid-cols-2">
+              <StudentRegistryImport
+                onImported={loadData}
+                targetYear={dataYearKey}
+                yearLabel={formatYearKey(dataYearKey)}
+              />
+              <ImportExport
+                onDataImported={loadData}
+                currentYear={dataYearKey}
+                competitionLabel={competitionLabel}
+              />
+            </div>
+          </section>
 
           <div className="rounded-[1.75rem] border border-white/70 bg-card/88 p-4 shadow-xl shadow-primary/5 backdrop-blur sm:p-5">
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
