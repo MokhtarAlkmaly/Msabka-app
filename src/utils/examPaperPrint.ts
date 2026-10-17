@@ -1,5 +1,16 @@
 import { esc } from "@/utils/report";
 import {
+  ATTENDANCE_MARKS,
+  BEHAVIOR_MARKS,
+  HIFZ_TOTAL_MARKS,
+  PAPER_TOTAL_MARKS,
+  QUESTIONS_TOTAL_MARKS,
+  RECITATION_TOTAL_MARKS,
+  TEACHER_TOTAL_MARKS,
+  hifzQuestionMarks,
+  recitationQuestionMarks,
+} from "@/lib/exam-marks";
+import {
   type ExamPaper,
   type PaperQuestion,
   formatQuestionRef,
@@ -127,6 +138,39 @@ export const PAPER_CSS = `
     color: #555;
     margin-top: 2px;
   }
+
+  .section-title {
+    color: #0e6b3a;
+    font-size: 11px;
+    margin: 8px 0 4px;
+    padding-bottom: 2px;
+    border-bottom: 1px solid #cfe3d7;
+  }
+
+  .section-marks {
+    color: #555;
+    font-size: 9px;
+    font-weight: normal;
+  }
+
+  .eval-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9px;
+    margin-top: 4px;
+  }
+
+  .eval-table th,
+  .eval-table td {
+    border: 1px solid #0e6b3a;
+    padding: 4px 6px;
+    text-align: center;
+  }
+
+  .eval-table th {
+    background: #f4faf6;
+    color: #0e6b3a;
+  }
   
   .footer-line {
     border-top: 1.5px dashed #0e6b3a;
@@ -146,11 +190,22 @@ export const PAPER_CSS = `
   }
 `;
 
-const questionItem = (q: PaperQuestion) => `
+const questionItem = (q: PaperQuestion, mark: number) => `
     <li>
       <div class="q">${esc(formatQuestionText(q))}</div>
-      <div class="score">الدرجة: ( ...... ) من 10</div>
+      <div class="score">الدرجة: ( ...... ) من ${mark}</div>
     </li>`;
+
+const supplementItem = (q: { question: string; reference: string }, mark: number) => `
+    <li>
+      <div class="q">${esc(q.question)}</div>
+      <div class="score">${esc(q.reference)} — الدرجة: ( ...... ) من ${mark}</div>
+      <div>الإجابة: ....................................................................</div>
+    </li>`;
+
+/** عنوان قسم داخل النموذج مع مجموع درجاته */
+const sectionTitle = (title: string, marks: number) =>
+  `<h3 class="section-title">${esc(title)} <span class="section-marks">— ${marks} درجة</span></h3>`;
 
 const LOGO_URL = "/icon-192.png";
 
@@ -196,41 +251,66 @@ const studentMeta = (student?: PaperStudentContext): string => {
   return bits.length ? ` — ${bits.join(" — ")}` : "";
 };
 
-/** ورقة نموذج كاملة: ترويسة + بيانات الطالب + الأسئلة */
+/** ورقة نموذج كاملة: ترويسة + بيانات الطالب + الأسئلة + تقييم المعلم/ة */
 export const buildPaperHtml = (
   paper: ExamPaper,
   year: string,
   student?: PaperStudentContext,
-): string => `
+): string => {
+  const hifzMarks = hifzQuestionMarks(paper.questions.length);
+  const recitationMarks = recitationQuestionMarks(paper.supplements.length);
+  return `
     <div class="paper">
-      ${paperHeader("اختبار حفظ القرآن الكريم")}
+      ${paperHeader("اختبار الحفظ والتلاوة")}
       <div class="meta">
         العام ${esc(year)}هـ — فئة الحفظ: ${esc(paper.categoryLabel)} (${esc(paper.rangeLabel)})
-        — ${esc(paper.title)} — عدد الأسئلة: ${paper.questions.length + paper.supplements.length}${esc(studentMeta(student))}
+        — ${esc(paper.title)} — عدد الأسئلة: ${paper.questions.length + paper.supplements.length}
+        — الدرجة: ${QUESTIONS_TOTAL_MARKS} للأسئلة + ${TEACHER_TOTAL_MARKS} لتقييم المعلم/ة${esc(studentMeta(student))}
       </div>
       <table class="info-table">
         <tr>
           ${nameCell(student)}
           ${teacherCell(student)}
-          <td>الدرجة: ......... / ${(paper.questions.length + paper.supplements.length) * 10}</td>
+          <td style="width:25%">الدرجة النهائية: ......... / ${PAPER_TOTAL_MARKS}</td>
         </tr>
       </table>
-      <p class="note">التعليمات: يقرأ ${esc(studentTitle(student?.gender))} غيبًا من موضع البداية ﴿…﴾ إلى موضع النهاية ﴿…﴾، ثم يجيب عن أسئلة التجويد ومعاني الآيات. ويُقيَّم كل سؤال من 10 درجات.</p>
+      <p class="note">
+        التعليمات: يقرأ ${esc(studentTitle(student?.gender))} غيبًا من موضع البداية ﴿…﴾ إلى موضع النهاية ﴿…﴾، ثم يجيب عن أسئلة التلاوة والتجويد والمعاني.
+        الدرجات: ${HIFZ_TOTAL_MARKS} للحفظ + ${RECITATION_TOTAL_MARKS} للتلاوة والتجويد والمعاني + ${ATTENDANCE_MARKS} مواظبة + ${BEHAVIOR_MARKS} سلوك (من تقييم المعلم/ة).
+      </p>
+
+      ${sectionTitle("أولًا: أسئلة الحفظ", HIFZ_TOTAL_MARKS)}
       <ol class="qs">
-        ${paper.questions.map(questionItem).join("")}
+        ${paper.questions.map((q, index) => questionItem(q, hifzMarks[index])).join("")}
       </ol>
+
+      ${sectionTitle("ثانيًا: أسئلة التلاوة والتجويد والمعاني", RECITATION_TOTAL_MARKS)}
       ${
         paper.supplements.length > 0
-          ? `
-      <h3 style="color:#0e6b3a;font-size:12px;margin-top:10px">التجويد ومعاني الآيات</h3>
-      <ol class="qs" start="${paper.questions.length + 1}">
-        ${paper.supplements.map((q) => `<li><div class="q">${esc(q.question)}</div><div class="score">${esc(q.reference)} — الدرجة: ( ...... ) من 10</div><div>الإجابة: ....................................................................</div></li>`).join("")}
-      </ol>
-      `
-          : ""
+          ? `<ol class="qs" start="${paper.questions.length + 1}">
+        ${paper.supplements.map((q, index) => supplementItem(q, recitationMarks[index])).join("")}
+      </ol>`
+          : `<p class="note">لم تُضَف أسئلة تلاوة لهذا النموذج — يقيّم المعلم/ة التلاوة شفهيًا من ${RECITATION_TOTAL_MARKS} درجة.</p>`
       }
+
+      ${sectionTitle("ثالثًا: تقييم المعلم/ة والمجموع", TEACHER_TOTAL_MARKS)}
+      <table class="eval-table">
+        <tr>
+          <th>المواظبة (${ATTENDANCE_MARKS})</th>
+          <th>السلوك (${BEHAVIOR_MARKS})</th>
+          <th>مجموع الأسئلة (${QUESTIONS_TOTAL_MARKS})</th>
+          <th>الدرجة النهائية (${PAPER_TOTAL_MARKS})</th>
+        </tr>
+        <tr>
+          <td>( ...... )</td>
+          <td>( ...... )</td>
+          <td>( ...... )</td>
+          <td>( ...... )</td>
+        </tr>
+      </table>
       ${paperFooter}
     </div>`;
+};
 
 /** كل النماذج في مستند واحد، كل نموذج في صفحة مستقلة */
 export const buildPapersHtml = (
@@ -239,20 +319,12 @@ export const buildPapersHtml = (
   students?: (PaperStudentContext | undefined)[],
 ): string => papers.map((paper, i) => buildPaperHtml(paper, year, students?.[i])).join("");
 
-/** مفتاح التصحيح: مرجع كل سؤال (السورة والآيات والجزء والصفحة وطول المقطع) */
-export const buildAnswerKeyHtml = (papers: ExamPaper[], year: string): string => `
-    <div class="paper">
-      ${paperHeader("مفتاح تصحيح أسئلة الحفظ")}
-      <div class="meta">العام ${esc(year)}هـ — فئة الحفظ: ${esc(papers[0]?.categoryLabel ?? "")} — ${papers.length} نماذج</div>
-      <table class="info-table">
-        <thead>
-          <tr><th>النموذج</th><th>السؤال</th><th>السورة</th><th>الآيات</th><th>الجزء</th><th>الصفحة</th><th>طول المقطع</th><th>مرجع السؤال</th></tr>
-        </thead>
-        <tbody>
-          ${papers
-            .flatMap((paper) =>
-              paper.questions.map(
-                (q) => `<tr>
+/** صفوف جدول مواضع أسئلة الحفظ في مفتاح التصحيح، مع درجة كل سؤال. */
+const hifzKeyRows = (paper: ExamPaper): string => {
+  const marks = hifzQuestionMarks(paper.questions.length);
+  return paper.questions
+    .map(
+      (q, index) => `<tr>
             <td class="num">${esc(paper.label)}</td>
             <td class="num">${q.number}</td>
             <td>${esc(q.surahName)}</td>
@@ -260,14 +332,38 @@ export const buildAnswerKeyHtml = (papers: ExamPaper[], year: string): string =>
             <td class="num">${q.juzFrom}${q.juzTo !== q.juzFrom ? "-" + q.juzTo : ""}</td>
             <td class="num">${q.pageFrom === q.pageTo ? q.pageFrom : `${q.pageFrom}–${q.pageTo}`}</td>
             <td class="num">${q.ayahCount} آية (~${q.lines} سطر)</td>
+            <td class="num">${marks[index]}</td>
             <td>${esc(formatQuestionRef(q))}</td>
           </tr>`,
-              ),
-            )
-            .join("")}
+    )
+    .join("");
+};
+
+/** إجابات التلاوة والتجويد والمعاني لنموذج واحد، مع درجة كل سؤال. */
+const supplementAnswers = (paper: ExamPaper): string => {
+  const marks = recitationQuestionMarks(paper.supplements.length);
+  return `<h3 style="color:#0e6b3a;font-size:12px;margin-top:10px">${esc(paper.title)} — إجابات التلاوة والتجويد والمعاني (${RECITATION_TOTAL_MARKS} درجة)</h3><ol class="qs" start="${paper.questions.length + 1}">${paper.supplements.map((q, index) => `<li><b>${esc(q.question)}</b><p>${esc(q.answer)} — ${esc(q.reference)} — الدرجة: ${marks[index]}</p></li>`).join("")}</ol>`;
+};
+
+/** مفتاح التصحيح: مرجع كل سؤال (السورة والآيات والجزء والصفحة وطول المقطع) */
+export const buildAnswerKeyHtml = (papers: ExamPaper[], year: string): string => `
+    <div class="paper">
+      ${paperHeader("مفتاح تصحيح أسئلة الحفظ والتلاوة")}
+      <div class="meta">
+        العام ${esc(year)}هـ — فئة الحفظ: ${esc(papers[0]?.categoryLabel ?? "")} — ${papers.length} نماذج
+        — توزيع الدرجات: ${HIFZ_TOTAL_MARKS} حفظ + ${RECITATION_TOTAL_MARKS} تلاوة = ${QUESTIONS_TOTAL_MARKS}، وتقييم المعلم/ة ${TEACHER_TOTAL_MARKS} = ${PAPER_TOTAL_MARKS}
+      </div>
+      <h3 class="section-title">أولًا: أسئلة الحفظ <span class="section-marks">— ${HIFZ_TOTAL_MARKS} درجة</span></h3>
+      <table class="info-table">
+        <thead>
+          <tr><th>النموذج</th><th>السؤال</th><th>السورة</th><th>الآيات</th><th>الجزء</th><th>الصفحة</th><th>طول المقطع</th><th>الدرجة</th><th>مرجع السؤال</th></tr>
+        </thead>
+        <tbody>
+          ${papers.map(hifzKeyRows).join("")}
         </tbody>
       </table>
-      ${papers.map((paper) => `<h3 style="color:#0e6b3a;font-size:12px;margin-top:10px">${esc(paper.title)} — إجابات التجويد والمعاني</h3><ol class="qs" start="${paper.questions.length + 1}">${paper.supplements.map((q) => `<li><b>${esc(q.question)}</b><p>${esc(q.answer)} — ${esc(q.reference)}</p></li>`).join("")}</ol>`).join("")}
+      <h3 class="section-title">ثانيًا: إجابات التلاوة والتجويد والمعاني <span class="section-marks">— ${RECITATION_TOTAL_MARKS} درجة</span></h3>
+      ${papers.map(supplementAnswers).join("")}
       ${paperFooter}
     </div>`;
 
@@ -307,7 +403,10 @@ export const buildStudentAnswerKeyHtml = (
   return `
     <div class="paper">
       ${paperHeader("مفتاح تصحيح نماذج الطلاب")}
-      <div class="meta">العام ${esc(year)}هـ — ${entries.length} طالب/ة — ${usedPapers.length} نماذج مستخدمة</div>
+      <div class="meta">
+        العام ${esc(year)}هـ — ${entries.length} طالب/ة — ${usedPapers.length} نماذج مستخدمة
+        — توزيع الدرجات: ${HIFZ_TOTAL_MARKS} حفظ + ${RECITATION_TOTAL_MARKS} تلاوة = ${QUESTIONS_TOTAL_MARKS}، وتقييم المعلم/ة ${TEACHER_TOTAL_MARKS} = ${PAPER_TOTAL_MARKS}
+      </div>
       <h3 style="color:#0e6b3a;font-size:12px;margin:6px 0">توزيع النماذج على الطلاب</h3>
       <table class="info-table">
         <thead>
@@ -317,35 +416,17 @@ export const buildStudentAnswerKeyHtml = (
           ${distribution}
         </tbody>
       </table>
-      <h3 style="color:#0e6b3a;font-size:12px;margin-top:10px">مواضع أسئلة الحفظ لكل نموذج</h3>
+      <h3 style="color:#0e6b3a;font-size:12px;margin-top:10px">مواضع أسئلة الحفظ لكل نموذج <span class="section-marks">— ${HIFZ_TOTAL_MARKS} درجة</span></h3>
       <table class="info-table">
         <thead>
-          <tr><th>النموذج</th><th>السؤال</th><th>السورة</th><th>الآيات</th><th>الجزء</th><th>الصفحة</th><th>طول المقطع</th></tr>
+          <tr><th>النموذج</th><th>السؤال</th><th>السورة</th><th>الآيات</th><th>الجزء</th><th>الصفحة</th><th>طول المقطع</th><th>الدرجة</th></tr>
         </thead>
         <tbody>
-          ${usedPapers
-            .flatMap((paper) =>
-              paper.questions.map(
-                (q) => `<tr>
-            <td class="num">${esc(paper.label)}</td>
-            <td class="num">${q.number}</td>
-            <td>${esc(q.surahName)}</td>
-            <td class="num">${q.fromAyah}–${q.toAyah}</td>
-            <td class="num">${q.juzFrom}${q.juzTo !== q.juzFrom ? "-" + q.juzTo : ""}</td>
-            <td class="num">${q.pageFrom === q.pageTo ? q.pageFrom : `${q.pageFrom}–${q.pageTo}`}</td>
-            <td class="num">${q.ayahCount} آية (~${q.lines} سطر)</td>
-          </tr>`,
-              ),
-            )
-            .join("")}
+          ${usedPapers.map(hifzKeyRows).join("")}
         </tbody>
       </table>
-      ${usedPapers
-        .map(
-          (paper) =>
-            `<h3 style="color:#0e6b3a;font-size:12px;margin-top:10px">${esc(paper.title)} — إجابات التجويد والمعاني</h3><ol class="qs" start="${paper.questions.length + 1}">${paper.supplements.map((q) => `<li><b>${esc(q.question)}</b><p>${esc(q.answer)} — ${esc(q.reference)}</p></li>`).join("")}</ol>`,
-        )
-        .join("")}
+      <h3 style="color:#0e6b3a;font-size:12px;margin-top:10px">إجابات التلاوة والتجويد والمعاني <span class="section-marks">— ${RECITATION_TOTAL_MARKS} درجة</span></h3>
+      ${usedPapers.map(supplementAnswers).join("")}
       ${paperFooter}
     </div>`;
 };

@@ -331,6 +331,9 @@ try {
   assert.ok(sheet.includes("إجمالي الحفظ: 1 جزءًا"));
   assert.ok(sheet.includes("تسلسله في فئته: 1 من 2"));
   assert.ok(sheet.includes('class="paper"') && sheet.includes("وفّقكم الله"));
+  assert.ok(sheet.includes("الدرجة النهائية: ......... / 100"), "النموذج من 100 درجة");
+  assert.ok(sheet.includes("أسئلة الحفظ") && sheet.includes("أسئلة التلاوة والتجويد والمعاني"));
+  assert.ok(sheet.includes("المواظبة (10)") && sheet.includes("السلوك (10)"), "تقييم المعلم مطبوع");
 
   // النماذج العامة تبقى بخانات منقّطة (لا أسماء)
   const generic = print.buildPaperHtml(entries[0].paper, "1448");

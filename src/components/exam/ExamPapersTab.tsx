@@ -15,6 +15,15 @@ import { exportHtmlAsPdf, printHtmlDocument } from "@/utils/nativePrint";
 import { examQuestionErrorMessage, saveExamQuestions } from "@/utils/examStorage";
 import { normalizeQuestionText, type ExamQuestionInput } from "@/lib/exam-questions";
 import {
+  ATTENDANCE_MARKS,
+  BEHAVIOR_MARKS,
+  HIFZ_TOTAL_MARKS,
+  PAPER_TOTAL_MARKS,
+  QUESTIONS_TOTAL_MARKS,
+  RECITATION_TOTAL_MARKS,
+  TEACHER_TOTAL_MARKS,
+} from "@/lib/exam-marks";
+import {
   PAPER_CSS,
   buildAnswerKeyHtml,
   buildPaperHtml,
@@ -347,6 +356,13 @@ const ExamPapersTab = ({ year }: { year: string }) => {
           التجويد: تطبيق الغنة والقلقلة من آيات الفئة. المعاني: معانٍ مختصرة مستندة إلى التفسير
           الميسر وتفسير السعدي. قد تتكرر بعض الأسئلة الإضافية بين النماذج عند ضيق نطاق الفئة؛ مقاطع
           الحفظ لا تتداخل.
+        </p>
+
+        <p className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs font-semibold text-primary">
+          توزيع درجات النموذج المطبوع: {HIFZ_TOTAL_MARKS} درجة لأسئلة الحفظ +{" "}
+          {RECITATION_TOTAL_MARKS} درجة لأسئلة التلاوة والتجويد والمعاني = {QUESTIONS_TOTAL_MARKS}{" "}
+          درجة، ويضيف المعلم/ة المواظبة ({ATTENDANCE_MARKS}) والسلوك ({BEHAVIOR_MARKS}) ={" "}
+          {TEACHER_TOTAL_MARKS} درجة — الدرجة النهائية {PAPER_TOTAL_MARKS}.
         </p>
         {viewAs && (
           <p className="text-sm text-amber-700">
