@@ -8,6 +8,10 @@ import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
 // On Vercel (env var VERCEL=1) build with Nitro's vercel preset -> .vercel/output
 // Locally / on Lovable the default target is kept.
+// SPA prerender makes @lovable.dev/vite-tanstack-config replace Nitro's compiled
+// hook, so that preset never writes .vercel/output/config.json. The build script
+// restores that routing in scripts/ensure-vercel-output.mjs. Do not point Vercel
+// at dist, public, or .output/public — those folders have no index.html.
 const isVercel = !!process.env["VERCEL"];
 
 // عند بناء تطبيق Capacitor (أندرويد) نحتاج خادم Node.js عادي وبسيط (بدل هدف

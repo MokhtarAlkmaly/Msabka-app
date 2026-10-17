@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
-    "build": "node scripts/check-env.mjs && vite build && node scripts/build-pwa.mjs",
+    "build": "node scripts/check-env.mjs && vite build && node scripts/build-pwa.mjs && node scripts/ensure-vercel-output.mjs",
     "build:dev": "vite build --mode development && node scripts/build-pwa.mjs",
     "check-env": "node scripts/check-env.mjs",
     "preview": "vite preview",
