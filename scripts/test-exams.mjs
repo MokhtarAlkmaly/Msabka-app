@@ -15,6 +15,7 @@ try {
   const quran = await vite.ssrLoadModule("/src/utils/quranText.ts");
   const supplemental = await vite.ssrLoadModule("/src/utils/examSupplementQuestions.ts");
   const print = await vite.ssrLoadModule("/src/utils/examPaperPrint.ts");
+  const marks = await vite.ssrLoadModule("/src/lib/exam-marks.ts");
   const data = JSON.parse(
     await readFile(new URL("../public/quran/uthmani.json", import.meta.url), "utf8"),
   );
@@ -78,7 +79,34 @@ try {
   const sheet = print.buildPaperHtml(paper, "<script>");
   const key = print.buildAnswerKeyHtml([paper], "1448");
   assert.ok(sheet.includes("&lt;script&gt;") && !sheet.includes("<script>"));
-  assert.ok(sheet.includes(`/ ${(paper.questions.length + paper.supplements.length) * 10}`));
+
+  // ===== توزيع الدرجات: 60 حفظ + 20 تلاوة = 80، + 10 مواظبة + 10 سلوك = 100 =====
+  assert.equal(marks.HIFZ_TOTAL_MARKS, 60);
+  assert.equal(marks.RECITATION_TOTAL_MARKS, 20);
+  assert.equal(marks.QUESTIONS_TOTAL_MARKS, 80);
+  assert.equal(marks.PAPER_TOTAL_MARKS, 100);
+  assert.deepEqual(marks.hifzQuestionMarks(3), [20, 20, 20]);
+  assert.deepEqual(marks.hifzQuestionMarks(4), [15, 15, 15, 15]);
+  assert.deepEqual(marks.hifzQuestionMarks(5), [12, 12, 12, 12, 12]);
+  assert.deepEqual(marks.hifzQuestionMarks(6), [10, 10, 10, 10, 10, 10]);
+  assert.deepEqual(marks.recitationQuestionMarks(4), [5, 5, 5, 5]);
+  assert.equal(marks.sumMarks(marks.splitMarks(60, 7)), 60, "مجموع الحفظ ثابت بلا كسور");
+  assert.equal(marks.sumMarks(marks.splitMarks(20, 3)), 20, "مجموع التلاوة ثابت بلا كسور");
+  for (const category of generator.HIFZ_CATEGORIES) {
+    assert.equal(
+      marks.sumMarks(marks.hifzQuestionMarks(category.questions)),
+      marks.HIFZ_TOTAL_MARKS,
+      `مجموع درجات الحفظ في ${category.id} = 60`,
+    );
+  }
+  assert.ok(sheet.includes("الدرجة النهائية: ......... / 100"));
+  assert.ok(sheet.includes(`أولًا: أسئلة الحفظ`));
+  assert.ok(sheet.includes(`${marks.HIFZ_TOTAL_MARKS} درجة`));
+  assert.ok(sheet.includes("ثانيًا: أسئلة التلاوة والتجويد والمعاني"));
+  assert.ok(sheet.includes("ثالثًا: تقييم المعلم/ة"));
+  assert.ok(sheet.includes("المواظبة (10)") && sheet.includes("السلوك (10)"));
+  assert.ok(sheet.includes(`مجموع الأسئلة (${marks.QUESTIONS_TOTAL_MARKS})`));
+  assert.ok(sheet.includes(`الدرجة النهائية (${marks.PAPER_TOTAL_MARKS})`));
   for (const q of paper.supplements) {
     assert.ok(!sheet.includes(q.answer), "Student sheet must not disclose answers");
     assert.ok(key.includes(q.answer), "Answer key must contain supplementary answers");

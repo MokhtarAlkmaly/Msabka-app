@@ -23,6 +23,15 @@ import { buildPrintDocument, printHtml } from "@/utils/report";
 import { exportHtmlAsPdf } from "@/utils/nativePrint";
 import { loadQuranData, type QuranData } from "@/utils/quranText";
 import {
+  ATTENDANCE_MARKS,
+  BEHAVIOR_MARKS,
+  HIFZ_TOTAL_MARKS,
+  PAPER_TOTAL_MARKS,
+  QUESTIONS_TOTAL_MARKS,
+  RECITATION_TOTAL_MARKS,
+  TEACHER_TOTAL_MARKS,
+} from "@/lib/exam-marks";
+import {
   HIFZ_CATEGORIES,
   MAX_MODELS,
   MIN_MODELS,
@@ -395,6 +404,11 @@ export const GenerateStudentPapersDialog = ({
                 · سيتم تخطي {preview.withoutHifz} طالب/ة بلا حفظ مسجّل
               </span>
             )}
+          </p>
+          <p className="mt-2 rounded-xl border border-primary/20 bg-primary/5 p-2 text-[11px] font-semibold text-primary">
+            الدرجات: {HIFZ_TOTAL_MARKS} للحفظ + {RECITATION_TOTAL_MARKS} للتلاوة والتجويد والمعاني ={" "}
+            {QUESTIONS_TOTAL_MARKS}، ويضيف المعلم/ة المواظبة ({ATTENDANCE_MARKS}) والسلوك (
+            {BEHAVIOR_MARKS}) = {TEACHER_TOTAL_MARKS}. المجموع {PAPER_TOTAL_MARKS}.
           </p>
         </div>
 
