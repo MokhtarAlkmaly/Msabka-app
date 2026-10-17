@@ -44,13 +44,15 @@ const NAME_DOTS = "..............................";
 const TEACHER_DOTS = "....................";
 
 export const PAPER_CSS = `
-  @page { size: 210mm 148mm; margin: 8mm; }
+  @page { size: A4 portrait; margin: 10mm; }
   
   .paper {
     page-break-after: always;
     position: relative;
-    padding: 12px;
+    padding: 8mm;
     border: 2px solid #0e6b3a;
+    min-height: 265mm;
+    box-sizing: border-box;
     border-radius: 8px;
     background: linear-gradient(135deg, #f8fdf9 0%, #ffffff 100%);
   }
@@ -89,7 +91,8 @@ export const PAPER_CSS = `
   .meta {
     text-align: center;
     color: #333;
-    font-size: 9px;
+    font-size: 11px;
+    font-weight: 600;
     margin-bottom: 8px;
   }
   
@@ -117,8 +120,9 @@ export const PAPER_CSS = `
   }
   
   .qs {
-    font-size: 11pt;
-    line-height: 1.8;
+    font-size: 14pt;
+    font-weight: 700;
+    line-height: 1.55;
     padding: 0;
     margin: 0;
     list-style-position: inside;
@@ -134,9 +138,10 @@ export const PAPER_CSS = `
   }
   
   .score {
-    font-size: 9px;
-    color: #555;
-    margin-top: 2px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #222;
+    margin-top: 3px;
   }
 
   .section-title {
@@ -186,7 +191,9 @@ export const PAPER_CSS = `
   }
   
   @media print {
-    @page { size: 210mm 148mm; margin: 8mm; }
+    @page { size: A4 portrait; margin: 10mm; }
+    .paper { break-after: page; page-break-after: always; }
+    .paper:last-child { break-after: auto; page-break-after: auto; }
   }
 `;
 

@@ -58,9 +58,9 @@ import {
 import type { Student } from "@/types/student";
 import { FileDown, Loader2, Printer, Users, Wand2 } from "lucide-react";
 
-/** حجم الورق المطبوع: A5 أفقي (مطابق لنماذج تبويب الاختبارات) */
-const PAPER_PDF_FORMAT = "a5";
-const PAPER_PDF_ORIENTATION = "landscape";
+/** حجم الورق المطبوع: A4 عمودي لعرض جميع الأسئلة بخط واضح */
+const PAPER_PDF_FORMAT = "a4";
+const PAPER_PDF_ORIENTATION = "portrait";
 
 /** فئة موحّدة لكل الطلاب بدل الاشتقاق من حفظ كل طالب */
 const AUTO_CATEGORY = "auto";
@@ -135,12 +135,19 @@ export const GenerateStudentPapersDialog = ({
   }, [open]);
 
   const inputs = useMemo(() => students.map(toStudentPaperInput), [students]);
+  // عند اختيار فئة محددة، اعرض وولّد فقط الطلاب الذين يطابق إجمالي حفظهم التراكمي هذه الفئة.
+  const eligibleInputs = useMemo(
+    () => categoryId === AUTO_CATEGORY
+      ? inputs
+      : inputs.filter((input) => resolveStudentCategory(input.totalHifz, AUTO_CATEGORY)?.id === categoryId),
+    [inputs, categoryId],
+  );
 
   /** معاينة التجميع حسب الإجمالي التراكمي قبل التوليد (بلا حاجة لنص المصحف) */
   const preview = useMemo(() => {
     const counts = new Map<string, { category: HifzCategory; count: number }>();
     let withoutHifz = 0;
-    for (const input of inputs) {
+    for (const input of eligibleInputs) {
       const category = resolveStudentCategory(input.totalHifz, categoryId);
       if (!category) {
         withoutHifz += 1;
@@ -155,7 +162,7 @@ export const GenerateStudentPapersDialog = ({
         a.category.juzCount - b.category.juzCount || a.category.id.localeCompare(b.category.id),
     );
     return { rows, withoutHifz, total: rows.reduce((sum, r) => sum + r.count, 0) };
-  }, [inputs, categoryId]);
+  }, [eligibleInputs, categoryId]);
 
   /**
    * سقف المواضع المستقلة لكل فئة ظاهرة في المعاينة — بعد تحميل نص المصحف.
@@ -173,7 +180,7 @@ export const GenerateStudentPapersDialog = ({
   /** توليد النماذج فعليًا — يحتاج نص المصحف */
   const build = async () => {
     const data = await loadQuranData();
-    const result = generateStudentPapers(data, inputs, {
+    const result = generateStudentPapers(data, eligibleInputs, {
       categoryId,
       direction,
       models: models === AUTO_MODELS ? null : models,
@@ -278,7 +285,9 @@ export const GenerateStudentPapersDialog = ({
           <DialogDescription className="text-sm">
             {isSingle
               ? "ورقة اختبار واحدة باسم هذا الطالب/ة من نطاق الأجزاء الموافق لإجماليه التراكمي."
-              : `تجميع الطلاب المفلترين (${students.length}) حسب الإجمالي التراكمي، ثم توليد نموذج باسم كل طالب/ة من النطاق الموافق لإجمالي مجموعته.`}
+              : categoryId === AUTO_CATEGORY
+                ? `طلاب الجدول بعد الفلترة (${students.length}) — سيتم توليد نموذج لكل اسم، وفق فئة حفظه التراكمي.`
+                : `سيتم عرض وتوليد النماذج للأسماء المطابقة لفئة الحفظ المختارة فقط (${preview.total} طالب/ة).`}
           </DialogDescription>
         </DialogHeader>
 
@@ -353,6 +362,21 @@ export const GenerateStudentPapersDialog = ({
             <Users className="h-4 w-4" />
             توزيع الطلاب حسب الإجمالي التراكمي
           </div>
+          {categoryId !== AUTO_CATEGORY && (
+            <div className="mb-3 rounded-xl border border-primary/15 bg-background/70 p-3">
+              <p className="mb-2 font-bold">الأسماء المطابقة للفئة ({eligibleInputs.length})</p>
+              {eligibleInputs.length ? (
+                <ul className="grid gap-1 text-sm sm:grid-cols-2">
+                  {eligibleInputs.map((student) => (
+                    <li key={student.id} className="flex justify-between gap-2">
+                      <span>{student.name}</span>
+                      <span className="shrink-0 text-muted-foreground">{student.totalHifz} جزءًا</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : <p className="text-muted-foreground">لا توجد أسماء مطابقة لهذه الفئة.</p>}
+            </div>
+          )}
           {preview.rows.length === 0 ? (
             <p className="text-muted-foreground">
               لا يوجد إجمالي تراكمي مسجّل لهؤلاء الطلاب — سجّل الحفظ أولًا، أو اختر فئة موحّدة من
@@ -397,7 +421,7 @@ export const GenerateStudentPapersDialog = ({
             </>
           )}
           <p className="mt-2 text-xs text-muted-foreground">
-            سيُطبع {preview.total} نموذجًا — صفحة A5 أفقي لكل طالب/ة
+            سيُطبع {preview.total} نموذجًا — صفحة A4 عمودي لكل طالب/ة
             {preview.withoutHifz > 0 && (
               <span className="text-amber-700">
                 {" "}
