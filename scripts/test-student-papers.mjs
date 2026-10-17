@@ -125,7 +125,7 @@ try {
   });
   assert.equal(startRange.papers[0].paper.rangeLabel, "الأجزاء 1–5");
 
-  // ===== عدد طلاب يتجاوز الحد الأعلى للنماذج =====
+  // ===== عدد طلاب يتجاوز ٣٠: الترقيم يستمر فوق القائمة (031…) بمواضع مستقلة =====
   const crowd = Array.from({ length: 40 }, (_, i) => ({
     id: 100 + i,
     name: `طالب ${i + 1}`,
@@ -135,14 +135,107 @@ try {
   assert.equal(crowded.papers.length, 40);
   assert.equal(crowded.skipped.length, 0);
   const labels = new Set(crowded.papers.map((p) => p.paper.label));
-  assert.ok(labels.size <= generator.MAX_MODELS, "لا يتجاوز الحد الأعلى للنماذج");
+  assert.equal(labels.size, 40, "٤٠ طالبًا = ٤٠ موضعًا مستقلًا (سقف جزء تبارك ٤٧)");
   assert.equal(
     studentPapers.distinctPaperCount(crowded.papers),
     labels.size,
     "distinctPaperCount = عدد النماذج الفعلية",
   );
 
-  // ===== فئة ضيقة مع طلاب كثر: تقليل النماذج بدل فشل الدفعة =====
+  // ===== تسميات النماذج فوق القائمة: 01…30 ثم 031…200 =====
+  assert.equal(generator.modelLabel(0), "01");
+  assert.equal(generator.modelLabel(29), "30");
+  assert.equal(generator.modelLabel(30), "031");
+  assert.equal(generator.modelLabel(199), "200");
+  const beyond30 = generator.generatePapers(data, {
+    category: byId("juz5"),
+    direction: "end",
+    models: 35,
+    rng: fixedRng,
+    allowBeyondMax: true,
+  });
+  assert.equal(beyond30.length, 35);
+  assert.equal(new Set(beyond30.map((p) => p.label)).size, 35, "ترقيم فريد فوق ٣٠");
+  assert.deepEqual(
+    beyond30.slice(30, 35).map((p) => p.label),
+    ["031", "032", "033", "034", "035"],
+  );
+  // بلا الراية: السقف الافتراضي 30 كما كان — سلوك تبويب الاختبارات لم يتغيّر
+  assert.equal(
+    generator.generatePapers(data, { category: byId("juz5"), direction: "end", models: 50 }).length,
+    generator.MAX_MODELS,
+  );
+
+  // ===== السقف الحقيقي لكل فئة: دقيق، ينجح عنده ويفشل بعده مباشرة =====
+  const EXPECTED_CAPS = {
+    juz29: { end: 47, start: 47 },
+    juz30: { end: 62, start: 62 },
+    juz3: { end: 45, start: 49 },
+    juz5: { end: 191, start: 71 },
+    juz10: { end: 200, start: 110 },
+    juz15: { end: 200, start: 128 },
+    juz20: { end: 200, start: 188 },
+    full: { end: 200, start: 200 },
+  };
+  for (const cat of generator.HIFZ_CATEGORIES) {
+    for (const direction of ["end", "start"]) {
+      const cap = generator.maxFeasibleModels(data, cat, direction);
+      assert.equal(
+        cap,
+        EXPECTED_CAPS[cat.id][direction],
+        `سقف ${cat.id}/${direction} يجب أن يكون ${EXPECTED_CAPS[cat.id][direction]}`,
+      );
+      const atCap = generator.generatePapers(data, {
+        category: cat,
+        direction,
+        models: cap,
+        rng: fixedRng,
+        allowBeyondMax: true,
+      });
+      assert.equal(atCap.length, cap, `التوليد ينجح عند سقف ${cat.id}/${direction}`);
+      assert.equal(
+        new Set(atCap.map((p) => p.label)).size,
+        cap,
+        `تسميات فريدة عند سقف ${cat.id}/${direction}`,
+      );
+      if (cap < generator.HARD_MODEL_CEILING) {
+        assert.throws(
+          () =>
+            generator.generatePapers(data, {
+              category: cat,
+              direction,
+              models: cap + 1,
+              rng: fixedRng,
+              allowBeyondMax: true,
+            }),
+          /نطاق الحفظ لا يكفي/,
+          `التوليد يفشل بعد سقف ${cat.id}/${direction}`,
+        );
+      }
+    }
+  }
+
+  // ===== فصل من ٦٠ طالبًا في جزء تبارك: ٤٧ موضعًا يتشاركها اثنان اثنان =====
+  const bigClass = Array.from({ length: 60 }, (_, i) => ({
+    id: 400 + i,
+    name: `طالب الفصل الكبير ${i + 1}`,
+    totalHifz: 1,
+  }));
+  const bigResult = studentPapers.generateStudentPapers(data, bigClass, { rng: fixedRng });
+  assert.equal(bigResult.papers.length, 60, "لا يسقط أحد من الفصل الكبير");
+  const usage = new Map();
+  for (const p of bigResult.papers) {
+    usage.set(p.paper.label, (usage.get(p.paper.label) ?? 0) + 1);
+  }
+  assert.equal(usage.size, 47, "٦٠ طالبًا = ٤٧ موضعًا مستقلًا (سقف جزء تبارك)");
+  assert.equal(Math.max(...usage.values()), 2, "أقصى مشاركة: نموذجان لكل موضع");
+  assert.equal(
+    [...usage.values()].filter((c) => c === 2).length,
+    60 - 47,
+    "١٣ موضعًا يتشاركها اثنان اثنان",
+  );
+
+  // ===== فئة ضيقة مع طلاب كثر: اختيار المعلم الصريح يُحترم دون فشل الدفعة =====
   const narrow = Array.from({ length: 60 }, (_, i) => ({
     id: 200 + i,
     name: `طالب ضيق ${i + 1}`,
@@ -154,9 +247,10 @@ try {
     rng: fixedRng,
   });
   assert.equal(narrowResult.papers.length, 60, "يجب ألا تسقط الدفعة كاملة");
-  assert.ok(
-    new Set(narrowResult.papers.map((p) => p.paper.label)).size <= generator.MAX_MODELS,
-    "لا يتجاوز الحد الأعلى للنماذج",
+  assert.equal(
+    new Set(narrowResult.papers.map((p) => p.paper.label)).size,
+    30,
+    "اختيار المعلم ٣٠ نموذجًا يبقى ٣٠ كما هو",
   );
 
   // ===== عدد النماذج اختيار المعلم: لا يُرفع قسرًا إلى عدد الطلاب =====
@@ -264,7 +358,8 @@ try {
 
   console.log(
     `✅ Verified student papers: category mapping, per-category distribution, ` +
-      `${crowded.papers.length}+${narrowResult.papers.length} crowded batches, skipping, ` +
+      `exact caps (تبرك ٤٧ / عمّ ٦٢ / ٣ أجزاء ٤٥ / ٥ أجزاء ١٩١ …), ` +
+      `${crowded.papers.length}+${narrowResult.papers.length}+${bigResult.papers.length} crowded batches, skipping, ` +
       `named sheets, escaping and answer-key separation.`,
   );
 } finally {

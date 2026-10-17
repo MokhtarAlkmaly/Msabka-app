@@ -21,11 +21,12 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { buildPrintDocument, printHtml } from "@/utils/report";
 import { exportHtmlAsPdf } from "@/utils/nativePrint";
-import { loadQuranData } from "@/utils/quranText";
+import { loadQuranData, type QuranData } from "@/utils/quranText";
 import {
   HIFZ_CATEGORIES,
   MAX_MODELS,
   MIN_MODELS,
+  maxFeasibleModels,
   type RangeDirection,
 } from "@/utils/examPaperGenerator";
 import {
@@ -52,6 +53,8 @@ const PAPER_PDF_ORIENTATION = "landscape";
 
 /** فئة موحّدة لكل الطلاب بدل الاشتقاق من حفظ كل طالب */
 const AUTO_CATEGORY = "auto";
+/** عدد النماذج «تلقائي»: موضع مستقل لكل طالب/ة حتى سقف الفئة */
+const AUTO_MODELS = "auto";
 
 interface Props {
   open: boolean;
@@ -89,11 +92,12 @@ export const GenerateStudentPapersDialog = ({
   const { toast } = useToast();
   const [categoryId, setCategoryId] = useState<string>(AUTO_CATEGORY);
   const [direction, setDirection] = useState<RangeDirection>("end");
-  const [models, setModels] = useState<number>(MAX_MODELS);
+  const [models, setModels] = useState<number | typeof AUTO_MODELS>(AUTO_MODELS);
   const [withAnswerKey, setWithAnswerKey] = useState(true);
   const [preloading, setPreloading] = useState(false);
   const [dataError, setDataError] = useState("");
   const [busy, setBusy] = useState<"" | "print" | "pdf">("");
+  const [quranData, setQuranData] = useState<QuranData | null>(null);
 
   const isSingle = students.length === 1;
 
@@ -103,8 +107,10 @@ export const GenerateStudentPapersDialog = ({
     let cancelled = false;
     setPreloading(true);
     void loadQuranData()
-      .then(() => {
-        if (!cancelled) setDataError("");
+      .then((data) => {
+        if (cancelled) return;
+        setQuranData(data);
+        setDataError("");
       })
       .catch((err: Error) => {
         if (!cancelled) setDataError(err.message || "تعذّر تحميل نص المصحف");
@@ -138,13 +144,26 @@ export const GenerateStudentPapersDialog = ({
     return { rows, withoutHifz, total: rows.reduce((sum, r) => sum + r.count, 0) };
   }, [inputs, categoryId]);
 
+  /**
+   * سقف المواضع المستقلة لكل فئة ظاهرة في المعاينة — بعد تحميل نص المصحف.
+   * الفئة التي يزيدها طلاب عن سقفها يتشارك طلابها النماذج بالتناوب.
+   */
+  const caps = useMemo(() => {
+    const map = new Map<string, number>();
+    if (!quranData) return map;
+    for (const row of preview.rows) {
+      map.set(row.category.id, maxFeasibleModels(quranData, row.category, direction));
+    }
+    return map;
+  }, [quranData, direction, preview.rows]);
+
   /** توليد النماذج فعليًا — يحتاج نص المصحف */
   const build = async () => {
     const data = await loadQuranData();
     const result = generateStudentPapers(data, inputs, {
       categoryId,
       direction,
-      models,
+      models: models === AUTO_MODELS ? null : models,
       includeSupplements: true,
     });
     if (result.papers.length === 0) {
@@ -270,11 +289,15 @@ export const GenerateStudentPapersDialog = ({
 
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">عدد النماذج داخل الفئة</Label>
-            <Select value={String(models)} onValueChange={(v) => setModels(Number(v))}>
+            <Select
+              value={models === AUTO_MODELS ? AUTO_MODELS : String(models)}
+              onValueChange={(v) => setModels(v === AUTO_MODELS ? AUTO_MODELS : Number(v))}
+            >
               <SelectTrigger className="h-11 rounded-2xl bg-background">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value={AUTO_MODELS}>تلقائي — موضع مستقل لكل طالب/ة</SelectItem>
                 {Array.from({ length: MAX_MODELS - MIN_MODELS + 1 }, (_, i) => MIN_MODELS + i).map(
                   (n) => (
                     <SelectItem key={n} value={String(n)}>
@@ -321,14 +344,39 @@ export const GenerateStudentPapersDialog = ({
               موحّدة من القائمة.
             </p>
           ) : (
-            <div className="flex flex-wrap gap-2">
-              {preview.rows.map((row) => (
-                <Badge key={row.category.id} variant="outline" className="gap-1">
-                  {row.category.label}
-                  <span className="font-black text-primary">{row.count}</span>
-                </Badge>
-              ))}
-            </div>
+            <>
+              <div className="flex flex-wrap gap-2">
+                {preview.rows.map((row) => {
+                  const cap = caps.get(row.category.id);
+                  const overflow = cap !== undefined && row.count > cap;
+                  return (
+                    <Badge
+                      key={row.category.id}
+                      variant="outline"
+                      className={overflow ? "gap-1 border-amber-500/60 bg-amber-500/10" : "gap-1"}
+                    >
+                      {row.category.label}
+                      <span className="font-black text-primary">{row.count}</span>
+                      {cap !== undefined && (
+                        <span className="text-muted-foreground">/ السقف {cap}</span>
+                      )}
+                    </Badge>
+                  );
+                })}
+              </div>
+              {preview.rows
+                .filter((row) => {
+                  const cap = caps.get(row.category.id);
+                  return cap !== undefined && row.count > cap;
+                })
+                .map((row) => (
+                  <p key={row.category.id} className="mt-2 text-xs text-amber-700">
+                    فئة «{row.category.label}»: {row.count} طالبًا ويتوفر لها{" "}
+                    {caps.get(row.category.id)} موضعًا مستقلًا فقط — سيتشارك بعض الطلاب النماذج
+                    بالتناوب.
+                  </p>
+                ))}
+            </>
           )}
           <p className="mt-2 text-xs text-muted-foreground">
             سيُطبع {preview.total} نموذجًا — صفحة A5 أفقي لكل طالب/ة
@@ -385,8 +433,8 @@ export const GenerateStudentPapersDialog = ({
         </DialogFooter>
 
         <p className="text-xs text-muted-foreground">
-          ملاحظة: يتجاوز عدد الطلاب أحيانًا الحد الأعلى للنماذج ({MAX_MODELS})، وحينها تُعاد المواضع
-          من البداية داخل نفس الفئة. لزيادة التميّز قلّل عدد طلاب الدفعة باستخدام التصفية (حسب
+          ملاحظة: لكل فئة سقفٌ من المواضع المستقلة يظهر في شارات التوزيع أعلاه، ومن يتجاوزه من
+          الطلاب يتشارك المواضع بالتناوب. ولزيادة التميّز قلّل عدد طلاب الدفعة باستخدام التصفية (حسب
           المعلم/ة مثلًا).
         </p>
       </DialogContent>
