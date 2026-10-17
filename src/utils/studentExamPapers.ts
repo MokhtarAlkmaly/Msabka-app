@@ -98,10 +98,15 @@ export interface GenerateStudentPapersOptions {
   includeSupplements?: boolean;
 }
 
-const clampModels = (models: number, groupSize: number): number =>
+/**
+ * حصر عدد النماذج بين الحدّين المعتمدين.
+ * لا نرفعه إلى عدد طلاب الفئة: اختيار المعلم لعدد صغير مقصود (نماذج أقل
+ * تميّزًا)، والطلاب الزائدون يعيدون استخدام المواضع من البداية.
+ */
+const clampModels = (models: number): number =>
   Math.min(
     MAX_MODELS,
-    Math.max(MIN_MODELS, Math.round(Number.isFinite(models) ? models : MAX_MODELS), groupSize),
+    Math.max(MIN_MODELS, Math.round(Number.isFinite(models) ? models : MAX_MODELS)),
   );
 
 /**
@@ -135,11 +140,7 @@ export const generateStudentPapers = (
   for (const [categoryId, group] of groups) {
     const category = getCategory(categoryId);
     // عند ضيق النطاق (فئة صغيرة مع طلاب كثر) نقلّل النماذج بدل فشل الدفعة كلها
-    const attempts = [
-      clampModels(models, group.length),
-      Math.max(MIN_MODELS, Math.floor(group.length / 2)),
-      MIN_MODELS,
-    ];
+    const attempts = [clampModels(models), MIN_MODELS];
     let batch: ExamPaper[] | null = null;
     let lastError: Error | null = null;
     for (const count of attempts) {

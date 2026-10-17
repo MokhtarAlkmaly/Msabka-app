@@ -154,6 +154,47 @@ try {
     rng: fixedRng,
   });
   assert.equal(narrowResult.papers.length, 60, "يجب ألا تسقط الدفعة كاملة");
+  assert.ok(
+    new Set(narrowResult.papers.map((p) => p.paper.label)).size <= generator.MAX_MODELS,
+    "لا يتجاوز الحد الأعلى للنماذج",
+  );
+
+  // ===== عدد النماذج اختيار المعلم: لا يُرفع قسرًا إلى عدد الطلاب =====
+  const sixInJuz29 = Array.from({ length: 6 }, (_, i) => ({
+    id: 300 + i,
+    name: `طالب ٢٩-${i + 1}`,
+    totalHifz: 1,
+  }));
+  const teacherChoice = studentPapers.generateStudentPapers(data, sixInJuz29, {
+    categoryId: "juz29",
+    models: 2,
+    rng: fixedRng,
+  });
+  assert.equal(teacherChoice.papers.length, 6);
+  assert.equal(
+    new Set(teacherChoice.papers.map((p) => p.paper.label)).size,
+    2,
+    "اختيار معلم لنموذجين = نموذجان فقط، والباقي يعيد الاستخدام",
+  );
+  // الحد الأدنى يُفرض حتى لو طُلب أقل منه
+  assert.equal(
+    new Set(
+      studentPapers
+        .generateStudentPapers(data, sixInJuz29, { categoryId: "juz29", models: 1, rng: fixedRng })
+        .papers.map((p) => p.paper.label),
+    ).size,
+    generator.MIN_MODELS,
+  );
+  // بلا تحديد = الحد الأعلى
+  const defaultModels = studentPapers.generateStudentPapers(data, sixInJuz29, {
+    categoryId: "juz29",
+    rng: fixedRng,
+  });
+  assert.equal(
+    new Set(defaultModels.papers.map((p) => p.paper.label)).size,
+    6,
+    "افتراضيًا كل طالب في فئة واسعة يحصل على موضع خاص",
+  );
 
   // ===== الطباعة: ورقة باسم الطالب + مفتاح تصحيح مخصص =====
   const entries = auto.papers.map((entry) => ({
