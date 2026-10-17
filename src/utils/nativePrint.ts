@@ -453,10 +453,7 @@ export const printCurrentPage = async (fileName = "طباعة"): Promise<boolean
  * نافذة الطباعة ولا على مانع النوافذ المنبثقة: يُنشئ PDF بصفحات A4 ويحفظه
  * مباشرة (تنزيل بالمتصفح / مشاركة داخل التطبيق المثبَّت).
  */
-export const exportHtmlAsPdf = async (
-  fullHtml: string,
-  fileName: string,
-): Promise<boolean> => {
+export const exportHtmlAsPdf = async (fullHtml: string, fileName: string): Promise<boolean> => {
   try {
     const pdf = await buildPdfFromHtml(fullHtml);
     const pdfFileName = fileName.endsWith(".pdf") ? fileName : `${fileName}.pdf`;

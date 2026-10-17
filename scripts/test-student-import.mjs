@@ -181,7 +181,9 @@ try {
   assert.equal(exportRows[0]["م"], 1, "ترقيم الصفوف");
   ok("تصدير السجل الشامل: الأعمدة الأساسية + المخصصة + تنسيق الأعوام");
 
-  const emptyCustom = registryExport.buildRegistryExportRows([{ id: 1, name: "طالب", teacher: "" }]);
+  const emptyCustom = registryExport.buildRegistryExportRows([
+    { id: 1, name: "طالب", teacher: "" },
+  ]);
   assert.equal(emptyCustom[0]["الحالة"], "طبيعي", "حالة افتراضية عند عدم التحديد");
   assert.equal(emptyCustom[0]["الحفظ التراكمي (آخر عام)"], "0", "صفر افتراضي للحفظ");
   ok("تصدير السجل الشامل: قيم افتراضية آمنة للحقول الفارغة");
