@@ -24,22 +24,24 @@ try {
   const byId = (id) => generator.HIFZ_CATEGORIES.find((c) => c.id === id);
   const fixedRng = () => 0.5;
 
-  // ===== ربط إجمالي الحفظ بالفئة =====
+  // ===== ربط كل إجمالي تراكمي بنطاقه الدقيق من آخر المصحف =====
   const expected = [
     [0, null],
     [0.4, null],
-    [1, "juz29"],
-    [2, "juz29"],
+    [1, "juz30"],
+    [1.4, "juz30"],
+    [2, "cumulative-2"],
     [3, "juz3"],
-    [4, "juz3"],
+    [4, "cumulative-4"],
     [5, "juz5"],
-    [9, "juz5"],
+    [6, "cumulative-6"],
+    [9, "cumulative-9"],
     [10, "juz10"],
-    [14, "juz10"],
+    [14, "cumulative-14"],
     [15, "juz15"],
-    [19, "juz15"],
+    [19, "cumulative-19"],
     [20, "juz20"],
-    [29, "juz20"],
+    [29, "cumulative-29"],
     [30, "full"],
     [45, "full"],
   ];
@@ -51,6 +53,22 @@ try {
       `categoryForHifz(${hifz}) should be ${categoryId}`,
     );
   }
+  assert.deepEqual(generator.resolveJuzRange(studentPapers.categoryForHifz(1), "end"), {
+    fromJuz: 30,
+    toJuz: 30,
+  });
+  assert.deepEqual(generator.resolveJuzRange(studentPapers.categoryForHifz(2), "end"), {
+    fromJuz: 29,
+    toJuz: 30,
+  });
+  assert.deepEqual(generator.resolveJuzRange(studentPapers.categoryForHifz(4), "end"), {
+    fromJuz: 27,
+    toJuz: 30,
+  });
+  assert.deepEqual(generator.resolveJuzRange(studentPapers.categoryForHifz(29), "end"), {
+    fromJuz: 2,
+    toJuz: 30,
+  });
   // الفئة الصريحة تتجاوز الاشتقاق التلقائي
   assert.equal(studentPapers.resolveStudentCategory(1, "juz10").id, "juz10");
   assert.equal(studentPapers.resolveStudentCategory(30, "auto").id, "full");
@@ -91,18 +109,22 @@ try {
   assert.equal(auto.skipped[0].student.id, 6);
   assert.ok(auto.skipped[0].reason.length > 0);
 
-  const juz29Group = auto.papers.filter((p) => p.category.id === "juz29");
-  assert.equal(juz29Group.length, 3);
+  const ammaGroup = auto.papers.filter((p) => p.category.id === "juz30");
+  assert.equal(ammaGroup.length, 2, "الطلاب بإجمالي جزء واحد يجتمعون في مجموعة جزء عمّ");
   assert.equal(
-    new Set(juz29Group.map((p) => p.paper.label)).size,
-    3,
-    "زملاء الفئة الواحدة يجب أن يحصلوا على نماذج مختلفة",
+    new Set(ammaGroup.map((p) => p.paper.label)).size,
+    2,
+    "كل طالب في مجموعة جزء عمّ يحصل على نموذج مختلف عند توفر مواضع كافية",
   );
+  assert.ok(ammaGroup.every((p) => p.paper.rangeLabel === "الجزء 30"));
   assert.deepEqual(
-    juz29Group.map((p) => p.orderInCategory),
-    [1, 2, 3],
+    ammaGroup.map((p) => p.orderInCategory),
+    [1, 2],
   );
-  assert.equal(juz29Group[0].categoryTotal, 3);
+  assert.equal(ammaGroup[0].categoryTotal, 2);
+  const twoJuzGroup = auto.papers.filter((p) => p.category.id === "cumulative-2");
+  assert.equal(twoJuzGroup.length, 1, "الإجمالي التراكمي 2 له مجموعة مستقلة");
+  assert.equal(twoJuzGroup[0].paper.rangeLabel, "الأجزاء 29–30");
   const fullPaper = auto.papers.find((p) => p.category.id === "full");
   assert.equal(fullPaper.paper.categoryLabel, byId("full").label);
   assert.equal(fullPaper.orderInCategory, 1);
@@ -135,7 +157,7 @@ try {
   assert.equal(crowded.papers.length, 40);
   assert.equal(crowded.skipped.length, 0);
   const labels = new Set(crowded.papers.map((p) => p.paper.label));
-  assert.equal(labels.size, 40, "٤٠ طالبًا = ٤٠ موضعًا مستقلًا (سقف جزء تبارك ٤٧)");
+  assert.equal(labels.size, 40, "٤٠ طالبًا بإجمالي جزء واحد = ٤٠ موضعًا مستقلًا في جزء عمّ");
   assert.equal(
     studentPapers.distinctPaperCount(crowded.papers),
     labels.size,
@@ -215,24 +237,24 @@ try {
     }
   }
 
-  // ===== فصل من ٦٠ طالبًا في جزء تبارك: ٤٧ موضعًا يتشاركها اثنان اثنان =====
-  const bigClass = Array.from({ length: 60 }, (_, i) => ({
+  // ===== فصل من ٧٠ طالبًا في جزء عمّ: يتشارك بعضهم المواضع بعد سقفها (٦٢) =====
+  const bigClass = Array.from({ length: 70 }, (_, i) => ({
     id: 400 + i,
     name: `طالب الفصل الكبير ${i + 1}`,
     totalHifz: 1,
   }));
   const bigResult = studentPapers.generateStudentPapers(data, bigClass, { rng: fixedRng });
-  assert.equal(bigResult.papers.length, 60, "لا يسقط أحد من الفصل الكبير");
+  assert.equal(bigResult.papers.length, 70, "لا يسقط أحد من الفصل الكبير");
   const usage = new Map();
   for (const p of bigResult.papers) {
     usage.set(p.paper.label, (usage.get(p.paper.label) ?? 0) + 1);
   }
-  assert.equal(usage.size, 47, "٦٠ طالبًا = ٤٧ موضعًا مستقلًا (سقف جزء تبارك)");
+  assert.equal(usage.size, 62, "٧٠ طالبًا = ٦٢ موضعًا مستقلًا في جزء عمّ");
   assert.equal(Math.max(...usage.values()), 2, "أقصى مشاركة: نموذجان لكل موضع");
   assert.equal(
     [...usage.values()].filter((c) => c === 2).length,
-    60 - 47,
-    "١٣ موضعًا يتشاركها اثنان اثنان",
+    70 - 62,
+    "٨ مواضع يتشاركها اثنان اثنان",
   );
 
   // ===== فئة ضيقة مع طلاب كثر: اختيار المعلم الصريح يُحترم دون فشل الدفعة =====
@@ -307,7 +329,7 @@ try {
   assert.ok(sheet.includes("<b>أ. محمد</b>"), "اسم المعلم يُطبع في الورقة");
   assert.ok(sheet.includes("اسم الطالب:"), "اللقب يتبع الجنس المسجّل");
   assert.ok(sheet.includes("إجمالي الحفظ: 1 جزءًا"));
-  assert.ok(sheet.includes("تسلسله في فئته: 1 من 3"));
+  assert.ok(sheet.includes("تسلسله في فئته: 1 من 2"));
   assert.ok(sheet.includes('class="paper"') && sheet.includes("وفّقكم الله"));
 
   // النماذج العامة تبقى بخانات منقّطة (لا أسماء)
@@ -348,17 +370,16 @@ try {
     summary.reduce((sum, row) => sum + row.count, 0),
     auto.papers.length,
   );
-  const order = summary.map((row) => row.category.id);
-  const canonical = generator.HIFZ_CATEGORIES.map((c) => c.id);
+  const order = summary.map((row) => row.category.juzCount);
   assert.deepEqual(
     order,
-    [...order].sort((a, b) => canonical.indexOf(a) - canonical.indexOf(b)),
-    "ترتيب الملخص يتبع ترتيب الفئات المعتمد",
+    [...order].sort((a, b) => a - b),
+    "ترتيب الملخص يتبع عدد الأجزاء التراكمي تصاعديًا",
   );
 
   console.log(
-    `✅ Verified student papers: category mapping, per-category distribution, ` +
-      `exact caps (تبرك ٤٧ / عمّ ٦٢ / ٣ أجزاء ٤٥ / ٥ أجزاء ١٩١ …), ` +
+    `✅ Verified student papers: exact cumulative grouping from the end of the Quran, ` +
+      `per-group model distribution, exact caps (تبارك ٤٧ / عمّ ٦٢ / ٣ أجزاء ٤٥ / ٥ أجزاء ١٩١ …), ` +
       `${crowded.papers.length}+${narrowResult.papers.length}+${bigResult.papers.length} crowded batches, skipping, ` +
       `named sheets, escaping and answer-key separation.`,
   );
